@@ -16,14 +16,14 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 
 # Import core modules
-from aws_naming import AWSNamingGenerator, AWSNamingConfig
-from databricks_naming import DatabricksNamingGenerator, DatabricksNamingConfig
-from blueprint_parser import BlueprintParser, BLUEPRINT_SCHEMA
-from transaction_manager import (
+from data_platform_naming.aws_naming import AWSNamingGenerator, AWSNamingConfig
+from data_platform_naming.dbx_naming import DatabricksNamingGenerator, DatabricksNamingConfig
+from data_platform_naming.plan.blueprint import BlueprintParser, BLUEPRINT_SCHEMA
+from data_platform_naming.crud.transaction_manager import (
     TransactionManager, Operation, OperationType, ResourceType
 )
-from aws_operations import AWSExecutorRegistry
-from databricks_operations import DatabricksExecutorRegistry, DatabricksConfig
+from data_platform_naming.crud.aws_operations import AWSExecutorRegistry
+from data_platform_naming.crud.dbx_operations import DatabricksExecutorRegistry, DatabricksConfig
 
 console = Console()
 

@@ -7,14 +7,20 @@
 
 ## Quick Start
 
+
 ```bash
-# Install UV
+# Install UV (if not already installed)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Clone and setup
+# Clone repository
 git clone https://github.com/robandrewford/data-platform-naming.git
 cd data-platform-naming
+
+# Install dependencies (creates .venv automatically)
 uv sync
+
+# Verify installation
+uv run dpn --help
 
 # Generate blueprint
 uv run dpn plan init --env prd --project platform --output prod.json
@@ -22,11 +28,12 @@ uv run dpn plan init --env prd --project platform --output prod.json
 # Preview names
 uv run dpn plan preview prod.json
 
-# Create resources
+# Create resources (dry-run first)
+uv run dpn create --blueprint prod.json --dry-run
 uv run dpn create --blueprint prod.json
 ```
 
-## Installation
+> **Note:** `uv sync` automatically creates a `.venv` virtual environment. You don't need to run `uv venv` manually or activate the environment - `uv run` handles everything!
 
 ### UV (Recommended)
 

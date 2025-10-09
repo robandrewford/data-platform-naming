@@ -1,0 +1,73 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "environment": "prd",
+    "project": "platform",
+    "region": "us-east-1",
+    "team": "TEAM_NAME",
+    "cost_center": "COST_CENTER"
+  },
+  "resources": {
+    "aws": {
+      "s3_buckets": [
+        {
+          "purpose": "raw",
+          "layer": "raw",
+          "versioning": true,
+          "lifecycle_days": 90
+        }
+      ],
+      "glue_databases": [
+        {
+          "domain": "DOMAIN",
+          "layer": "gold",
+          "description": "Description"
+        }
+      ],
+      "glue_tables": []
+    },
+    "databricks": {
+      "clusters": [
+        {
+          "workload": "etl",
+          "cluster_type": "shared",
+          "node_type": "i3.xlarge",
+          "spark_version": "13.3.x-scala2.12",
+          "autoscale": {
+            "min": 2,
+            "max": 8
+          }
+        }
+      ],
+      "jobs": [
+        {
+          "job_type": "batch",
+          "purpose": "ingestion",
+          "cluster_ref": "etl",
+          "schedule": "daily",
+          "tasks": []
+        }
+      ],
+      "unity_catalog": {
+        "catalogs": [
+          {
+            "catalog_type": "main",
+            "schemas": [
+              {
+                "domain": "DOMAIN",
+                "layer": "gold",
+                "tables": [
+                  {
+                    "entity": "ENTITY",
+                    "table_type": "fact",
+                    "columns": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
