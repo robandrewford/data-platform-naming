@@ -21,11 +21,11 @@ uv sync
 # Verify installation
 uv run dpn --help
 
-# Generate blueprint (creates blueprints/prd.json by default)
-uv run dpn plan init --env prd --project platform
-
 # Preview names
 uv run dpn plan preview blueprints/prd.json
+
+# Generate blueprint (creates blueprints/prd.json by default)
+uv run dpn plan init --env prd --project platform
 
 # Create resources (dry-run first)
 uv run dpn create --blueprint blueprints/prd.json --dry-run

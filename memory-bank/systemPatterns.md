@@ -144,6 +144,112 @@
 
 **Future**: API server mode can wrap CLI commands
 
+## New Design Patterns (Configuration System)
+
+### 1. Strategy Pattern (Configurable Naming)
+
+**Usage**: Different naming strategies based on configuration
+
+```python
+# Configurable name generation
+class ConfigurableNamingStrategy:
+    def __init__(self, config_manager: ConfigurationManager):
+        self.config_manager = config_manager
+    
+    def generate_name(self, resource_type: str, params: Dict) -> str:
+        # Get values from config
+        values = self.config_manager.get_values_for_resource(resource_type)
+        
+        # Get pattern template
+        pattern = self.config_manager.get_pattern_for_resource(resource_type)
+        
+        # Apply pattern with values
+        return pattern.format(**values, **params)
+```
+
+**Benefits**:
+- Naming logic externalized from code
+- Easy to customize per deployment
+- Single source of truth for naming rules
+
+### 2. Composite Pattern (Configuration Hierarchy)
+
+**Usage**: Merge configurations with precedence
+
+```python
+# Configuration precedence
+defaults → environment_overrides → resource_type_overrides → blueprint_metadata
+
+# Example
+values = {}
+values.update(config.defaults)                    # 1. Global defaults
+values.update(config.environments[env])           # 2. Environment-specific
+values.update(config.overrides[resource_type])    # 3. Resource-type-specific
+values.update(blueprint.metadata)                 # 4. Blueprint (highest)
+```
+
+**Benefits**:
+- Flexible configuration inheritance
+- Override at any level
+- Clear precedence rules
+
+### 3. Template Method Pattern (Pattern Resolution)
+
+**Usage**: Define pattern resolution algorithm
+
+```python
+class PatternResolver:
+    def resolve(self, pattern: str, values: Dict) -> str:
+        # Template method
+        self._validate_variables(pattern, values)
+        transformed = self._apply_transformations(values)
+        name = pattern.format(**transformed)
+        return self._post_process(name)
+    
+    def _validate_variables(self, pattern, values):
+        # Hook: Check all {vars} exist
+        pass
+    
+    def _apply_transformations(self, values):
+        # Hook: Transform values (lowercase, region codes)
+        pass
+    
+    def _post_process(self, name):
+        # Hook: Sanitize, truncate
+        pass
+```
+
+**Benefits**:
+- Consistent name generation process
+- Extension points for custom logic
+- Validation at each step
+
+### 4. Filter Pattern (Scope Filtering)
+
+**Usage**: Filter resources by type with wildcards
+
+```python
+class ScopeFilter:
+    def filter(self, resources: List[Resource], 
+               scope_config: Dict) -> List[Resource]:
+        if scope_config.get("mode") == "include":
+            return [r for r in resources 
+                   if self._matches_any(r.type, scope_config["include"])]
+        else:
+            return [r for r in resources 
+                   if not self._matches_any(r.type, scope_config["exclude"])]
+    
+    def _matches_any(self, resource_type: str, 
+                    patterns: List[str]) -> bool:
+        import fnmatch
+        return any(fnmatch.fnmatch(resource_type, p) for p in patterns)
+```
+
+**Benefits**:
+- Selective resource processing
+- Wildcard pattern support
+- Include/exclude modes
+
 ## Design Patterns
 
 ### 1. Command Pattern (CLI)

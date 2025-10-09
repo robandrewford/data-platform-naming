@@ -84,7 +84,55 @@
 
 ### Short-Term (Next 3-6 Months)
 
-- **1. Enhanced User Experience**
+- **1. Configuration-Based Naming System** (IN PROGRESS - Weeks 1-3)
+
+**Phase 1: Foundation (Week 1)**
+- [ ] Create JSON schemas for naming-values and naming-patterns
+- [ ] Implement `NamingValuesLoader` class with YAML support
+- [ ] Implement `NamingPatternsLoader` class with YAML support
+- [ ] Implement `ConfigurationManager` orchestrator
+- [ ] Add config validation logic with helpful error messages
+- [ ] Unit tests for all loaders (>80% coverage)
+
+**Phase 2: Scope Filtering (Week 1)**
+- [ ] Implement `ScopeFilter` class with wildcard support
+- [ ] Add `scope` section to blueprint JSON schema
+- [ ] Integrate scope filter with blueprint parser
+- [ ] Unit tests for filtering logic (include/exclude modes)
+
+**Phase 3: Generator Refactoring (Week 2)**
+- [ ] Refactor `AWSNamingGenerator` to accept pattern + values
+- [ ] Refactor `DatabricksNamingGenerator` to accept pattern + values
+- [ ] Add pattern variable resolution logic
+- [ ] Add transformation logic (region codes, hash generation)
+- [ ] Keep legacy path for backward compatibility
+- [ ] Unit tests for all generator methods
+
+**Phase 4: CLI Integration (Week 2)**
+- [ ] Add `config` command group (`init`, `validate`)
+- [ ] Add `--values-config` flag to create/preview commands
+- [ ] Add `--patterns-config` flag to create/preview commands
+- [ ] Add `--override` flag for inline value substitution
+- [ ] Support explicit paths and default locations (~/.dpn/)
+- [ ] Update help text and examples
+- [ ] Integration tests for full workflow
+
+**Phase 5: Documentation & Examples (Week 3)**
+- [ ] Create example `naming-values.yaml` template
+- [ ] Create example `naming-patterns.yaml` template
+- [ ] Update README with configuration workflow
+- [ ] Document all available pattern variables per resource type
+- [ ] Add troubleshooting guide for config errors
+- [ ] Create migration examples (platform → oncology)
+
+**Architecture Details:**
+- Two config files: `naming-values.yaml` (substitutions) + `naming-patterns.yaml` (templates)
+- Config locations: explicit paths OR default `~/.dpn/` directory
+- Scope filtering: include/exclude with wildcards (e.g., `aws_*`, `databricks_cluster`)
+- Pattern validation: Check all {variables} are available for resource type
+- Precedence: defaults → environment overrides → resource-type overrides → blueprint metadata
+
+- **2. Enhanced User Experience**
 
 - [ ] Interactive blueprint wizard for guided creation
 - [ ] Blueprint templates library (common patterns)

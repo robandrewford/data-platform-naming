@@ -18,9 +18,15 @@ The data-platform-naming project is in a **Beta state (v0.1.0)** with core funct
 
 ### Active Areas
 
-**Current Status**: Stable beta with core features working. Ready for testing and feedback.
+**Current Status**: Planning new configuration-based naming system.
 
 **Development Phase**: Beta (v0.1.0) - functional but some features incomplete.
+
+**Active Development**: Configuration-based naming system to enable:
+- Centralized naming value substitution (project, environment, etc.)
+- Customizable naming pattern templates
+- Resource scope filtering for selective processing
+- YAML-based configuration files with schema validation
 
 ## Recent Changes
 
@@ -32,9 +38,50 @@ The data-platform-naming project is in a **Beta state (v0.1.0)** with core funct
 - Added comprehensive testing suite
 - Integrated quality tools (black, ruff, mypy, MegaLinter)
 
+## Current Implementation Plan
+
+### Configuration-Based Naming System (In Progress)
+
+**Goal**: Enable users to easily change naming parameters and patterns without modifying code or blueprints.
+
+**User Requirements**:
+1. Set scope for blueprint (e.g., only process `aws_s3_bucket`)
+2. Easily change naming values (e.g., "platform" → "oncology")
+3. Substitute values via config file
+4. Customize naming patterns via separate config file
+
+**Architecture**:
+```
+CLI → ConfigurationManager → [NamingValuesLoader, NamingPatternsLoader]
+    → Enhanced Generators (AWS/DBX) → Resources
+```
+
+**Key Components**:
+- `naming-values.yaml`: Substitutes variable values (project, env, etc.)
+- `naming-patterns.yaml`: Defines pattern templates with {placeholders}
+- `ScopeFilter`: Filters resources by type (include/exclude with wildcards)
+- `ConfigurationManager`: Orchestrates configs and validates patterns
+- Enhanced generators: Use patterns + values instead of hardcoded logic
+
+**Config File Locations**:
+- Explicit paths: `--values-config path/to/file.yaml`
+- Default locations: `~/.dpn/naming-values.yaml`
+- Both supported
+
+**Implementation Status**: Planning complete, ready for implementation.
+
 ## Next Steps
 
-When new work begins, priority areas would be:
+Priority implementation tasks:
+
+1. **Configuration System** (Weeks 1-3)
+   - JSON schemas for configs
+   - Config loaders and validators
+   - Scope filtering
+   - Generator refactoring
+   - CLI integration
+
+2. When configuration system complete, future priority areas:
 
 1. **Platform Expansion** (from roadmap)
    - Azure naming support
