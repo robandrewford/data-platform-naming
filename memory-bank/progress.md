@@ -88,8 +88,8 @@
 
 **Phase 1: Foundation (Week 1)**
 - [x] Create JSON schemas for naming-values and naming-patterns
-- [ ] Implement `NamingValuesLoader` class with YAML support
-- [ ] Implement `NamingPatternsLoader` class with YAML support
+- [x] Implement `NamingValuesLoader` class with YAML support
+- [x] Implement `NamingPatternsLoader` class with YAML support
 - [ ] Implement `ConfigurationManager` orchestrator
 - [ ] Add config validation logic with helpful error messages
 - [ ] Unit tests for all loaders (>80% coverage)
