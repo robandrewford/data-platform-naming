@@ -1,0 +1,165 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "environment": "dev",
+    "project": "dataplatform",
+    "region": "us-east-1",
+    "team": "data-engineering",
+    "cost_center": "IT-1001",
+    "data_classification": "internal"
+  },
+  "resources": {
+    "aws": {
+      "s3_buckets": [
+        {
+          "purpose": "landing",
+          "layer": "raw",
+          "versioning": false,
+          "lifecycle_days": 30
+        },
+        {
+          "purpose": "processing",
+          "layer": "stage",
+          "versioning": false,
+          "lifecycle_days": 14
+        },
+        {
+          "purpose": "analytics",
+          "layer": "curated",
+          "versioning": false,
+          "lifecycle_days": 90
+        }
+      ],
+      "glue_databases": [
+        {
+          "domain": "sales",
+          "layer": "bronze",
+          "description": "Raw sales data ingestion"
+        },
+        {
+          "domain": "sales",
+          "layer": "silver",
+          "description": "Cleaned sales data"
+        },
+        {
+          "domain": "customer",
+          "layer": "bronze",
+          "description": "Raw customer data"
+        }
+      ],
+      "glue_tables": [
+        {
+          "database_ref": "sales-bronze",
+          "entity": "orders",
+          "table_type": "fact",
+          "columns": [
+            {"name": "order_id", "type": "bigint"},
+            {"name": "customer_id", "type": "bigint"},
+            {"name": "order_date", "type": "date"},
+            {"name": "amount", "type": "decimal(10,2)"}
+          ],
+          "partition_keys": [
+            {"name": "year", "type": "int"},
+            {"name": "month", "type": "int"}
+          ]
+        }
+      ]
+    },
+    "databricks": {
+      "clusters": [
+        {
+          "workload": "etl",
+          "cluster_type": "shared",
+          "node_type": "i3.xlarge",
+          "spark_version": "13.3.x-scala2.12",
+          "autoscale": {
+            "min": 1,
+            "max": 4
+          }
+        },
+        {
+          "workload": "adhoc",
+          "cluster_type": "shared",
+          "node_type": "r5.xlarge",
+          "spark_version": "13.3.x-scala2.12",
+          "autoscale": {
+            "min": 1,
+            "max": 2
+          }
+        }
+      ],
+      "jobs": [
+        {
+          "job_type": "batch",
+          "purpose": "daily-sales-load",
+          "cluster_ref": "etl",
+          "schedule": "daily",
+          "tasks": [
+            {
+              "task_key": "extract",
+              "notebook_path": "/etl/sales/extract"
+            },
+            {
+              "task_key": "transform",
+              "notebook_path": "/etl/sales/transform",
+              "depends_on": ["extract"]
+            }
+          ]
+        }
+      ],
+      "unity_catalog": {
+        "catalogs": [
+          {
+            "catalog_type": "dev",
+            "schemas": [
+              {
+                "domain": "sales",
+                "layer": "bronze",
+                "tables": [
+                  {
+                    "entity": "orders",
+                    "table_type": "fact",
+                    "columns": [
+                      {"name": "order_id", "type": "BIGINT"},
+                      {"name": "amount", "type": "DECIMAL(10,2)"}
+                    ]
+                  }
+                ]
+              },
+              {
+                "domain": "sales",
+                "layer": "silver",
+                "tables": [
+                  {
+                    "entity": "orders_cleaned",
+                    "table_type": "fact",
+                    "columns": [
+                      {"name": "order_id", "type": "BIGINT"},
+                      {"name": "customer_id", "type": "BIGINT"},
+                      {"name": "amount", "type": "DECIMAL(10,2)"}
+                    ]
+                  }
+                ]
+              },
+              {
+                "domain": "customer",
+                "layer": "gold",
+                "tables": [
+                  {
+                    "entity": "customers",
+                    "table_type": "dim",
+                    "columns": [
+                      {"name": "customer_id", "type": "BIGINT"},
+                      {"name": "name", "type": "STRING"},
+                      {"name": "email", "type": "STRING"}
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

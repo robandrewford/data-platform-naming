@@ -1,0 +1,52 @@
+# MegaLinter Configuration
+# Multi-language linting for data engineering projects
+
+APPLY_FIXES: all
+APPLY_FIXES_EVENT: all
+APPLY_FIXES_MODE: commit
+
+# Enable specific linters
+ENABLE:
+  - PYTHON
+  - BASH
+  - SQL
+  - TERRAFORM
+  - JSON
+  - YAML
+  - MARKDOWN
+
+# Disable unnecessary linters
+DISABLE:
+  - COPYPASTE
+  - SPELL
+
+# Python Configuration
+PYTHON_BLACK_ARGUMENTS: "--line-length 100"
+PYTHON_RUFF_ARGUMENTS: "--line-length 100"
+PYTHON_MYPY_ARGUMENTS: "--ignore-missing-imports"
+PYTHON_ISORT_ARGUMENTS: "--profile black"
+
+# SQL Configuration
+SQL_SQLFLUFF_ARGUMENTS: "--dialect postgres"
+SQL_SQLFLUFF_CONFIG_FILE: ".sqlfluff"
+
+# Terraform Configuration
+TERRAFORM_TFLINT_ARGUMENTS: "--enable-rule=terraform_naming_convention"
+TERRAFORM_TERRAFORM_FMT_ARGUMENTS: "-recursive"
+
+# Bash Configuration
+BASH_SHELLCHECK_ARGUMENTS: "--severity=warning"
+BASH_SHFMT_ARGUMENTS: "-i 2 -ci"
+
+# File-specific settings
+FILTER_REGEX_INCLUDE: "(src/|tests/|scripts/|examples/)"
+FILTER_REGEX_EXCLUDE: "(\.venv/|\.git/|__pycache__/|\.pytest_cache/|build/|dist/)"
+
+# Reporting
+FORMATTERS_DISABLE_ERRORS: false
+SHOW_ELAPSED_TIME: true
+FILEIO_REPORTER: false
+
+# Output
+PRINT_ALPACA: false
+LOG_LEVEL: INFO

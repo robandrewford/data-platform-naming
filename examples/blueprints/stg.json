@@ -1,0 +1,302 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "environment": "stg",
+    "project": "dataplatform",
+    "region": "us-east-1",
+    "team": "data-engineering",
+    "cost_center": "IT-1001",
+    "data_classification": "confidential"
+  },
+  "resources": {
+    "aws": {
+      "s3_buckets": [
+        {
+          "purpose": "landing",
+          "layer": "raw",
+          "versioning": true,
+          "lifecycle_days": 90
+        },
+        {
+          "purpose": "processing",
+          "layer": "stage",
+          "versioning": true,
+          "lifecycle_days": 60
+        },
+        {
+          "purpose": "analytics",
+          "layer": "curated",
+          "versioning": true,
+          "lifecycle_days": 180
+        },
+        {
+          "purpose": "backup",
+          "layer": "archive",
+          "versioning": true,
+          "lifecycle_days": 365
+        }
+      ],
+      "glue_databases": [
+        {
+          "domain": "sales",
+          "layer": "bronze",
+          "description": "Raw sales data - staging environment"
+        },
+        {
+          "domain": "sales",
+          "layer": "silver",
+          "description": "Cleaned and validated sales data"
+        },
+        {
+          "domain": "sales",
+          "layer": "gold",
+          "description": "Business-ready sales metrics"
+        },
+        {
+          "domain": "customer",
+          "layer": "bronze",
+          "description": "Raw customer data"
+        },
+        {
+          "domain": "customer",
+          "layer": "silver",
+          "description": "Cleaned customer data"
+        },
+        {
+          "domain": "customer",
+          "layer": "gold",
+          "description": "Customer analytics tables"
+        },
+        {
+          "domain": "finance",
+          "layer": "gold",
+          "description": "Financial reporting tables"
+        }
+      ],
+      "glue_tables": [
+        {
+          "database_ref": "sales-bronze",
+          "entity": "orders",
+          "table_type": "fact",
+          "columns": [
+            {"name": "order_id", "type": "bigint"},
+            {"name": "customer_id", "type": "bigint"},
+            {"name": "order_date", "type": "timestamp"},
+            {"name": "amount", "type": "decimal(12,2)"},
+            {"name": "status", "type": "string"},
+            {"name": "ingested_at", "type": "timestamp"}
+          ],
+          "partition_keys": [
+            {"name": "year", "type": "int"},
+            {"name": "month", "type": "int"},
+            {"name": "day", "type": "int"}
+          ]
+        },
+        {
+          "database_ref": "customer-gold",
+          "entity": "customers",
+          "table_type": "dim",
+          "columns": [
+            {"name": "customer_id", "type": "bigint"},
+            {"name": "name", "type": "string"},
+            {"name": "email", "type": "string"},
+            {"name": "registration_date", "type": "date"},
+            {"name": "lifetime_value", "type": "decimal(12,2)"}
+          ]
+        }
+      ]
+    },
+    "databricks": {
+      "clusters": [
+        {
+          "workload": "etl",
+          "cluster_type": "shared",
+          "node_type": "i3.xlarge",
+          "spark_version": "13.3.x-scala2.12",
+          "autoscale": {
+            "min": 2,
+            "max": 8
+          }
+        },
+        {
+          "workload": "ml",
+          "cluster_type": "dedicated",
+          "node_type": "g4dn.xlarge",
+          "spark_version": "13.3.x-scala2.12",
+          "autoscale": {
+            "min": 1,
+            "max": 4
+          }
+        },
+        {
+          "workload": "analytics",
+          "cluster_type": "shared",
+          "node_type": "r5.2xlarge",
+          "spark_version": "13.3.x-scala2.12",
+          "autoscale": {
+            "min": 2,
+            "max": 6
+          }
+        }
+      ],
+      "jobs": [
+        {
+          "job_type": "batch",
+          "purpose": "daily-sales-pipeline",
+          "cluster_ref": "etl",
+          "schedule": "daily",
+          "tasks": [
+            {
+              "task_key": "extract_sales",
+              "notebook_path": "/pipelines/sales/extract"
+            },
+            {
+              "task_key": "validate_sales",
+              "notebook_path": "/pipelines/sales/validate",
+              "depends_on": ["extract_sales"]
+            },
+            {
+              "task_key": "transform_sales",
+              "notebook_path": "/pipelines/sales/transform",
+              "depends_on": ["validate_sales"]
+            },
+            {
+              "task_key": "load_gold",
+              "notebook_path": "/pipelines/sales/load_gold",
+              "depends_on": ["transform_sales"]
+            }
+          ]
+        },
+        {
+          "job_type": "batch",
+          "purpose": "customer-enrichment",
+          "cluster_ref": "etl",
+          "schedule": "daily",
+          "tasks": [
+            {
+              "task_key": "enrich_customers",
+              "notebook_path": "/pipelines/customer/enrich"
+            }
+          ]
+        },
+        {
+          "job_type": "streaming",
+          "purpose": "realtime-events",
+          "cluster_ref": "etl",
+          "tasks": [
+            {
+              "task_key": "stream_processor",
+              "notebook_path": "/streaming/events/processor"
+            }
+          ]
+        }
+      ],
+      "unity_catalog": {
+        "catalogs": [
+          {
+            "catalog_type": "main",
+            "schemas": [
+              {
+                "domain": "sales",
+                "layer": "bronze",
+                "tables": [
+                  {
+                    "entity": "orders",
+                    "table_type": "fact",
+                    "columns": [
+                      {"name": "order_id", "type": "BIGINT"},
+                      {"name": "customer_id", "type": "BIGINT"},
+                      {"name": "amount", "type": "DECIMAL(12,2)"},
+                      {"name": "order_date", "type": "TIMESTAMP"}
+                    ]
+                  },
+                  {
+                    "entity": "order_items",
+                    "table_type": "fact",
+                    "columns": [
+                      {"name": "order_item_id", "type": "BIGINT"},
+                      {"name": "order_id", "type": "BIGINT"},
+                      {"name": "product_id", "type": "BIGINT"},
+                      {"name": "quantity", "type": "INT"}
+                    ]
+                  }
+                ]
+              },
+              {
+                "domain": "sales",
+                "layer": "silver",
+                "tables": [
+                  {
+                    "entity": "orders_validated",
+                    "table_type": "fact",
+                    "columns": [
+                      {"name": "order_id", "type": "BIGINT"},
+                      {"name": "customer_id", "type": "BIGINT"},
+                      {"name": "amount", "type": "DECIMAL(12,2)"},
+                      {"name": "order_date", "type": "TIMESTAMP"},
+                      {"name": "is_valid", "type": "BOOLEAN"}
+                    ]
+                  }
+                ]
+              },
+              {
+                "domain": "sales",
+                "layer": "gold",
+                "tables": [
+                  {
+                    "entity": "daily_revenue",
+                    "table_type": "fact",
+                    "columns": [
+                      {"name": "date", "type": "DATE"},
+                      {"name": "total_revenue", "type": "DECIMAL(12,2)"},
+                      {"name": "order_count", "type": "BIGINT"}
+                    ]
+                  }
+                ]
+              },
+              {
+                "domain": "customer",
+                "layer": "gold",
+                "tables": [
+                  {
+                    "entity": "customers",
+                    "table_type": "dim",
+                    "columns": [
+                      {"name": "customer_id", "type": "BIGINT"},
+                      {"name": "name", "type": "STRING"},
+                      {"name": "email", "type": "STRING"},
+                      {"name": "segment", "type": "STRING"}
+                    ]
+                  },
+                  {
+                    "entity": "customer_metrics",
+                    "table_type": "fact",
+                    "columns": [
+                      {"name": "customer_id", "type": "BIGINT"},
+                      {"name": "lifetime_value", "type": "DECIMAL(12,2)"},
+                      {"name": "order_count", "type": "INT"}
+                    ]
+                  }
+                ]
+              },
+              {
+                "domain": "finance",
+                "layer": "gold",
+                "tables": [
+                  {
+                    "entity": "revenue_summary",
+                    "table_type": "fact",
+                    "columns": [
+                      {"name": "period", "type": "STRING"},
+                      {"name": "revenue", "type": "DECIMAL(14,2)"}
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
