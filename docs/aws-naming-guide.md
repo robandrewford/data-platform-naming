@@ -10,11 +10,12 @@ This specification defines the naming convention standards for all AWS data plat
 
 ### 1.1 Universal Pattern Structure
 
-```
+```md
 {company}-{env}-{region}-{domain}-{service}-{function}-{index}-{hash}
 ```
 
 **Pattern Components:**
+
 - `{company}`: 3-5 character company/business unit abbreviation
 - `{env}`: Environment identifier (dev/tst/stg/prd)
 - `{region}`: AWS region code (use1/usw2/euc1)
@@ -37,12 +38,14 @@ This specification defines the naming convention standards for all AWS data plat
 ## 2. Service-Specific Patterns
 
 ### 2.1 S3 Buckets
-```
+
+```md
 Pattern: {company}-{env}-{region}-{domain}-{layer}-{purpose}-{hash}
 Example: acme-prd-use1-sales-raw-ingestion-a7b2
 ```
 
 **Layer Values:**
+
 - `raw`: Unprocessed source data
 - `stage`: Intermediate processing
 - `curated`: Business-ready data
@@ -52,44 +55,51 @@ Example: acme-prd-use1-sales-raw-ingestion-a7b2
 ### 2.2 Glue Resources
 
 **Glue Jobs:**
-```
+
+```md
 Pattern: {company}-{env}-{domain}-{source}-to-{target}-{action}-{index}
 Example: acme-prd-sales-s3-to-redshift-load-01
 ```
 
 **Glue Crawlers:**
-```
+
+```md
 Pattern: {company}-{env}-{domain}-{layer}-{source}-crawler-{index}
 Example: acme-prd-sales-raw-rds-crawler-01
 ```
 
 **Glue Catalog Databases:**
-```
+
+```md
 Pattern: {company}_{env}_{domain}_{layer}_db
 Example: acme_prd_sales_curated_db
 Note: Underscores required for Athena compatibility
 ```
 
 **Glue Catalog Tables:**
-```
+
+```md
 Pattern: {domain}_{entity}_{version}
 Example: sales_transactions_v1
 ```
 
 ### 2.3 Lambda Functions
-```
+
+```md
 Pattern: {company}-{env}-{domain}-{trigger}-{action}-{index}
 Example: acme-prd-sales-s3-process-01
 ```
 
 ### 2.4 Kinesis Streams
-```
+
+```md
 Pattern: {company}-{env}-{domain}-{source}-stream-{index}
 Example: acme-prd-sales-pos-stream-01
 ```
 
 ### 2.5 EMR Clusters
-```
+
+```md
 Pattern: {company}-{env}-{domain}-{workload}-emr-{date}
 Example: acme-prd-analytics-spark-emr-20250913
 ```
@@ -97,13 +107,15 @@ Example: acme-prd-analytics-spark-emr-20250913
 ### 2.6 Redshift Resources
 
 **Clusters:**
-```
+
+```md
 Pattern: {company}-{env}-{domain}-rs-{index}
 Example: acme-prd-analytics-rs-01
 ```
 
 **Schemas:**
-```
+
+```md
 Pattern: {domain}_{layer}
 Example: sales_curated
 ```
@@ -111,31 +123,36 @@ Example: sales_curated
 ### 2.7 DMS Resources
 
 **Replication Instances:**
-```
+
+```md
 Pattern: {company}-{env}-dms-{source}-to-{target}-{index}
 Example: acme-prd-dms-oracle-to-s3-01
 ```
 
 **Endpoints:**
-```
+
+```md
 Pattern: {company}-{env}-{system}-{type}-ep
 Example: acme-prd-erp-source-ep
 ```
 
 **Tasks:**
-```
+
+```md
 Pattern: {company}-{env}-{source}-{target}-{table}-task
 Example: acme-prd-oracle-s3-customers-task
 ```
 
 ### 2.8 Step Functions
-```
+
+```md
 Pattern: {company}-{env}-{domain}-{workflow}-sf-{index}
 Example: acme-prd-sales-etl-pipeline-sf-01
 ```
 
 ### 2.9 EventBridge Rules
-```
+
+```md
 Pattern: {company}-{env}-{domain}-{trigger}-{action}-rule
 Example: acme-prd-sales-s3-glue-trigger-rule
 ```
@@ -143,13 +160,15 @@ Example: acme-prd-sales-s3-glue-trigger-rule
 ### 2.10 Athena Resources
 
 **Workgroups:**
-```
+
+```md
 Pattern: {company}-{env}-{domain}-{team}-wg
 Example: acme-prd-analytics-data-science-wg
 ```
 
 **Named Queries:**
-```
+
+```md
 Pattern: {domain}-{report}-{frequency}-query
 Example: sales-revenue-daily-query
 ```
@@ -159,7 +178,8 @@ Example: sales-revenue-daily-query
 ## 3. Metadata Components
 
 ### 3.1 Company Abbreviations
-```
+
+```md
 Examples:
 - acme: Acme Corporation
 - rsm: Resource Management Inc
@@ -167,7 +187,8 @@ Examples:
 ```
 
 ### 3.2 Environment Codes
-```
+
+```md
 Required Values:
 - dev: Development
 - tst: Testing
@@ -178,7 +199,8 @@ Required Values:
 ```
 
 ### 3.3 Region Codes
-```
+
+```md
 Mapping:
 - use1: us-east-1 (N. Virginia)
 - use2: us-east-2 (Ohio)
@@ -191,7 +213,8 @@ Mapping:
 ```
 
 ### 3.4 Service Abbreviations
-```
+
+```md
 Standard Mappings:
 - s3: S3 Bucket
 - lambda: Lambda Function
@@ -208,7 +231,8 @@ Standard Mappings:
 ```
 
 ### 3.5 Data Domains
-```
+
+```md
 Examples (customize per organization):
 - sales: Sales data
 - marketing: Marketing data
@@ -264,7 +288,8 @@ Version: {semantic-version}
 ### 5.1 Cost Allocation Pattern
 
 Include in resource names for Cost Explorer visibility:
-```
+
+```md
 {company}-{cost-center}-{env}-{project}-{service}-{function}
 Example: acme-cc1001-prd-datalake-s3-raw
 ```
@@ -272,6 +297,7 @@ Example: acme-cc1001-prd-datalake-s3-raw
 ### 5.2 Cost Tags
 
 Activate these tags for AWS Cost Allocation:
+
 - `CostCenter`
 - `Project`
 - `Environment`
@@ -641,6 +667,7 @@ print(f"Components: {components}")
 ### 9.1 Legacy Resource Migration
 
 For existing resources that cannot be renamed:
+
 1. Add `Legacy: true` tag
 2. Document in exception registry
 3. Plan migration timeline
@@ -649,6 +676,7 @@ For existing resources that cannot be renamed:
 ### 9.2 Third-Party Integration Requirements
 
 When external systems require specific naming:
+
 1. Document exception with business justification
 2. Add `ExternalConstraint: {system}` tag
 3. Maintain mapping table
@@ -668,6 +696,7 @@ When external systems require specific naming:
 ### 10.2 Change Management
 
 All naming convention changes require:
+
 1. Impact assessment
 2. Stakeholder approval
 3. Migration plan for existing resources
@@ -677,6 +706,7 @@ All naming convention changes require:
 ### 10.3 Compliance Metrics
 
 Track monthly:
+
 - Naming convention compliance rate (target: >95%)
 - Cost allocation tag coverage (target: 100%)
 - Automated validation success rate
@@ -686,7 +716,7 @@ Track monthly:
 
 ## Appendix A: Quick Reference Card
 
-```
+```md
 S3:        {co}-{env}-{reg}-{dom}-{layer}-{purpose}-{hash}
 Lambda:    {co}-{env}-{dom}-{trigger}-{action}-{idx}
 Glue Job:  {co}-{env}-{dom}-{src}-to-{tgt}-{action}-{idx}
@@ -712,4 +742,4 @@ Layers: raw | stage | curated | archive | logs
 **Document Status:** DRAFT - Pending Review
 **Next Review Date:** 2025-01-20
 **Owner:** Data Platform Team
-**Contact:** data-platform@company.com
+**Contact:** <data-platform@company.com>

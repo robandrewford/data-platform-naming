@@ -7,6 +7,7 @@ AWS data platform naming conventions remain a critical yet underspecified aspect
 AWS offers service-specific naming requirements but limited holistic frameworks for data platforms. The **AWS Prescriptive Guidance for S3 Data Lakes** provides the most detailed official pattern: `[company-prefix]-[account-id]-[region]-[layer]-[data-domain]`, where layers include raw, stage, and analytics. This pattern emphasizes **cost visibility through account ID inclusion** and **governance through differentiated access policies**.
 
 **Critical service-specific constraints** shape naming strategies:
+
 - **S3 buckets**: 3-63 characters, globally unique, lowercase with hyphens only
 - **Lambda functions**: 64 characters maximum, supports alphanumeric and underscores
 - **Athena databases/tables**: UTF-8 lowercase preferred, 255 bytes maximum

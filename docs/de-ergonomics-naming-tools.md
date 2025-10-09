@@ -9,12 +9,14 @@ This document outlines tools and workflows to make AWS resource naming effortles
 ## 1. Core Design Principles
 
 ### 1.1 Zero Friction Adoption
+
 - **No memorization required** - Tools guide the user
 - **Context-aware suggestions** - Derive values from environment
 - **Instant validation** - Real-time feedback before deployment
 - **Learning through usage** - Progressive disclosure of conventions
 
 ### 1.2 Smart Defaults
+
 - **Auto-detect environment** from AWS profile, git branch, or workspace
 - **Infer domain** from project structure or team assignment
 - **Generate unique identifiers** automatically (hash, index)
@@ -129,6 +131,7 @@ Validating 25 resources...
 ### 3.1 VS Code Extension: "AWS Name Helper"
 
 **Features:**
+
 ```typescript
 // Type 'awsname' and press Tab
 awsname.s3 → Interactive wizard appears
@@ -148,6 +151,7 @@ s3name<Tab> → Expands to name generator function call
 ```
 
 **Live Templates:**
+
 ```javascript
 // Type 's3bucket' + Tab
 const bucketName = aws.name.generate({
@@ -326,7 +330,7 @@ Recent Names (your team):
 
 ### 5.2 Slack Bot Integration
 
-```
+```md
 /aws-name s3 raw customer-data
 
 @AWSNamer:
@@ -738,34 +742,6 @@ WHERE created_time > current_date - interval '30' day
 GROUP BY DATE_TRUNC('day', created_time)
 ORDER BY date DESC;
 ```
-
----
-
-## 12. Implementation Roadmap
-
-### Phase 1: CLI Tool (Week 1-2)
-- [ ] Core CLI with interactive mode
-- [ ] Context detection from environment
-- [ ] Basic validation functions
-- [ ] Hash and index generation
-
-### Phase 2: IDE Integration (Week 3-4)
-- [ ] VS Code extension
-- [ ] IntelliJ plugin
-- [ ] Syntax highlighting and validation
-
-### Phase 3: IaC Integration (Week 5-6)
-- [ ] Terraform module
-- [ ] CDK construct library
-- [ ] CloudFormation custom resource
-
-### Phase 4: Automation (Week 7-8)
-- [ ] Git hooks
-- [ ] CI/CD integration
-- [ ] Auto-fix capabilities
-- [ ] Metrics and monitoring
-
----
 
 ## Conclusion
 

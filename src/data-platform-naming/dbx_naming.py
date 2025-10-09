@@ -493,7 +493,7 @@ class DatabricksNamingCLI:
             )
         }
     
-    def export_naming_reference(self, output_file: str = "databricks_naming_ref.json") -> None:
+    def export_naming_reference(self, output_file: str = "dbx_naming.json") -> None:
         """Export naming examples as JSON reference"""
         if not self.generator:
             raise ValueError("Generator not configured. Run configure() first.")
