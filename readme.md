@@ -7,7 +7,6 @@
 
 ## Quick Start
 
-
 ```bash
 # Install UV (if not already installed)
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -22,15 +21,15 @@ uv sync
 # Verify installation
 uv run dpn --help
 
-# Generate blueprint
-uv run dpn plan init --env prd --project platform --output prod.json
+# Generate blueprint (creates blueprints/prd.json by default)
+uv run dpn plan init --env prd --project platform
 
 # Preview names
-uv run dpn plan preview prod.json
+uv run dpn plan preview blueprints/prd.json
 
 # Create resources (dry-run first)
-uv run dpn create --blueprint prod.json --dry-run
-uv run dpn create --blueprint prod.json
+uv run dpn create --blueprint blueprints/prd.json --dry-run
+uv run dpn create --blueprint blueprints/prd.json
 ```
 
 > **Note:** `uv sync` automatically creates a `.venv` virtual environment. You don't need to run `uv venv` manually or activate the environment - `uv run` handles everything!

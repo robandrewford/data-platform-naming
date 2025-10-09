@@ -61,6 +61,9 @@ dmypy.json
 *.committed
 *.rolled_back
 
+# User-generated blueprints
+blueprints/*.json
+
 # Secrets
 *.pem
 *.key

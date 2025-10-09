@@ -53,9 +53,17 @@ def plan():
 @click.option('--env', type=click.Choice(['dev', 'stg', 'prd']), required=True)
 @click.option('--project', required=True)
 @click.option('--region', default='us-east-1')
-@click.option('--output', type=click.Path(), default='blueprint.json')
-def plan_init(env: str, project: str, region: str, output: str):
+@click.option('--output', type=click.Path(), default=None)
+def plan_init(env: str, project: str, region: str, output: Optional[str]):
     """Initialize blueprint template"""
+    
+    # Default to blueprints/{env}.json if no output specified
+    if output is None:
+        output = f'blueprints/{env}.json'
+    
+    # Create parent directory if it doesn't exist
+    output_path = Path(output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     
     template = {
         "version": "1.0",
