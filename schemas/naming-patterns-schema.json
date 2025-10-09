@@ -1,0 +1,247 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/robandrewford/data-platform-naming/schemas/naming-patterns-schema.json",
+  "title": "Naming Patterns Configuration Schema",
+  "description": "Schema for naming pattern templates with placeholder variables for resource name generation",
+  "type": "object",
+  "required": ["version", "patterns"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^1\\.0$",
+      "description": "Schema version"
+    },
+    "patterns": {
+      "type": "object",
+      "description": "Naming patterns for each resource type",
+      "required": [
+        "aws_s3_bucket",
+        "aws_glue_database",
+        "aws_glue_table",
+        "dbx_cluster",
+        "dbx_job",
+        "dbx_catalog",
+        "dbx_schema",
+        "dbx_table"
+      ],
+      "properties": {
+        "aws_s3_bucket": {
+          "$ref": "#/definitions/pattern",
+          "description": "S3 bucket naming pattern",
+          "examples": ["{project}-{purpose}-{layer}-{environment}-{region_short}"]
+        },
+        "aws_glue_database": {
+          "$ref": "#/definitions/pattern",
+          "description": "Glue database naming pattern",
+          "examples": ["{project}_{domain}_{layer}_{environment}"]
+        },
+        "aws_glue_table": {
+          "$ref": "#/definitions/pattern",
+          "description": "Glue table naming pattern",
+          "examples": ["{table_type}_{entity}"]
+        },
+        "dbx_cluster": {
+          "$ref": "#/definitions/pattern",
+          "description": "Databricks cluster naming pattern",
+          "examples": ["{project}-{workload}-{cluster_type}-{environment}"]
+        },
+        "dbx_job": {
+          "$ref": "#/definitions/pattern",
+          "description": "Databricks job naming pattern",
+          "examples": ["{project}-{job_type}-{purpose}-{schedule}-{environment}"]
+        },
+        "dbx_catalog": {
+          "$ref": "#/definitions/pattern",
+          "description": "Unity Catalog catalog naming pattern",
+          "examples": ["{project}_{catalog_type}_{environment}"]
+        },
+        "dbx_schema": {
+          "$ref": "#/definitions/pattern",
+          "description": "Unity Catalog schema naming pattern",
+          "examples": ["{domain}_{layer}"]
+        },
+        "dbx_table": {
+          "$ref": "#/definitions/pattern",
+          "description": "Unity Catalog table naming pattern",
+          "examples": ["{table_type}_{entity}"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "transformations": {
+      "type": "object",
+      "description": "Optional transformation rules applied to pattern variables",
+      "properties": {
+        "region_mapping": {
+          "type": "object",
+          "description": "Map full region names to abbreviated codes",
+          "propertyNames": {
+            "pattern": "^[a-z]+-[a-z]+-[0-9]$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[a-z]{2,4}[0-9]$"
+          },
+          "examples": [
+            {
+              "us-east-1": "use1",
+              "us-west-2": "usw2",
+              "eu-west-1": "euw1"
+            }
+          ]
+        },
+        "lowercase": {
+          "type": "array",
+          "description": "Variables to convert to lowercase",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "examples": [["project", "environment", "domain"]]
+        },
+        "uppercase": {
+          "type": "array",
+          "description": "Variables to convert to UPPERCASE",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "examples": [["cost_center"]]
+        },
+        "replace_hyphens": {
+          "type": "object",
+          "description": "Variables where hyphens should be replaced with another character",
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 1
+          },
+          "examples": [
+            {
+              "project": "_",
+              "team": "_"
+            }
+          ]
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "description": "Validation rules for generated names",
+      "properties": {
+        "max_length": {
+          "type": "object",
+          "description": "Maximum length constraints per resource type",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "examples": [
+            {
+              "aws_s3_bucket": 63,
+              "aws_glue_database": 255,
+              "dbx_cluster": 100
+            }
+          ]
+        },
+        "allowed_chars": {
+          "type": "object",
+          "description": "Regex patterns for allowed characters per resource type",
+          "additionalProperties": {
+            "type": "string",
+            "format": "regex"
+          },
+          "examples": [
+            {
+              "aws_s3_bucket": "^[a-z0-9-]+$",
+              "aws_glue_database": "^[a-z0-9_]+$"
+            }
+          ]
+        },
+        "required_variables": {
+          "type": "object",
+          "description": "Variables that must be present for each resource type",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "examples": [
+            {
+              "aws_s3_bucket": ["project", "environment", "region_short"],
+              "dbx_cluster": ["project", "workload", "environment"]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "definitions": {
+    "pattern": {
+      "type": "string",
+      "description": "Naming pattern template with {placeholder} variables",
+      "pattern": ".*\\{[a-z_]+\\}.*",
+      "minLength": 3
+    }
+  },
+  "examples": [
+    {
+      "version": "1.0",
+      "patterns": {
+        "aws_s3_bucket": "{project}-{purpose}-{layer}-{environment}-{region_short}",
+        "aws_glue_database": "{project}_{domain}_{layer}_{environment}",
+        "aws_glue_table": "{table_type}_{entity}",
+        "dbx_cluster": "{project}-{workload}-{cluster_type}-{environment}",
+        "dbx_job": "{project}-{job_type}-{purpose}-{schedule}-{environment}",
+        "dbx_catalog": "{project}_{catalog_type}_{environment}",
+        "dbx_schema": "{domain}_{layer}",
+        "dbx_table": "{table_type}_{entity}"
+      },
+      "transformations": {
+        "region_mapping": {
+          "us-east-1": "use1",
+          "us-west-2": "usw2",
+          "eu-west-1": "euw1",
+          "eu-central-1": "euc1",
+          "ap-southeast-1": "apse1"
+        },
+        "lowercase": ["project", "environment", "domain", "layer"],
+        "replace_hyphens": {
+          "project": "_"
+        }
+      },
+      "validation": {
+        "max_length": {
+          "aws_s3_bucket": 63,
+          "aws_glue_database": 255,
+          "aws_glue_table": 255,
+          "dbx_cluster": 100,
+          "dbx_job": 200,
+          "dbx_catalog": 255,
+          "dbx_schema": 255,
+          "dbx_table": 255
+        },
+        "allowed_chars": {
+          "aws_s3_bucket": "^[a-z0-9-]+$",
+          "aws_glue_database": "^[a-z0-9_]+$",
+          "aws_glue_table": "^[a-z0-9_]+$",
+          "dbx_cluster": "^[a-zA-Z0-9-_]+$",
+          "dbx_catalog": "^[a-zA-Z0-9_]+$",
+          "dbx_schema": "^[a-zA-Z0-9_]+$",
+          "dbx_table": "^[a-zA-Z0-9_]+$"
+        },
+        "required_variables": {
+          "aws_s3_bucket": ["project", "purpose", "layer", "environment", "region_short"],
+          "aws_glue_database": ["project", "domain", "layer", "environment"],
+          "aws_glue_table": ["entity"],
+          "dbx_cluster": ["project", "workload", "cluster_type", "environment"],
+          "dbx_job": ["project", "job_type", "purpose", "environment"],
+          "dbx_catalog": ["project", "catalog_type", "environment"],
+          "dbx_schema": ["domain", "layer"],
+          "dbx_table": ["entity"]
+        }
+      }
+    }
+  ]
+}

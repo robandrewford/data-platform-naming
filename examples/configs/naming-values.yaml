@@ -1,0 +1,65 @@
+# Naming Values Configuration Example
+# This file defines values that will be substituted into naming patterns
+# Precedence: defaults < environments < resource_types < blueprint metadata
+
+version: "1.0"
+
+# Default values (lowest precedence)
+# Applied to all resources unless overridden
+defaults:
+  project: dataplatform
+  region: us-east-1
+  region_short: use1
+  team: data-platform
+  cost_center: CC-12345
+  data_classification: internal
+
+# Environment-specific overrides (medium precedence)
+# Values specific to dev/stg/prd environments
+environments:
+  dev:
+    environment: dev
+    data_classification: internal
+    # Dev typically uses smaller/cheaper resources
+    
+  stg:
+    environment: stg
+    data_classification: internal
+    # Staging mirrors production settings
+    
+  prd:
+    environment: prd
+    data_classification: confidential
+    # Production has stricter data classification
+
+# Resource-type-specific overrides (high precedence)
+# Values that apply to specific resource types
+resource_types:
+  aws_s3_bucket:
+    purpose: raw
+    layer: raw
+    # S3 buckets default to raw data layer
+    
+  aws_glue_database:
+    domain: finance
+    layer: gold
+    # Glue databases default to gold layer
+    
+  dbx_cluster:
+    workload: etl
+    cluster_type: shared
+    # Clusters default to shared ETL workload
+    
+  dbx_job:
+    job_type: batch
+    purpose: transformation
+    schedule: daily
+    # Jobs default to daily batch transformations
+
+# Custom values (optional)
+# Add any custom key-value pairs needed for your organization
+# These will be available for substitution in patterns
+# Example:
+# custom:
+#   business_unit: analytics
+#   compliance_tag: sox-compliant

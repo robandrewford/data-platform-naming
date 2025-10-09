@@ -1,0 +1,152 @@
+# Naming Patterns Configuration Example
+# This file defines naming pattern templates with placeholder variables
+# Variables are substituted from naming-values.yaml (or inline overrides)
+
+version: "1.0"
+
+# Naming patterns for each resource type
+# Use {variable_name} for placeholders that will be substituted
+patterns:
+  # AWS Resources
+  aws_s3_bucket: "{project}-{purpose}-{layer}-{environment}-{region_short}"
+  # Example: dataplatform-raw-raw-prd-use1
+  
+  aws_glue_database: "{project}_{domain}_{layer}_{environment}"
+  # Example: dataplatform_finance_gold_prd
+  
+  aws_glue_table: "{table_type}_{entity}"
+  # Example: fact_sales or dim_customers
+  
+  # Databricks Resources
+  dbx_cluster: "{project}-{workload}-{cluster_type}-{environment}"
+  # Example: dataplatform-etl-shared-prd
+  
+  dbx_job: "{project}-{job_type}-{purpose}-{schedule}-{environment}"
+  # Example: dataplatform-batch-transformation-daily-prd
+  
+  # Unity Catalog (3-tier namespace)
+  dbx_catalog: "{project}_{catalog_type}_{environment}"
+  # Example: dataplatform_main_prd
+  
+  dbx_schema: "{domain}_{layer}"
+  # Example: finance_gold
+  
+  dbx_table: "{table_type}_{entity}"
+  # Example: fact_sales or dim_customers
+
+# Optional transformations applied to variables before substitution
+transformations:
+  # Map full AWS region names to abbreviated codes
+  region_mapping:
+    us-east-1: use1
+    us-east-2: use2
+    us-west-1: usw1
+    us-west-2: usw2
+    eu-west-1: euw1
+    eu-west-2: euw2
+    eu-central-1: euc1
+    ap-southeast-1: apse1
+    ap-southeast-2: apse2
+    ap-northeast-1: apne1
+  
+  # Variables to automatically convert to lowercase
+  lowercase:
+    - project
+    - environment
+    - domain
+    - layer
+    - purpose
+    - workload
+  
+  # Variables to convert to UPPERCASE (if needed)
+  # uppercase:
+  #   - cost_center
+  
+  # Replace hyphens with another character for specific variables
+  # Useful when resource type requires underscores instead of hyphens
+  replace_hyphens:
+    project: "_"  # Convert project hyphens to underscores in patterns that use underscores
+
+# Validation rules for generated names
+validation:
+  # Maximum length constraints per resource type
+  max_length:
+    aws_s3_bucket: 63          # AWS S3 bucket name limit
+    aws_glue_database: 255     # AWS Glue database limit
+    aws_glue_table: 255        # AWS Glue table limit
+    dbx_cluster: 100           # Databricks cluster name limit (reasonable)
+    dbx_job: 200               # Databricks job name limit
+    dbx_catalog: 255           # Unity Catalog catalog limit
+    dbx_schema: 255            # Unity Catalog schema limit
+    dbx_table: 255             # Unity Catalog table limit
+  
+  # Allowed character patterns (regex) per resource type
+  allowed_chars:
+    aws_s3_bucket: "^[a-z0-9-]+$"          # Only lowercase alphanumeric and hyphens
+    aws_glue_database: "^[a-z0-9_]+$"      # Only lowercase alphanumeric and underscores
+    aws_glue_table: "^[a-z0-9_]+$"         # Only lowercase alphanumeric and underscores
+    dbx_cluster: "^[a-zA-Z0-9-_]+$"        # Alphanumeric, hyphens, underscores
+    dbx_job: "^[a-zA-Z0-9-_]+$"            # Alphanumeric, hyphens, underscores
+    dbx_catalog: "^[a-zA-Z0-9_]+$"         # Alphanumeric and underscores only
+    dbx_schema: "^[a-zA-Z0-9_]+$"          # Alphanumeric and underscores only
+    dbx_table: "^[a-zA-Z0-9_]+$"           # Alphanumeric and underscores only
+  
+  # Required variables that must be present for each resource type
+  # System will validate that these variables are available before name generation
+  required_variables:
+    aws_s3_bucket:
+      - project
+      - purpose
+      - layer
+      - environment
+      - region_short
+    
+    aws_glue_database:
+      - project
+      - domain
+      - layer
+      - environment
+    
+    aws_glue_table:
+      - entity
+      # table_type is optional, defaults to 'fact'
+    
+    dbx_cluster:
+      - project
+      - workload
+      - cluster_type
+      - environment
+    
+    dbx_job:
+      - project
+      - job_type
+      - purpose
+      - environment
+      # schedule is optional
+    
+    dbx_catalog:
+      - project
+      - catalog_type
+      - environment
+    
+    dbx_schema:
+      - domain
+      - layer
+    
+    dbx_table:
+      - entity
+      # table_type is optional, defaults to 'fact'
+
+# Usage Examples:
+# ---------------
+# 1. With defaults from naming-values.yaml:
+#    dpn create --blueprint my-blueprint.json --values-config naming-values.yaml --patterns-config naming-patterns.yaml
+#
+# 2. Override specific values inline:
+#    dpn create --blueprint my-blueprint.json --override project=oncology --override environment=prd
+#
+# 3. Use different patterns for specific environment:
+#    dpn create --blueprint my-blueprint.json --patterns-config naming-patterns-oncology.yaml
+#
+# 4. Validate configuration files:
+#    dpn config validate --values naming-values.yaml --patterns naming-patterns.yaml
