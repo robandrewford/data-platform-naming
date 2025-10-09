@@ -3,11 +3,13 @@
 ## Technologies Used
 
 ### Core Language & Runtime
+
 - **Python 3.9+**: Minimum version for modern type hints and features
 - **Type Hints**: Extensive use of type annotations for IDE support and mypy validation
 - **Async/Await**: Reserved for future parallel operations
 
 ### Package Management
+
 - **UV (Primary)**: Fast, reliable Python package manager
   - `uv sync`: Install all dependencies
   - `uv run`: Execute commands in virtual environment
@@ -15,6 +17,7 @@
 - **pip (Alternative)**: Traditional fallback for users without UV
 
 ### CLI Framework
+
 - **Click 8+**: Command-line interface construction
   - Decorators for commands and options
   - Automatic help generation
@@ -22,6 +25,7 @@
   - Command groups and subcommands
 
 ### Cloud SDKs
+
 - **boto3**: AWS SDK for Python
   - S3 bucket operations
   - Glue database and table management
@@ -34,6 +38,7 @@
   - Workspace API access
 
 ### Data Validation
+
 - **JSON Schema**: Blueprint validation
   - Draft 7 specification
   - Comprehensive error messages
@@ -41,6 +46,7 @@
 - **Pydantic (Future)**: Runtime data validation and serialization
 
 ### User Interface
+
 - **rich**: Terminal output enhancement
   - Progress bars with ETA
   - Colored output and formatting
@@ -49,6 +55,7 @@
 - **tabulate**: Table formatting for data display
 
 ### Testing
+
 - **pytest**: Test framework
   - Fixtures for test setup
   - Parametrized tests
@@ -58,8 +65,9 @@
 - **pytest-mock**: Simplified mocking interface
 
 ### Code Quality
+
 - **black**: Opinionated code formatter
-  - Line length: 88 characters (default)
+  - Line length: 100 characters (project override)
   - Automatic formatting on save
 - **ruff**: Fast Python linter
   - Replaces flake8, isort, pylint
@@ -71,6 +79,7 @@
   - Protocol validation
 
 ### Multi-Language Quality (MegaLinter)
+
 - **Docker-based**: Runs in container
 - **Languages Supported**:
   - Python (black, ruff, mypy)
@@ -159,11 +168,13 @@ open megalinter-reports/megalinter-report.html
 ## Technical Constraints
 
 ### Python Version
+
 - **Minimum**: Python 3.9
 - **Reason**: Type hints for built-in generics (list[str], dict[str, int])
 - **Compatibility**: Tested on 3.9, 3.10, 3.11, 3.12
 
 ### AWS Credentials
+
 - **Methods Supported**:
   1. AWS CLI profiles (`--aws-profile` flag)
   2. Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
@@ -175,6 +186,7 @@ open megalinter-reports/megalinter-report.html
   - IAM: `iam:GetRole`, `iam:PassRole` (for Glue service roles)
 
 ### Databricks Authentication
+
 - **Methods Supported**:
   1. Personal Access Token (PAT) via `--dbx-token` flag
   2. Environment variable (`DATABRICKS_TOKEN`)
@@ -187,6 +199,7 @@ open megalinter-reports/megalinter-report.html
   - Unity Catalog: CREATE CATALOG, CREATE SCHEMA, CREATE TABLE
 
 ### File System
+
 - **State Directory**: `~/.dpn/`
   - WAL directory: `~/.dpn/wal/`
   - State file: `~/.dpn/state/state.json`
@@ -194,6 +207,7 @@ open megalinter-reports/megalinter-report.html
 - **Concurrent Access**: File locking prevents conflicts
 
 ### Network
+
 - **Outbound HTTPS Required**:
   - AWS regional endpoints
   - Databricks workspace URLs
@@ -201,6 +215,7 @@ open megalinter-reports/megalinter-report.html
 - **Timeouts**: Configurable per operation (default: 30s)
 
 ### Blueprint Size
+
 - **Maximum File Size**: 10 MB (practical limit)
 - **Maximum Resources**: 1000 per blueprint (soft limit)
 - **Validation Time**: O(n) where n = number of resources
@@ -212,33 +227,35 @@ open megalinter-reports/megalinter-report.html
 ```toml
 [project]
 dependencies = [
-    "click>=8.0.0",           # CLI framework
-    "boto3>=1.26.0",          # AWS SDK
-    "databricks-sdk>=0.18.0", # Databricks SDK
-    "jsonschema>=4.0.0",      # JSON validation
-    "rich>=13.0.0",           # Terminal UI
-    "tabulate>=0.9.0",        # Table formatting
-    "pyyaml>=6.0.0",          # YAML support
+    "boto3>=1.34.0",          # AWS SDK
+    "click>=8.1.7",           # CLI framework
+    "rich>=13.7.0",           # Terminal UI
+    "requests>=2.31.0",       # HTTP client
+    "jsonschema>=4.20.0",     # JSON validation
+    "pyyaml>=6.0.1",          # YAML support
 ]
 ```
+
+**Note**: Databricks SDK integration is in progress. Currently using REST API via requests library.
 
 ### Development Dependencies
 
 ```toml
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0.0",          # Test framework
-    "pytest-cov>=4.0.0",      # Coverage
-    "pytest-mock>=3.0.0",     # Mocking
-    "black>=23.0.0",          # Formatter
-    "ruff>=0.1.0",            # Linter
-    "mypy>=1.0.0",            # Type checker
-    "types-pyyaml",           # Type stubs for PyYAML
-    "types-tabulate",         # Type stubs for tabulate
+    "pytest>=7.4.3",          # Test framework
+    "pytest-cov>=4.1.0",      # Coverage
+    "pytest-mock>=3.12.0",    # Mocking
+    "black>=23.12.0",         # Formatter
+    "ruff>=0.1.8",            # Linter
+    "mypy>=1.7.1",            # Type checker
+    "types-requests>=2.31.0", # Type stubs for requests
+    "types-pyyaml>=6.0.12",   # Type stubs for PyYAML
 ]
 ```
 
 ### System Dependencies
+
 - **None required**: Pure Python implementation
 - **Optional**: Docker for MegaLinter
 
@@ -265,6 +282,7 @@ def create(blueprint, dry_run, aws_profile):
 ```
 
 **Conventions**:
+
 - Use `@click.option` for named parameters
 - Use `@click.argument` for positional parameters
 - Use `is_flag=True` for boolean flags
@@ -288,6 +306,7 @@ with Progress(
 ```
 
 **Conventions**:
+
 - Use transient=True for temporary progress
 - Update task description for current operation
 - Use console.print() from rich for formatted output
@@ -310,6 +329,7 @@ bucket = s3_resource.Bucket('bucket-name')
 ```
 
 **Conventions**:
+
 - Create session once, reuse clients
 - Use client API for fine-grained control
 - Use resource API for object-oriented interface
@@ -340,6 +360,7 @@ schema = w.schemas.create(catalog_name=catalog_name, name=schema_name)
 ```
 
 **Conventions**:
+
 - One client instance per workspace
 - Use service-specific APIs (clusters, jobs, catalogs)
 - Handle pagination automatically
@@ -363,6 +384,7 @@ except jsonschema.ValidationError as e:
 ```
 
 **Conventions**:
+
 - Use Draft 7 JSON Schema
 - Provide detailed error messages
 - Validate early (before any operations)
@@ -393,6 +415,7 @@ def test_create_bucket(mock_aws_client, sample_blueprint):
 ```
 
 **Conventions**:
+
 - Use fixtures for common test data
 - Mock external services (AWS, Databricks)
 - Parametrize tests for multiple scenarios
@@ -401,22 +424,26 @@ def test_create_bucket(mock_aws_client, sample_blueprint):
 ## Configuration Files
 
 ### pyproject.toml
+
 - **Purpose**: Project metadata and dependencies
 - **Format**: TOML
 - **Sections**: project, dependencies, optional-dependencies, build-system
 
 ### .mega-linter.yml
+
 - **Purpose**: MegaLinter configuration
 - **Format**: YAML
 - **Sections**: Linters to enable/disable, file patterns, report settings
 
 ### .gitignore
+
 - **Purpose**: Exclude files from Git
 - **Patterns**: `*.pyc`, `__pycache__/`, `.pytest_cache/`, `dist/`, `build/`
 
 ## Build and Distribution
 
 ### Local Development Build
+
 ```bash
 # Install in development mode
 uv pip install -e .
@@ -426,7 +453,8 @@ uv build
 ```
 
 ### Package Structure
-```
+
+```md
 data-platform-naming/
 ├── src/
 │   └── data-platform-naming/
@@ -444,6 +472,7 @@ data-platform-naming/
 ```
 
 ### Entry Points
+
 ```toml
 [project.scripts]
 dpn = "data_platform_naming.cli:cli"
@@ -454,20 +483,24 @@ This creates the `dpn` command that maps to the Click CLI group.
 ## Environment Variables
 
 ### AWS Configuration
+
 - `AWS_PROFILE`: Default AWS profile to use
 - `AWS_REGION`: Default AWS region
 - `AWS_ACCESS_KEY_ID`: Access key (if not using profile)
 - `AWS_SECRET_ACCESS_KEY`: Secret key (if not using profile)
 
 ### Databricks Configuration
+
 - `DATABRICKS_HOST`: Workspace URL
 - `DATABRICKS_TOKEN`: Personal access token
 
 ### Tool Configuration
+
 - `HTTP_PROXY`: HTTP proxy URL
 - `HTTPS_PROXY`: HTTPS proxy URL
 - `NO_COLOR`: Disable colored output (for CI/CD)
 
 ### Development
+
 - `PYTEST_CURRENT_TEST`: Set by pytest during test runs
 - `COVERAGE_FILE`: Coverage data file location

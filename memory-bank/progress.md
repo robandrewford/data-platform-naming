@@ -179,16 +179,16 @@
 
 ### Project Phase
 
-- **Stable - Production Ready**
+- **Beta - v0.1.0**
 
-The project has reached a stable state suitable for production use. Core functionality is complete, tested, and documented.
+The project has reached a functional beta state. Core functionality is complete and tested, but some features remain incomplete. Ready for testing and feedback, but not yet production-hardened.
 
 ### Release Status
 
-- **Version**: 1.0 (implicit, no formal versioning yet)
-- **Stability**: Stable
-- **Breaking Changes**: None expected
-- **API**: CLI interface is stable
+- **Version**: 0.1.0 (as declared in pyproject.toml)
+- **Stability**: Beta
+- **Breaking Changes**: Possible as we finalize API
+- **API**: CLI interface is mostly stable, but update command incomplete
 
 ### Usage Status
 
@@ -210,6 +210,9 @@ The project has reached a stable state suitable for production use. Core functio
 - File-based state (not suitable for high concurrency)
 - Limited state query capabilities
 - Manual blueprint creation (no wizard)
+- Databricks operations use REST API via requests (SDK not yet integrated)
+- Update command not fully implemented
+- No real-world integration tests with cloud accounts
 
 ## Known Issues
 
@@ -219,7 +222,21 @@ No critical issues currently. System is stable.
 
 ### Minor Issues
 
-- **1. Platform-Specific Error Messages**
+- **1. Databricks SDK Integration**
+  - **Issue**: Currently using requests library instead of official databricks-sdk
+  - **Impact**: May miss SDK features, more manual API handling
+  - **Workaround**: REST API works but less convenient
+  - **Status**: Planned for v0.2.0
+  - **Priority**: Medium
+
+- **2. Update Command Incomplete**
+  - **Issue**: Update command declared in CLI but not fully implemented
+  - **Impact**: Cannot modify resources after creation
+  - **Workaround**: Delete and recreate
+  - **Status**: Needs implementation
+  - **Priority**: Medium
+
+- **3. Platform-Specific Error Messages**
 
 - **Issue**: AWS/DBX API errors can be cryptic
 - **Impact**: Users may need to debug raw error messages
