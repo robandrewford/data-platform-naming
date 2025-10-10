@@ -5,7 +5,7 @@ Battle-tested enterprise naming conventions for AWS resources
 """
 
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
 
@@ -71,9 +71,38 @@ class AWSNamingGenerator:
         'ap-northeast-1': 'apne1',
     }
     
-    def __init__(self, config: AWSNamingConfig):
+    def __init__(
+        self,
+        config: AWSNamingConfig,
+        configuration_manager: Optional[Any] = None,
+        use_config: bool = False
+    ):
+        """
+        Initialize AWSNamingGenerator.
+        
+        Args:
+            config: AWS naming configuration
+            configuration_manager: Optional ConfigurationManager for pattern-based generation
+            use_config: If True, use ConfigurationManager for all name generation.
+                       If False, raises NotImplementedError (legacy mode removed).
+        
+        Raises:
+            ValueError: If use_config=True but configuration_manager is None
+            ValueError: If pattern validation fails during initialization
+        """
         self.config = config
+        self.config_manager = configuration_manager
+        self.use_config = use_config
+        
         self._validate_config()
+        
+        # If using config mode, validate patterns at initialization
+        if self.use_config:
+            if not self.config_manager:
+                raise ValueError(
+                    "use_config=True requires configuration_manager parameter"
+                )
+            self._validate_patterns_at_init()
     
     def _validate_config(self):
         """Validate configuration parameters"""
@@ -82,6 +111,115 @@ class AWSNamingGenerator:
         
         if not re.match(r'^[a-z0-9-]+$', self.config.project):
             raise ValueError(f"Invalid project name: {self.config.project}")
+    
+    def _validate_patterns_at_init(self) -> None:
+        """
+        Validate that all AWS resource patterns are available in ConfigurationManager.
+        Called at initialization when use_config=True.
+        
+        Raises:
+            ValueError: If any required patterns are missing or invalid
+        """
+        required_resource_types = [
+            "aws_s3_bucket",
+            "aws_glue_database",
+            "aws_glue_table",
+            "aws_glue_crawler",
+            "aws_lambda_function",
+            "aws_iam_role",
+            "aws_iam_policy",
+            "aws_kinesis_stream",
+            "aws_kinesis_firehose",
+            "aws_dynamodb_table",
+            "aws_sns_topic",
+            "aws_sqs_queue",
+            "aws_step_function",
+        ]
+        
+        missing_patterns = []
+        invalid_patterns = []
+        
+        for resource_type in required_resource_types:
+            try:
+                pattern = self.config_manager.patterns_loader.get_pattern(resource_type)
+                # Check that pattern has required variables
+                pattern_vars = pattern.get_variables()
+                if not pattern_vars:
+                    invalid_patterns.append(
+                        f"{resource_type}: Pattern has no variables"
+                    )
+            except Exception as e:
+                missing_patterns.append(f"{resource_type}: {str(e)}")
+        
+        errors = []
+        if missing_patterns:
+            errors.append("Missing patterns:\n  " + "\n  ".join(missing_patterns))
+        if invalid_patterns:
+            errors.append("Invalid patterns:\n  " + "\n  ".join(invalid_patterns))
+        
+        if errors:
+            raise ValueError(
+                "Pattern validation failed:\n" + "\n".join(errors)
+            )
+    
+    def _generate_with_config(
+        self,
+        resource_type: str,
+        values: Dict[str, Any],
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate name using ConfigurationManager.
+        
+        Args:
+            resource_type: AWS resource type (e.g., 'aws_s3_bucket')
+            values: Dictionary of values to use for pattern substitution
+            metadata: Optional blueprint metadata for additional context
+        
+        Returns:
+            Generated resource name
+        
+        Raises:
+            NotImplementedError: If use_config is False
+            ValueError: If name generation or validation fails
+        """
+        if not self.use_config:
+            raise NotImplementedError(
+                f"Generator requires use_config=True to generate {resource_type}. "
+                "Legacy mode has been removed. "
+                "Please provide a ConfigurationManager and set use_config=True."
+            )
+        
+        # Merge config values with provided values
+        merged_values = {
+            "environment": self.config.environment,
+            "project": self.config.project,
+            "region": self.config.region,
+            **values
+        }
+        
+        # Add optional config values if present
+        if self.config.team:
+            merged_values["team"] = self.config.team
+        if self.config.cost_center:
+            merged_values["cost_center"] = self.config.cost_center
+        
+        # Generate using ConfigurationManager
+        result = self.config_manager.generate_name(
+            resource_type=resource_type,
+            environment=self.config.environment,
+            blueprint_metadata=metadata,
+            value_overrides=merged_values
+        )
+        
+        # Validate the generated name
+        if not result.is_valid:
+            raise ValueError(
+                f"Name validation failed for {resource_type}: "
+                f"{', '.join(result.validation_errors)}"
+            )
+        
+        return result.name
     
     def _get_region_code(self) -> str:
         """Convert AWS region to short code"""
@@ -124,297 +262,439 @@ class AWSNamingGenerator:
         prefix = name[:prefix_length]
         return f"{prefix}-{suffix}"
     
-    def generate_s3_bucket_name(self, 
-                                purpose: str,
-                                layer: str = "raw",
-                                include_hash: bool = True) -> str:
-        """Generate S3 bucket name
+    def generate_s3_bucket_name(
+        self, 
+        purpose: str,
+        layer: str = "raw",
+        include_hash: bool = True,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate S3 bucket name.
         
         Pattern: {project}-{layer}-{purpose}-{env}-{region}
         Example: dataplatform-raw-sales-prd-use1
+        
+        Args:
+            purpose: Bucket purpose (e.g., 'sales-data', 'logs')
+            layer: Data layer ('raw', 'processed', 'curated')
+            include_hash: Whether to include hash suffix for uniqueness
+            metadata: Optional blueprint metadata for additional context
+        
+        Returns:
+            Generated S3 bucket name
+        
+        Raises:
+            NotImplementedError: If use_config is False
+            ValueError: If name generation fails
         """
-        import hashlib
-        
-        parts = [
-            self.config.project,
-            layer,
-            purpose,
-            self.config.environment,
-            self._get_region_code()
-        ]
-        
-        name = '-'.join(parts)
-        
-        if include_hash:
-            hash_input = f"{name}-{self.config.team or 'default'}"
-            hash_val = hashlib.md5(hash_input.encode()).hexdigest()[:4]
-            name = f"{name}-{hash_val}"
-        
-        return self._truncate_name(
-            self._sanitize_name(name, AWSResourceType.S3_BUCKET),
-            AWSResourceType.S3_BUCKET
+        return self._generate_with_config(
+            resource_type="aws_s3_bucket",
+            values={
+                "purpose": purpose,
+                "layer": layer,
+                "include_hash": include_hash
+            },
+            metadata=metadata
         )
     
-    def generate_glue_database_name(self,
-                                   domain: str,
-                                   layer: str = "bronze") -> str:
-        """Generate Glue database name
+    def generate_glue_database_name(
+        self,
+        domain: str,
+        layer: str = "bronze",
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate Glue database name.
         
         Pattern: {project}_{domain}_{layer}_{env}
         Example: dataplatform_finance_gold_prd
-        """
-        parts = [
-            self.config.project,
-            domain,
-            layer,
-            self.config.environment
-        ]
         
-        name = '_'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, AWSResourceType.GLUE_DATABASE),
-            AWSResourceType.GLUE_DATABASE
+        Args:
+            domain: Data domain (e.g., 'finance', 'sales', 'marketing')
+            layer: Data layer ('bronze', 'silver', 'gold')
+            metadata: Optional blueprint metadata for additional context
+        
+        Returns:
+            Generated Glue database name
+        
+        Raises:
+            NotImplementedError: If use_config is False
+            ValueError: If name generation fails
+        """
+        return self._generate_with_config(
+            resource_type="aws_glue_database",
+            values={
+                "domain": domain,
+                "layer": layer
+            },
+            metadata=metadata
         )
     
-    def generate_glue_table_name(self,
-                                entity: str,
-                                table_type: str = "fact") -> str:
-        """Generate Glue table name
+    def generate_glue_table_name(
+        self,
+        entity: str,
+        table_type: str = "fact",
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate Glue table name.
         
         Pattern: {type}_{entity}
         Example: fact_sales, dim_customer
-        """
-        if table_type == "fact":
-            name = f"fact_{entity}"
-        elif table_type == "dim":
-            name = f"dim_{entity}"
-        else:
-            name = f"{table_type}_{entity}"
         
-        return self._truncate_name(
-            self._sanitize_name(name, AWSResourceType.GLUE_TABLE),
-            AWSResourceType.GLUE_TABLE
+        Args:
+            entity: Business entity name (e.g., 'sales', 'customers')
+            table_type: Table type ('fact', 'dim', 'bridge')
+            metadata: Optional blueprint metadata for additional context
+        
+        Returns:
+            Generated Glue table name
+        
+        Raises:
+            NotImplementedError: If use_config is False
+            ValueError: If name generation fails
+        """
+        return self._generate_with_config(
+            resource_type="aws_glue_table",
+            values={
+                "entity": entity,
+                "table_type": table_type
+            },
+            metadata=metadata
         )
     
-    def generate_glue_crawler_name(self,
-                                   database: str,
-                                   source: str) -> str:
-        """Generate Glue crawler name
+    def generate_glue_crawler_name(
+        self,
+        database: str,
+        source: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate Glue crawler name.
         
         Pattern: {project}-{env}-crawler-{database}-{source}
         Example: dataplatform-prd-crawler-sales-s3
-        """
-        parts = [
-            self.config.project,
-            self.config.environment,
-            "crawler",
-            database,
-            source
-        ]
         
-        name = '-'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, AWSResourceType.GLUE_CRAWLER),
-            AWSResourceType.GLUE_CRAWLER
+        Args:
+            database: Database name
+            source: Source system identifier (e.g., 's3', 'rds')
+            metadata: Optional blueprint metadata for additional context
+        
+        Returns:
+            Generated Glue crawler name
+        
+        Raises:
+            NotImplementedError: If use_config is False
+            ValueError: If name generation fails
+        """
+        return self._generate_with_config(
+            resource_type="aws_glue_crawler",
+            values={
+                "database": database,
+                "source": source
+            },
+            metadata=metadata
         )
     
-    def generate_lambda_function_name(self,
-                                     domain: str,
-                                     trigger: str,
-                                     action: str) -> str:
-        """Generate Lambda function name
+    def generate_lambda_function_name(
+        self,
+        domain: str,
+        trigger: str,
+        action: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate Lambda function name.
         
         Pattern: {project}-{env}-{domain}-{trigger}-{action}
         Example: dataplatform-prd-sales-s3-process
-        """
-        parts = [
-            self.config.project,
-            self.config.environment,
-            domain,
-            trigger,
-            action
-        ]
         
-        name = '-'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, AWSResourceType.LAMBDA_FUNCTION),
-            AWSResourceType.LAMBDA_FUNCTION
+        Args:
+            domain: Data domain (e.g., 'sales', 'customer')
+            trigger: Trigger source (e.g., 's3', 'api', 'kinesis')
+            action: Action performed (e.g., 'process', 'transform', 'validate')
+            metadata: Optional blueprint metadata for additional context
+        
+        Returns:
+            Generated Lambda function name
+        
+        Raises:
+            NotImplementedError: If use_config is False
+            ValueError: If name generation fails
+        """
+        return self._generate_with_config(
+            resource_type="aws_lambda_function",
+            values={
+                "domain": domain,
+                "trigger": trigger,
+                "action": action
+            },
+            metadata=metadata
         )
     
-    def generate_iam_role_name(self,
-                              service: str,
-                              purpose: str) -> str:
-        """Generate IAM role name
+    def generate_iam_role_name(
+        self,
+        service: str,
+        purpose: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate IAM role name.
         
         Pattern: {project}-{env}-{service}-{purpose}-role
         Example: dataplatform-prd-lambda-process-role
-        """
-        parts = [
-            self.config.project,
-            self.config.environment,
-            service,
-            purpose,
-            "role"
-        ]
         
-        name = '-'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, AWSResourceType.IAM_ROLE),
-            AWSResourceType.IAM_ROLE
+        Args:
+            service: AWS service (e.g., 'lambda', 'glue', 'emr')
+            purpose: Purpose of the role (e.g., 'execution', 'process')
+            metadata: Optional blueprint metadata for additional context
+        
+        Returns:
+            Generated IAM role name
+        
+        Raises:
+            NotImplementedError: If use_config is False
+            ValueError: If name generation fails
+        """
+        return self._generate_with_config(
+            resource_type="aws_iam_role",
+            values={
+                "service": service,
+                "purpose": purpose
+            },
+            metadata=metadata
         )
     
-    def generate_iam_policy_name(self,
-                                service: str,
-                                purpose: str) -> str:
-        """Generate IAM policy name
+    def generate_iam_policy_name(
+        self,
+        service: str,
+        purpose: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate IAM policy name.
         
         Pattern: {project}-{env}-{service}-{purpose}-policy
         Example: dataplatform-prd-s3-read-policy
-        """
-        parts = [
-            self.config.project,
-            self.config.environment,
-            service,
-            purpose,
-            "policy"
-        ]
         
-        name = '-'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, AWSResourceType.IAM_POLICY),
-            AWSResourceType.IAM_POLICY
+        Args:
+            service: AWS service (e.g., 's3', 'dynamodb', 'sqs')
+            purpose: Purpose of policy (e.g., 'read', 'write', 'read-write')
+            metadata: Optional blueprint metadata for additional context
+        
+        Returns:
+            Generated IAM policy name
+        
+        Raises:
+            NotImplementedError: If use_config is False
+            ValueError: If name generation fails
+        """
+        return self._generate_with_config(
+            resource_type="aws_iam_policy",
+            values={
+                "service": service,
+                "purpose": purpose
+            },
+            metadata=metadata
         )
     
-    def generate_kinesis_stream_name(self,
-                                    domain: str,
-                                    source: str) -> str:
-        """Generate Kinesis stream name
+    def generate_kinesis_stream_name(
+        self,
+        domain: str,
+        source: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate Kinesis stream name.
         
         Pattern: {project}-{env}-{domain}-{source}-stream
         Example: dataplatform-prd-sales-api-stream
-        """
-        parts = [
-            self.config.project,
-            self.config.environment,
-            domain,
-            source,
-            "stream"
-        ]
         
-        name = '-'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, AWSResourceType.KINESIS_STREAM),
-            AWSResourceType.KINESIS_STREAM
+        Args:
+            domain: Data domain (e.g., 'sales', 'events')
+            source: Source identifier (e.g., 'api', 'iot', 'web')
+            metadata: Optional blueprint metadata for additional context
+        
+        Returns:
+            Generated Kinesis stream name
+        
+        Raises:
+            NotImplementedError: If use_config is False
+            ValueError: If name generation fails
+        """
+        return self._generate_with_config(
+            resource_type="aws_kinesis_stream",
+            values={
+                "domain": domain,
+                "source": source
+            },
+            metadata=metadata
         )
     
-    def generate_kinesis_firehose_name(self,
-                                      domain: str,
-                                      destination: str) -> str:
-        """Generate Kinesis Firehose delivery stream name
+    def generate_kinesis_firehose_name(
+        self,
+        domain: str,
+        destination: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate Kinesis Firehose delivery stream name.
         
         Pattern: {project}-{env}-{domain}-to-{destination}
         Example: dataplatform-prd-sales-to-s3
-        """
-        parts = [
-            self.config.project,
-            self.config.environment,
-            domain,
-            "to",
-            destination
-        ]
         
-        name = '-'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, AWSResourceType.KINESIS_FIREHOSE),
-            AWSResourceType.KINESIS_FIREHOSE
+        Args:
+            domain: Data domain (e.g., 'sales', 'logs')
+            destination: Destination service (e.g., 's3', 'redshift', 'elasticsearch')
+            metadata: Optional blueprint metadata for additional context
+        
+        Returns:
+            Generated Kinesis Firehose name
+        
+        Raises:
+            NotImplementedError: If use_config is False
+            ValueError: If name generation fails
+        """
+        return self._generate_with_config(
+            resource_type="aws_kinesis_firehose",
+            values={
+                "domain": domain,
+                "destination": destination
+            },
+            metadata=metadata
         )
     
-    def generate_dynamodb_table_name(self,
-                                    entity: str,
-                                    purpose: str = "data") -> str:
-        """Generate DynamoDB table name
+    def generate_dynamodb_table_name(
+        self,
+        entity: str,
+        purpose: str = "data",
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate DynamoDB table name.
         
         Pattern: {project}-{env}-{entity}-{purpose}
         Example: dataplatform-prd-customer-profile
-        """
-        parts = [
-            self.config.project,
-            self.config.environment,
-            entity,
-            purpose
-        ]
         
-        name = '-'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, AWSResourceType.DYNAMODB_TABLE),
-            AWSResourceType.DYNAMODB_TABLE
+        Args:
+            entity: Business entity (e.g., 'customer', 'order')
+            purpose: Table purpose (e.g., 'data', 'profile', 'cache')
+            metadata: Optional blueprint metadata for additional context
+        
+        Returns:
+            Generated DynamoDB table name
+        
+        Raises:
+            NotImplementedError: If use_config is False
+            ValueError: If name generation fails
+        """
+        return self._generate_with_config(
+            resource_type="aws_dynamodb_table",
+            values={
+                "entity": entity,
+                "purpose": purpose
+            },
+            metadata=metadata
         )
     
-    def generate_sns_topic_name(self,
-                               event_type: str,
-                               purpose: str) -> str:
-        """Generate SNS topic name
+    def generate_sns_topic_name(
+        self,
+        event_type: str,
+        purpose: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate SNS topic name.
         
         Pattern: {project}-{env}-{event_type}-{purpose}
         Example: dataplatform-prd-data-processed
-        """
-        parts = [
-            self.config.project,
-            self.config.environment,
-            event_type,
-            purpose
-        ]
         
-        name = '-'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, AWSResourceType.SNS_TOPIC),
-            AWSResourceType.SNS_TOPIC
+        Args:
+            event_type: Type of event (e.g., 'data', 'alert', 'notification')
+            purpose: Purpose description (e.g., 'processed', 'failed', 'completed')
+            metadata: Optional blueprint metadata for additional context
+        
+        Returns:
+            Generated SNS topic name
+        
+        Raises:
+            NotImplementedError: If use_config is False
+            ValueError: If name generation fails
+        """
+        return self._generate_with_config(
+            resource_type="aws_sns_topic",
+            values={
+                "event_type": event_type,
+                "purpose": purpose
+            },
+            metadata=metadata
         )
     
-    def generate_sqs_queue_name(self,
-                               purpose: str,
-                               queue_type: str = "standard") -> str:
-        """Generate SQS queue name
+    def generate_sqs_queue_name(
+        self,
+        purpose: str,
+        queue_type: str = "standard",
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate SQS queue name.
         
         Pattern: {project}-{env}-{purpose}-{type}
         Example: dataplatform-prd-processing-fifo
+        
+        Args:
+            purpose: Queue purpose (e.g., 'processing', 'dlq', 'events')
+            queue_type: Queue type ('standard' or 'fifo')
+            metadata: Optional blueprint metadata for additional context
+        
+        Returns:
+            Generated SQS queue name
+        
+        Raises:
+            NotImplementedError: If use_config is False
+            ValueError: If name generation fails
         """
-        parts = [
-            self.config.project,
-            self.config.environment,
-            purpose,
-            queue_type
-        ]
-        
-        name = '-'.join(parts)
-        
-        if queue_type == "fifo":
-            name = f"{name}.fifo"
-        
-        return self._truncate_name(
-            self._sanitize_name(name, AWSResourceType.SQS_QUEUE),
-            AWSResourceType.SQS_QUEUE
+        return self._generate_with_config(
+            resource_type="aws_sqs_queue",
+            values={
+                "purpose": purpose,
+                "queue_type": queue_type
+            },
+            metadata=metadata
         )
     
-    def generate_step_function_name(self,
-                                   workflow: str,
-                                   purpose: str) -> str:
-        """Generate Step Functions state machine name
+    def generate_step_function_name(
+        self,
+        workflow: str,
+        purpose: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate Step Functions state machine name.
         
         Pattern: {project}-{env}-{workflow}-{purpose}
         Example: dataplatform-prd-etl-orchestration
-        """
-        parts = [
-            self.config.project,
-            self.config.environment,
-            workflow,
-            purpose
-        ]
         
-        name = '-'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, AWSResourceType.STEP_FUNCTION),
-            AWSResourceType.STEP_FUNCTION
+        Args:
+            workflow: Workflow identifier (e.g., 'etl', 'ml', 'data-pipeline')
+            purpose: Purpose description (e.g., 'orchestration', 'coordination')
+            metadata: Optional blueprint metadata for additional context
+        
+        Returns:
+            Generated Step Function name
+        
+        Raises:
+            NotImplementedError: If use_config is False
+            ValueError: If name generation fails
+        """
+        return self._generate_with_config(
+            resource_type="aws_step_function",
+            values={
+                "workflow": workflow,
+                "purpose": purpose
+            },
+            metadata=metadata
         )
     
     def generate_standard_tags(self,

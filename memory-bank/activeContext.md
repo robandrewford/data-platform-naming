@@ -12,23 +12,83 @@ The data-platform-naming project is in a **Beta state (v0.1.0)** with core funct
 - ✅ Transaction management with file-based WAL
 - ✅ Comprehensive testing and quality tooling (pytest, black, ruff, mypy, MegaLinter)
 - ✅ Documentation complete (README, naming guides, CRUD docs)
+- ✅ Configuration system foundation complete (values, patterns, scope filter)
+- ✅ **AWS Generator refactored to use ConfigurationManager** (Phase 3A complete!)
+- ⚠️ Databricks generator refactoring in progress
 - ⚠️ Databricks SDK integration in progress (currently using requests library)
 - ⚠️ Update command declared but not fully implemented
 - ⚠️ No integration tests with real cloud accounts yet
 
 ### Active Areas
 
-**Current Status**: Planning new configuration-based naming system.
+**Current Status**: Implementing Phase 3B - Databricks Generator Refactoring.
 
-**Development Phase**: Beta (v0.1.0) - functional but some features incomplete.
+**Development Phase**: Beta (v0.1.0) - functional with major refactoring underway.
 
-**Active Development**: Configuration-based naming system to enable:
-- Centralized naming value substitution (project, environment, etc.)
-- Customizable naming pattern templates
-- Resource scope filtering for selective processing
-- YAML-based configuration files with schema validation
+**Active Development**: Configuration-based naming system implementation (Phase 3):
+- ✅ Phase 3A: AWS Generator refactored to use patterns + values (COMPLETE)
+- ⏳ Phase 3B: Databricks Generator refactoring (NEXT)
+- ⏳ Phase 3C: Move transformations to patterns (region codes, hash generation)
+- ⏳ Phase 3D: Update blueprint parser to inject ConfigurationManager
+- ⏳ Phase 3E: Integration testing and documentation
 
 ## Recent Changes
+
+### Phase 3A: AWS Generator Refactoring (JUST COMPLETED)
+
+**Date**: 2025-01-10
+
+Successfully refactored AWSNamingGenerator for configuration-based name generation:
+
+**Key Changes**:
+1. **Constructor Enhancement**
+   - Added `configuration_manager` parameter (Optional[ConfigurationManager])
+   - Added explicit `use_config: bool = False` flag
+   - Pattern validation runs at initialization (fail-fast approach)
+
+2. **New Helper Methods**
+   - `_validate_patterns_at_init()`: Validates all 13 AWS resource patterns on startup
+   - `_generate_with_config()`: Unified generation logic for all methods
+     - Merges config values with method parameters
+     - Calls ConfigurationManager.generate_name()
+     - Validates generated names
+     - Returns clean result or raises ValueError
+
+3. **All 13 Methods Refactored**
+   - Each method now uses `_generate_with_config()` helper
+   - Added optional `metadata` parameter for blueprint context
+   - Comprehensive docstrings (Args, Returns, Raises)
+   - Raises NotImplementedError if use_config=False (legacy mode removed)
+   
+   Refactored methods:
+   - generate_s3_bucket_name
+   - generate_glue_database_name
+   - generate_glue_table_name
+   - generate_glue_crawler_name
+   - generate_lambda_function_name
+   - generate_iam_role_name
+   - generate_iam_policy_name
+   - generate_kinesis_stream_name
+   - generate_kinesis_firehose_name
+   - generate_dynamodb_table_name
+   - generate_sns_topic_name
+   - generate_sqs_queue_name
+   - generate_step_function_name
+
+**Architecture Benefits**:
+- Clean code with no legacy dual-mode complexity
+- Fail-fast pattern validation at initialization
+- Explicit opt-in with use_config flag
+- Consistent pattern across all methods
+- Easy to extend for new resource types
+
+**Breaking Changes**:
+- Legacy hardcoded pattern mode removed
+- ConfigurationManager now required for name generation
+- All methods require use_config=True to function
+- Old API without ConfigurationManager raises NotImplementedError
+
+**Testing**: Ready for unit tests in next phase.
 
 ### Initial Release
 
@@ -78,7 +138,14 @@ CLI → ConfigurationManager → [NamingValuesLoader, NamingPatternsLoader, Scop
 - ConfigurationManager: 94% coverage ✓
 - ScopeFilter: 100% coverage (33 tests) ✓
 
-**Implementation Status**: Core components complete with excellent test coverage. Next: Blueprint integration and generator refactoring.
+**Implementation Status**: 
+- ✅ Phase 1: Foundation (COMPLETE - values, patterns, config manager)
+- ✅ Phase 2: Scope Filtering (COMPLETE - filter + blueprint integration)
+- ✅ Phase 3A: AWS Generator Refactoring (COMPLETE - 13 methods refactored)
+- ⏳ Phase 3B: Databricks Generator Refactoring (NEXT - 15+ methods to refactor)
+- ⏳ Phase 3C: Pattern Transformations (move region codes, hash to YAML)
+- ⏳ Phase 3D: Blueprint Parser Update (inject ConfigurationManager)
+- ⏳ Phase 3E: Integration & Documentation
 
 ## Next Steps
 

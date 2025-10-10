@@ -86,7 +86,7 @@
 
 - **1. Configuration-Based Naming System** (IN PROGRESS - 60% Complete)
 
-**Phase 1: Foundation (Week 1)** ✅ COMPLETE
+**Phase 1: Foundation (Day 1)** ✅ COMPLETE
 
 - [x] Create JSON schemas for naming-values and naming-patterns
 - [x] Implement `NamingValuesLoader` class with YAML support
@@ -95,21 +95,106 @@
 - [x] Add config validation logic with helpful error messages
 - [x] Unit tests for all loaders (>80% coverage achieved: 88%, 89%, 94%)
 
-**Phase 2: Scope Filtering (Week 1)** ⚠️ PARTIALLY COMPLETE (Core Done, Integration Pending)
+**Phase 2: Scope Filtering (Day 2)** ✅ COMPLETE
 
 - [x] Implement `ScopeFilter` class with wildcard support
 - [x] Unit tests for filtering logic (33 tests, 100% coverage)
-- [ ] Add `scope` section to blueprint JSON schema (pending)
-- [ ] Integrate scope filter with blueprint parser (pending)
+- [x] Add `scope` section to blueprint JSON schema
+- [x] Integrate scope filter with blueprint parser
 
-**Phase 3: Generator Refactoring (Week 2)** ⏳ NOT STARTED
+**Phase 3: Generator Refactoring (Day 2-3)** ⏳ IN PROGRESS (Phase 3A Complete!)
 
-- [ ] Refactor `AWSNamingGenerator` to accept pattern + values
-- [ ] Refactor `DatabricksNamingGenerator` to accept pattern + values
-- [ ] Add pattern variable resolution logic
-- [ ] Add transformation logic (region codes, hash generation)
-- [ ] Keep legacy path for backward compatibility
-- [ ] Unit tests for all generator methods
+**Approach: Clean Refactor (No Legacy Mode)**
+- Remove all hardcoded patterns from generators
+- Require ConfigurationManager with explicit `use_config=True` flag
+- Validate all patterns at generator initialization (fail fast)
+- Migration Strategy: Create YAML patterns that mirror current hardcoded patterns
+
+**Phase 3A: AWS Generator Refactor (3-4 hours)** ✅ COMPLETE (2025-01-10)
+- [x] Update constructor: Add `use_config: bool = False` parameter
+- [x] Add `_validate_patterns_at_init()` method for pattern validation
+- [x] Add `_generate_with_config()` helper method for all generations
+- [x] Refactor generate_s3_bucket_name to use config
+- [x] Refactor generate_glue_database_name to use config
+- [x] Refactor generate_glue_table_name to use config
+- [x] Refactor generate_glue_crawler_name to use config
+- [x] Refactor generate_lambda_function_name to use config
+- [x] Refactor generate_iam_role_name to use config
+- [x] Refactor generate_iam_policy_name to use config
+- [x] Refactor generate_kinesis_stream_name to use config
+- [x] Refactor generate_kinesis_firehose_name to use config
+- [x] Refactor generate_dynamodb_table_name to use config
+- [x] Refactor generate_sns_topic_name to use config
+- [x] Refactor generate_sqs_queue_name to use config
+- [x] Refactor generate_step_function_name to use config
+- [x] Keep utility methods for now (_sanitize_name, _truncate_name still present)
+- [ ] Unit tests for all refactored methods (both success and error cases)
+
+**Key Achievements**:
+- All 13 AWS generator methods now use ConfigurationManager
+- Pattern validation at initialization (fail-fast)
+- Unified `_generate_with_config()` helper for consistency
+- Clean architecture with no legacy code paths
+- Comprehensive docstrings with Args/Returns/Raises
+- Optional metadata parameter for blueprint context
+
+**Phase 3B: Databricks Generator Refactor (3-4 hours)**
+- [ ] Update constructor with use_config flag
+- [ ] Add pattern validation at initialization
+- [ ] Add _generate_with_config helper method
+- [ ] Refactor generate_workspace_name to use config
+- [ ] Refactor generate_cluster_name to use config
+- [ ] Refactor generate_job_name to use config
+- [ ] Refactor generate_notebook_path to use config
+- [ ] Refactor generate_repo_name to use config
+- [ ] Refactor generate_pipeline_name to use config
+- [ ] Refactor generate_sql_warehouse_name to use config
+- [ ] Refactor generate_catalog_name to use config
+- [ ] Refactor generate_schema_name to use config
+- [ ] Refactor generate_table_name to use config
+- [ ] Refactor generate_volume_name to use config
+- [ ] Refactor generate_secret_scope_name to use config
+- [ ] Refactor generate_instance_pool_name to use config
+- [ ] Refactor generate_policy_name to use config
+- [ ] Remove old utility methods
+- [ ] Unit tests for all refactored methods
+
+**Phase 3C: Pattern Transformations (2 hours)**
+- [ ] Move REGION_CODES mapping to naming-patterns.yaml
+- [ ] Implement region code transformation in NamingPatternsLoader
+- [ ] Add hash generation config to naming-patterns.yaml
+- [ ] Implement hash transformation in NamingPatternsLoader
+- [ ] Move MAX_LENGTHS to patterns validation rules
+- [ ] Test all transformations with various inputs
+
+**Phase 3D: Blueprint Parser Update (1 hour)**
+- [ ] Update parser to accept optional ConfigurationManager
+- [ ] Pass use_config=True to generators when config_manager available
+- [ ] Test blueprint parsing with config-based generators
+- [ ] Test error handling when patterns missing
+
+**Phase 3E: Integration & Documentation (1 hour)**
+- [ ] End-to-end test: Load configs → Generate all AWS resource types
+- [ ] End-to-end test: Load configs → Generate all Databricks resource types
+- [ ] Test with all example blueprints
+- [ ] Update aws_naming.py docstrings
+- [ ] Update dbx_naming.py docstrings
+- [ ] Add migration guide documentation
+- [ ] Update code examples
+
+**Breaking Changes:**
+- ConfigurationManager now required (use_config=True)
+- All resource types must have patterns in naming-patterns.yaml
+- naming-values.yaml required for value substitution
+- Old usage without ConfigurationManager raises NotImplementedError
+
+**Architecture Details:**
+- Explicit opt-in: `use_config=True` flag required
+- Validation at init: Patterns checked when generator created
+- Single helper: All methods use `_generate_with_config()`
+- Clean codebase: No legacy code paths or backward compatibility
+
+**Estimated Timeline:** 10-12 hours (1.5-2 work days)
 
 **Phase 4: CLI Integration (Week 2)** ⏳ NOT STARTED
 
@@ -153,10 +238,9 @@
 
 **Next Steps:**
 
-1. Complete blueprint integration (add scope section to schema)
-2. Refactor generators to use ConfigurationManager
-3. Add CLI commands for config management
-4. Integration testing with full workflow
+1. Refactor generators to use ConfigurationManager
+2. Add CLI commands for config management
+3. Integration testing with full workflow
 
 - **2. Enhanced User Experience**
 
