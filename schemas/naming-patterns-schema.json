@@ -18,6 +18,16 @@
         "aws_s3_bucket",
         "aws_glue_database",
         "aws_glue_table",
+        "aws_glue_crawler",
+        "aws_lambda_function",
+        "aws_iam_role",
+        "aws_iam_policy",
+        "aws_kinesis_stream",
+        "aws_kinesis_firehose",
+        "aws_dynamodb_table",
+        "aws_sns_topic",
+        "aws_sqs_queue",
+        "aws_step_function",
         "dbx_cluster",
         "dbx_job",
         "dbx_catalog",
@@ -39,6 +49,56 @@
           "$ref": "#/definitions/pattern",
           "description": "Glue table naming pattern",
           "examples": ["{table_type}_{entity}"]
+        },
+        "aws_glue_crawler": {
+          "$ref": "#/definitions/pattern",
+          "description": "Glue crawler naming pattern",
+          "examples": ["{project}-{environment}-crawler-{database}-{source}"]
+        },
+        "aws_lambda_function": {
+          "$ref": "#/definitions/pattern",
+          "description": "Lambda function naming pattern",
+          "examples": ["{project}-{environment}-{domain}-{trigger}-{action}"]
+        },
+        "aws_iam_role": {
+          "$ref": "#/definitions/pattern",
+          "description": "IAM role naming pattern",
+          "examples": ["{project}-{environment}-{service}-{purpose}-role"]
+        },
+        "aws_iam_policy": {
+          "$ref": "#/definitions/pattern",
+          "description": "IAM policy naming pattern",
+          "examples": ["{project}-{environment}-{service}-{purpose}-policy"]
+        },
+        "aws_kinesis_stream": {
+          "$ref": "#/definitions/pattern",
+          "description": "Kinesis stream naming pattern",
+          "examples": ["{project}-{environment}-{domain}-{source}-stream"]
+        },
+        "aws_kinesis_firehose": {
+          "$ref": "#/definitions/pattern",
+          "description": "Kinesis Firehose delivery stream naming pattern",
+          "examples": ["{project}-{environment}-{domain}-to-{destination}"]
+        },
+        "aws_dynamodb_table": {
+          "$ref": "#/definitions/pattern",
+          "description": "DynamoDB table naming pattern",
+          "examples": ["{project}-{environment}-{entity}-{purpose}"]
+        },
+        "aws_sns_topic": {
+          "$ref": "#/definitions/pattern",
+          "description": "SNS topic naming pattern",
+          "examples": ["{project}-{environment}-{event_type}-{purpose}"]
+        },
+        "aws_sqs_queue": {
+          "$ref": "#/definitions/pattern",
+          "description": "SQS queue naming pattern",
+          "examples": ["{project}-{environment}-{purpose}-{queue_type}"]
+        },
+        "aws_step_function": {
+          "$ref": "#/definitions/pattern",
+          "description": "Step Functions state machine naming pattern",
+          "examples": ["{project}-{environment}-{workflow}-{purpose}"]
         },
         "dbx_cluster": {
           "$ref": "#/definitions/pattern",
