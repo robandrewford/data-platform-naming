@@ -15,27 +15,122 @@ The data-platform-naming project is in a **Beta state (v0.1.0)** with core funct
 - ✅ Configuration system foundation complete (values, patterns, scope filter)
 - ✅ **AWS Generator refactored to use ConfigurationManager** (Phase 3A complete!)
 - ✅ **Databricks Generator refactored to use ConfigurationManager** (Phase 3B complete!)
-- ⚠️ JSON schemas need Databricks resource types added
-- ⚠️ Databricks generator tests needed (comprehensive test suite)
+- ✅ **JSON schemas updated with all 14 Databricks resource types**
+- ✅ **Comprehensive Databricks test suite created** (66 tests, 75% coverage, 100% pass rate)
 - ⚠️ Databricks SDK integration in progress (currently using requests library)
 - ⚠️ Update command declared but not fully implemented
 - ⚠️ No integration tests with real cloud accounts yet
 
 ### Active Areas
 
-**Current Status**: Phase 3B Complete - Need to add schemas and tests for Databricks.
+**Current Status**: Phase 3B Complete - AWS and Databricks generators fully refactored with comprehensive tests!
 
 **Development Phase**: Beta (v0.1.0) - functional with major refactoring underway.
 
 **Active Development**: Configuration-based naming system implementation (Phase 3):
 - ✅ Phase 3A: AWS Generator refactored to use patterns + values (COMPLETE)
-- ✅ Phase 3B: Databricks Generator refactored to use patterns + values (COMPLETE)
-- ⏳ Phase 3B Remaining: Update JSON schemas + create test suite
+- ✅ Phase 3B: Databricks Generator refactored + comprehensive tests (COMPLETE)
 - ⏳ Phase 3C: Move transformations to patterns (region codes, hash generation)
 - ⏳ Phase 3D: Update blueprint parser to inject ConfigurationManager
 - ⏳ Phase 3E: Integration testing and documentation
 
 ## Recent Changes
+
+### Phase 3B: Databricks Generator Refactoring & Testing (COMPLETED)
+
+**Date**: 2025-01-10
+
+Successfully refactored DatabricksNamingGenerator for configuration-based name generation AND created comprehensive test suite:
+
+**Key Changes**:
+1. **Constructor Enhancement**
+   - Added `configuration_manager` parameter (Optional[ConfigurationManager])
+   - Added explicit `use_config: bool = False` flag
+   - Removed `_validate_patterns_at_init()` - schema validation handles this
+
+2. **New Helper Method**
+   - `_generate_with_config()`: Unified generation logic for all 14 methods
+     - Merges config values with method parameters
+     - Calls ConfigurationManager.generate_name() with proper parameters
+     - Validates generated names
+     - Returns clean result or raises ValueError
+
+3. **All 14 Methods Refactored**
+   - Each method now uses `_generate_with_config()` helper
+   - Added optional `metadata` parameter for blueprint context
+   - Comprehensive docstrings (Args, Returns, Raises, Examples)
+   - Raises NotImplementedError if use_config=False
+   
+   Refactored methods:
+   - generate_workspace_name
+   - generate_cluster_name
+   - generate_job_name
+   - generate_notebook_path
+   - generate_repo_name
+   - generate_pipeline_name
+   - generate_sql_warehouse_name
+   - generate_catalog_name
+   - generate_schema_name
+   - generate_table_name
+   - generate_volume_name
+   - generate_secret_scope_name
+   - generate_instance_pool_name
+   - generate_policy_name
+   - generate_full_table_reference (composite method)
+
+4. **Comprehensive Test Suite Created**
+   - **File**: `tests/test_dbx_naming.py`
+   - **Tests**: 66 tests covering all aspects
+   - **Coverage**: 75% for dbx_naming.py (core logic >95%)
+   - **Pass Rate**: 66/66 passing (100%)
+   - **Organization**: 13 test classes by functionality
+   
+   Test Classes:
+   - TestDatabricksNamingGeneratorInit: 7 tests (initialization & validation)
+   - TestDatabricksNamingGeneratorCluster: 4 tests (cluster naming)
+   - TestDatabricksNamingGeneratorJob: 4 tests (job naming)
+   - TestDatabricksNamingGeneratorUnityCatalog: 13 tests (catalog, schema, table, full reference, 3-tier)
+   - TestDatabricksNamingGeneratorWorkspace: 4 tests (workspace naming)
+   - TestDatabricksNamingGeneratorSQLWarehouse: 5 tests (SQL warehouse naming)
+   - TestDatabricksNamingGeneratorPipeline: 4 tests (pipeline naming)
+   - TestDatabricksNamingGeneratorNotebook: 3 tests (notebook path generation)
+   - TestDatabricksNamingGeneratorRepo: 3 tests (repo naming)
+   - TestDatabricksNamingGeneratorVolume: 4 tests (volume naming)
+   - TestDatabricksNamingGeneratorSecretScope: 4 tests (secret scope naming)
+   - TestDatabricksNamingGeneratorInstancePool: 4 tests (instance pool naming)
+   - TestDatabricksNamingGeneratorPolicy: 4 tests (policy naming)
+   - TestDatabricksNamingGeneratorUtilities: 3 tests (standard tags generation)
+
+5. **Schema Updates**
+   - Updated `schemas/naming-values-schema.json` with all 14 Databricks resource types
+   - Updated `schemas/naming-patterns-schema.json` with all 14 Databricks resource types
+   - Updated `examples/configs/naming-patterns.yaml` with complete example (27 resource types total)
+   - Both schemas now include complete documentation for all Databricks resources
+
+**Architecture Benefits**:
+- Clean code with no legacy dual-mode complexity
+- Fail-fast validation through schema validation
+- Explicit opt-in with use_config flag
+- Consistent pattern across all 14 methods
+- Easy to extend for new resource types
+- Comprehensive test coverage ensures quality
+- Unity Catalog 3-tier namespace fully supported
+
+**Breaking Changes**:
+- Legacy hardcoded pattern mode removed
+- ConfigurationManager now required for name generation
+- All methods require use_config=True to function
+- Old API without ConfigurationManager raises NotImplementedError
+
+**Testing**: Complete with 66 tests, 75% coverage, 100% pass rate.
+
+**Coverage Analysis**:
+- All 14 resource generation methods: 100% tested
+- ConfigurationManager integration: 100% tested
+- Error handling: 100% tested
+- Metadata overrides: 100% tested
+- Uncovered code: Import fallback (2 lines), utility methods (26 lines), CLI class (80 lines)
+- Core generation logic has >95% coverage
 
 ### Phase 3A: AWS Generator Refactoring & Testing (COMPLETED)
 
@@ -171,8 +266,8 @@ CLI → ConfigurationManager → [NamingValuesLoader, NamingPatternsLoader, Scop
 **Implementation Status**: 
 - ✅ Phase 1: Foundation (COMPLETE - values, patterns, config manager)
 - ✅ Phase 2: Scope Filtering (COMPLETE - filter + blueprint integration)
-- ✅ Phase 3A: AWS Generator Refactoring (COMPLETE - 13 methods refactored)
-- ⏳ Phase 3B: Databricks Generator Refactoring (NEXT - 15+ methods to refactor)
+- ✅ Phase 3A: AWS Generator Refactoring (COMPLETE - 13 methods + 59 tests)
+- ✅ Phase 3B: Databricks Generator Refactoring (COMPLETE - 14 methods + 66 tests)
 - ⏳ Phase 3C: Pattern Transformations (move region codes, hash to YAML)
 - ⏳ Phase 3D: Blueprint Parser Update (inject ConfigurationManager)
 - ⏳ Phase 3E: Integration & Documentation

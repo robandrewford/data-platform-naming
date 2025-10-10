@@ -103,7 +103,6 @@ class DatabricksNamingGenerator:
         if use_config:
             if not configuration_manager:
                 raise ValueError("configuration_manager required when use_config=True")
-            self._validate_patterns_at_init()
     
     def _validate_config(self):
         """Validate configuration parameters"""
@@ -113,40 +112,6 @@ class DatabricksNamingGenerator:
         if not re.match(r'^[a-z0-9-]+$', self.config.project):
             raise ValueError(f"Invalid project name: {self.config.project}")
     
-    def _validate_patterns_at_init(self) -> None:
-        """
-        Validate all required Databricks patterns exist in configuration.
-        Fail-fast approach - catches configuration errors at initialization.
-        
-        Raises:
-            ValueError: If any required pattern is missing
-        """
-        required_patterns = [
-            'databricks_workspace',
-            'databricks_cluster',
-            'databricks_job',
-            'databricks_notebook_path',
-            'databricks_repo',
-            'databricks_pipeline',
-            'databricks_sql_warehouse',
-            'databricks_catalog',
-            'databricks_schema',
-            'databricks_table',
-            'databricks_volume',
-            'databricks_secret_scope',
-            'databricks_instance_pool',
-            'databricks_policy',
-        ]
-        
-        missing = []
-        for pattern_name in required_patterns:
-            if not self.configuration_manager.has_pattern(pattern_name):
-                missing.append(pattern_name)
-        
-        if missing:
-            raise ValueError(
-                f"Missing required patterns in configuration: {', '.join(missing)}"
-            )
     
     def _generate_with_config(self,
                              resource_type: str,
@@ -197,13 +162,15 @@ class DatabricksNamingGenerator:
         # Generate name using ConfigurationManager
         result = self.configuration_manager.generate_name(
             resource_type=resource_type,
-            values=values
+            environment=self.config.environment,
+            blueprint_metadata=metadata,
+            value_overrides=values
         )
         
         if not result.is_valid:
             raise ValueError(f"Generated invalid name: {', '.join(result.validation_errors)}")
         
-        return result.generated_name
+        return result.name
     
     def _sanitize_name(self, name: str, resource_type: DatabricksResourceType) -> str:
         """Sanitize name based on resource type constraints"""
@@ -264,7 +231,7 @@ class DatabricksNamingGenerator:
         """
         params = {'purpose': purpose}
         return self._generate_with_config(
-            resource_type='databricks_workspace',
+            resource_type='dbx_workspace',
             method_params=params,
             metadata=metadata
         )
@@ -304,7 +271,7 @@ class DatabricksNamingGenerator:
             params['version'] = version
         
         return self._generate_with_config(
-            resource_type='databricks_cluster',
+            resource_type='dbx_cluster',
             method_params=params,
             metadata=metadata
         )
@@ -344,7 +311,7 @@ class DatabricksNamingGenerator:
             params['schedule'] = schedule
         
         return self._generate_with_config(
-            resource_type='databricks_job',
+            resource_type='dbx_job',
             method_params=params,
             metadata=metadata
         )
@@ -382,7 +349,7 @@ class DatabricksNamingGenerator:
             'notebook_name': notebook_name,
         }
         return self._generate_with_config(
-            resource_type='databricks_notebook_path',
+            resource_type='dbx_notebook_path',
             method_params=params,
             metadata=metadata
         )
@@ -412,7 +379,7 @@ class DatabricksNamingGenerator:
         """
         params = {'repo_purpose': repo_purpose}
         return self._generate_with_config(
-            resource_type='databricks_repo',
+            resource_type='dbx_repo',
             method_params=params,
             metadata=metadata
         )
@@ -450,7 +417,7 @@ class DatabricksNamingGenerator:
             'pipeline_type': pipeline_type,
         }
         return self._generate_with_config(
-            resource_type='databricks_pipeline',
+            resource_type='dbx_pipeline',
             method_params=params,
             metadata=metadata
         )
@@ -485,7 +452,7 @@ class DatabricksNamingGenerator:
             'purpose': purpose,
         }
         return self._generate_with_config(
-            resource_type='databricks_sql_warehouse',
+            resource_type='dbx_sql_warehouse',
             method_params=params,
             metadata=metadata
         )
@@ -515,7 +482,7 @@ class DatabricksNamingGenerator:
         """
         params = {'catalog_type': catalog_type}
         return self._generate_with_config(
-            resource_type='databricks_catalog',
+            resource_type='dbx_catalog',
             method_params=params,
             metadata=metadata
         )
@@ -550,7 +517,7 @@ class DatabricksNamingGenerator:
             'layer': layer,
         }
         return self._generate_with_config(
-            resource_type='databricks_schema',
+            resource_type='dbx_schema',
             method_params=params,
             metadata=metadata
         )
@@ -585,7 +552,7 @@ class DatabricksNamingGenerator:
             'table_type': table_type,
         }
         return self._generate_with_config(
-            resource_type='databricks_table',
+            resource_type='dbx_table',
             method_params=params,
             metadata=metadata
         )
@@ -620,7 +587,7 @@ class DatabricksNamingGenerator:
             'data_type': data_type,
         }
         return self._generate_with_config(
-            resource_type='databricks_volume',
+            resource_type='dbx_volume',
             method_params=params,
             metadata=metadata
         )
@@ -650,7 +617,7 @@ class DatabricksNamingGenerator:
         """
         params = {'purpose': purpose}
         return self._generate_with_config(
-            resource_type='databricks_secret_scope',
+            resource_type='dbx_secret_scope',
             method_params=params,
             metadata=metadata
         )
@@ -685,7 +652,7 @@ class DatabricksNamingGenerator:
             'purpose': purpose,
         }
         return self._generate_with_config(
-            resource_type='databricks_instance_pool',
+            resource_type='dbx_instance_pool',
             method_params=params,
             metadata=metadata
         )
@@ -720,7 +687,7 @@ class DatabricksNamingGenerator:
             'target': target,
         }
         return self._generate_with_config(
-            resource_type='databricks_policy',
+            resource_type='dbx_policy',
             method_params=params,
             metadata=metadata
         )

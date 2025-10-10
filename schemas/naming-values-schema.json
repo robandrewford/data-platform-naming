@@ -29,7 +29,7 @@
       "type": "object",
       "description": "Resource-type-specific value overrides (high precedence)",
       "propertyNames": {
-        "pattern": "^(aws_s3_bucket|aws_glue_database|aws_glue_table|aws_glue_crawler|aws_lambda_function|aws_iam_role|aws_iam_policy|aws_kinesis_stream|aws_kinesis_firehose|aws_dynamodb_table|aws_sns_topic|aws_sqs_queue|aws_step_function|dbx_cluster|dbx_job|dbx_catalog|dbx_schema|dbx_table)$"
+        "pattern": "^(aws_s3_bucket|aws_glue_database|aws_glue_table|aws_glue_crawler|aws_lambda_function|aws_iam_role|aws_iam_policy|aws_kinesis_stream|aws_kinesis_firehose|aws_dynamodb_table|aws_sns_topic|aws_sqs_queue|aws_step_function|dbx_workspace|dbx_cluster|dbx_job|dbx_notebook_path|dbx_repo|dbx_pipeline|dbx_sql_warehouse|dbx_catalog|dbx_schema|dbx_table|dbx_volume|dbx_secret_scope|dbx_instance_pool|dbx_policy)$"
       },
       "additionalProperties": {
         "$ref": "#/definitions/values"

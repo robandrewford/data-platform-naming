@@ -17,12 +17,57 @@ patterns:
   aws_glue_table: "{table_type}_{entity}"
   # Example: fact_sales or dim_customers
   
+  aws_glue_crawler: "{project}-{environment}-crawler-{database}-{source}"
+  # Example: dataplatform-prd-crawler-sales-s3
+  
+  aws_lambda_function: "{project}-{environment}-{domain}-{trigger}-{action}"
+  # Example: dataplatform-prd-sales-s3-process
+  
+  aws_iam_role: "{project}-{environment}-{service}-{purpose}-role"
+  # Example: dataplatform-prd-lambda-execution-role
+  
+  aws_iam_policy: "{project}-{environment}-{service}-{purpose}-policy"
+  # Example: dataplatform-prd-s3-read-policy
+  
+  aws_kinesis_stream: "{project}-{environment}-{domain}-{source}-stream"
+  # Example: dataplatform-prd-events-api-stream
+  
+  aws_kinesis_firehose: "{project}-{environment}-{domain}-to-{destination}"
+  # Example: dataplatform-prd-logs-to-s3
+  
+  aws_dynamodb_table: "{project}-{environment}-{entity}-{purpose}"
+  # Example: dataplatform-prd-session-cache
+  
+  aws_sns_topic: "{project}-{environment}-{event_type}-{purpose}"
+  # Example: dataplatform-prd-data-processed
+  
+  aws_sqs_queue: "{project}-{environment}-{purpose}-{queue_type}"
+  # Example: dataplatform-prd-processing-fifo
+  
+  aws_step_function: "{project}-{environment}-{workflow}-{purpose}"
+  # Example: dataplatform-prd-etl-orchestration
+  
   # Databricks Resources
+  dbx_workspace: "dbx-{project}-{purpose}-{environment}-{region_short}"
+  # Example: dbx-dataplatform-analytics-prd-use1
+  
   dbx_cluster: "{project}-{workload}-{cluster_type}-{environment}"
   # Example: dataplatform-etl-shared-prd
   
   dbx_job: "{project}-{job_type}-{purpose}-{schedule}-{environment}"
   # Example: dataplatform-batch-transformation-daily-prd
+  
+  dbx_notebook_path: "/{project}/{domain}/{purpose}/{environment}/{notebook_name}"
+  # Example: /dataplatform/finance/etl/prd/customer-load
+  
+  dbx_repo: "{project}-{repo_purpose}-{environment}"
+  # Example: dataplatform-etl-prd
+  
+  dbx_pipeline: "{project}-{pipeline_type}-{source}-{target}-{environment}"
+  # Example: dataplatform-dlt-kafka-events-prd
+  
+  dbx_sql_warehouse: "{project}-sql-{purpose}-{size}-{environment}"
+  # Example: dataplatform-sql-analytics-medium-prd
   
   # Unity Catalog (3-tier namespace)
   dbx_catalog: "{project}_{catalog_type}_{environment}"
@@ -33,6 +78,18 @@ patterns:
   
   dbx_table: "{table_type}_{entity}"
   # Example: fact_sales or dim_customers
+  
+  dbx_volume: "{data_type}_{purpose}"
+  # Example: raw_landing
+  
+  dbx_secret_scope: "{project}-{purpose}-{environment}"
+  # Example: dataplatform-aws-prd
+  
+  dbx_instance_pool: "{project}-pool-{node_type}-{purpose}-{environment}"
+  # Example: dataplatform-pool-compute-etl-prd
+  
+  dbx_policy: "{project}-{target}-{policy_type}-{environment}"
+  # Example: dataplatform-cluster-security-prd
 
 # Optional transformations applied to variables before substitution
 transformations:
