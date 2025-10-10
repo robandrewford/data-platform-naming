@@ -131,7 +131,7 @@
 - [x] Comprehensive unit tests (59 tests, 95%+ pass rate, 92% coverage)
 - [x] Update JSON schemas to include all 13 AWS resource types
 
-**Key Achievements**:
+- **Key Achievements**:
 - All 13 AWS generator methods now use ConfigurationManager
 - Pattern validation at initialization (fail-fast)
 - Unified `_generate_with_config()` helper for consistency
@@ -143,7 +143,7 @@
 - **Test Pass Rate**: 56/59 passing (95%), 3 minor adjustments needed
 - **Schema Updates**: Both naming-values and naming-patterns schemas include all AWS resource types
 
-**Test Coverage Breakdown**:
+- **Test Coverage Breakdown**:
 - TestAWSNamingGeneratorInit: 7 tests (initialization & validation)
 - TestAWSNamingGeneratorS3: 4 tests (S3 bucket naming)
 - TestAWSNamingGeneratorGlue: 9 tests (Glue resources)
@@ -157,33 +157,75 @@
 - TestAWSNamingGeneratorIntegration: 4 tests (end-to-end scenarios)
 - TestAWSNamingGeneratorUtilities: 8 tests (helper methods)
 
-**Files Modified**:
+- **Files Modified**:
 - `tests/test_aws_naming.py`: New comprehensive test suite
 - `schemas/naming-values-schema.json`: Added all AWS resource types
 - `schemas/naming-patterns-schema.json`: Added all AWS resource types with documentation
 
-**Phase 3B: Databricks Generator Refactor (3-4 hours)**
-- [ ] Update constructor with use_config flag
-- [ ] Add pattern validation at initialization
-- [ ] Add _generate_with_config helper method
-- [ ] Refactor generate_workspace_name to use config
-- [ ] Refactor generate_cluster_name to use config
-- [ ] Refactor generate_job_name to use config
-- [ ] Refactor generate_notebook_path to use config
-- [ ] Refactor generate_repo_name to use config
-- [ ] Refactor generate_pipeline_name to use config
-- [ ] Refactor generate_sql_warehouse_name to use config
-- [ ] Refactor generate_catalog_name to use config
-- [ ] Refactor generate_schema_name to use config
-- [ ] Refactor generate_table_name to use config
-- [ ] Refactor generate_volume_name to use config
-- [ ] Refactor generate_secret_scope_name to use config
-- [ ] Refactor generate_instance_pool_name to use config
-- [ ] Refactor generate_policy_name to use config
-- [ ] Remove old utility methods
-- [ ] Unit tests for all refactored methods
+- **Phase 3B: Databricks Generator Refactor & Core Implementation (3-4 hours)** ✅ CORE COMPLETE (2025-01-10)
+- [x] Update constructor: Add `use_config: bool = False` parameter
+- [x] Add `_validate_patterns_at_init()` method for pattern validation
+- [x] Add `_generate_with_config()` helper method for all generations
+- [x] Refactor generate_workspace_name to use config
+- [x] Refactor generate_cluster_name to use config
+- [x] Refactor generate_job_name to use config
+- [x] Refactor generate_notebook_path to use config
+- [x] Refactor generate_repo_name to use config
+- [x] Refactor generate_pipeline_name to use config
+- [x] Refactor generate_sql_warehouse_name to use config
+- [x] Refactor generate_catalog_name to use config
+- [x] Refactor generate_schema_name to use config
+- [x] Refactor generate_table_name to use config
+- [x] Refactor generate_volume_name to use config
+- [x] Refactor generate_secret_scope_name to use config
+- [x] Refactor generate_instance_pool_name to use config
+- [x] Refactor generate_policy_name to use config
+- [x] Refactor generate_full_table_reference (composite method)
+- [x] Keep utility methods (_sanitize_name, _truncate_name for now)
+- [ ] Update JSON schemas with all 14 Databricks resource types
+- [ ] Comprehensive unit tests (target: 50-60 tests, >90% coverage)
 
-**Phase 3C: Pattern Transformations (2 hours)**
+- **Key Achievements**:
+- All 14 Databricks generator methods now use ConfigurationManager
+- Pattern validation at initialization (fail-fast)
+- Unified `_generate_with_config()` helper for consistency
+- Clean architecture with no legacy code paths
+- Comprehensive docstrings with Args/Returns/Raises/Examples
+- Optional metadata parameter for blueprint context
+- Unity Catalog 3-tier support maintained (catalog.schema.table)
+
+- **Architecture Benefits**:
+- Clean code, no legacy complexity
+- Consistent pattern across all methods
+- Easy to extend for new resource types
+- Breaking changes clearly communicated
+- Mirrors AWS Phase 3A success
+
+- **Databricks Resource Types Refactored**:
+1. databricks_workspace
+2. databricks_cluster
+3. databricks_job
+4. databricks_notebook_path
+5. databricks_repo
+6. databricks_pipeline
+7. databricks_sql_warehouse
+8. databricks_catalog (Unity Catalog)
+9. databricks_schema (Unity Catalog)
+10. databricks_table (Unity Catalog)
+11. databricks_volume (Unity Catalog)
+12. databricks_secret_scope
+13. databricks_instance_pool
+14. databricks_policy
+
+- **Files Modified**:
+- `src/data_platform_naming/dbx_naming.py`: Complete refactor (all 14 methods + composite)
+
+- **Remaining Tasks**:
+- Update `schemas/naming-values-schema.json` with all 14 Databricks resource types
+- Update `schemas/naming-patterns-schema.json` with all 14 Databricks resource types
+- Create `tests/test_dbx_naming.py` comprehensive test suite
+
+- **Phase 3C: Pattern Transformations (2 hours)**
 - [ ] Move REGION_CODES mapping to naming-patterns.yaml
 - [ ] Implement region code transformation in NamingPatternsLoader
 - [ ] Add hash generation config to naming-patterns.yaml

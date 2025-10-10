@@ -14,20 +14,23 @@ The data-platform-naming project is in a **Beta state (v0.1.0)** with core funct
 - ✅ Documentation complete (README, naming guides, CRUD docs)
 - ✅ Configuration system foundation complete (values, patterns, scope filter)
 - ✅ **AWS Generator refactored to use ConfigurationManager** (Phase 3A complete!)
-- ⚠️ Databricks generator refactoring in progress
+- ✅ **Databricks Generator refactored to use ConfigurationManager** (Phase 3B complete!)
+- ⚠️ JSON schemas need Databricks resource types added
+- ⚠️ Databricks generator tests needed (comprehensive test suite)
 - ⚠️ Databricks SDK integration in progress (currently using requests library)
 - ⚠️ Update command declared but not fully implemented
 - ⚠️ No integration tests with real cloud accounts yet
 
 ### Active Areas
 
-**Current Status**: Implementing Phase 3B - Databricks Generator Refactoring.
+**Current Status**: Phase 3B Complete - Need to add schemas and tests for Databricks.
 
 **Development Phase**: Beta (v0.1.0) - functional with major refactoring underway.
 
 **Active Development**: Configuration-based naming system implementation (Phase 3):
 - ✅ Phase 3A: AWS Generator refactored to use patterns + values (COMPLETE)
-- ⏳ Phase 3B: Databricks Generator refactoring (NEXT)
+- ✅ Phase 3B: Databricks Generator refactored to use patterns + values (COMPLETE)
+- ⏳ Phase 3B Remaining: Update JSON schemas + create test suite
 - ⏳ Phase 3C: Move transformations to patterns (region codes, hash generation)
 - ⏳ Phase 3D: Update blueprint parser to inject ConfigurationManager
 - ⏳ Phase 3E: Integration testing and documentation

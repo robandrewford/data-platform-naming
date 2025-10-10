@@ -7,9 +7,15 @@ Integrates with existing AWS naming conventions
 
 import re
 import json
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 from enum import Enum
+
+# Import ConfigurationManager for config-based name generation
+try:
+    from .config.configuration_manager import ConfigurationManager
+except ImportError:
+    ConfigurationManager = None  # Make optional for backwards compatibility
 
 
 class DatabricksResourceType(Enum):
@@ -72,9 +78,32 @@ class DatabricksNamingGenerator:
         DatabricksResourceType.VOLUME: r'^[a-zA-Z0-9_]+$',
     }
     
-    def __init__(self, config: DatabricksNamingConfig):
+    def __init__(self, 
+                 config: DatabricksNamingConfig,
+                 configuration_manager: Optional['ConfigurationManager'] = None,
+                 use_config: bool = False):
+        """
+        Initialize Databricks naming generator.
+        
+        Args:
+            config: Databricks naming configuration
+            configuration_manager: Optional configuration manager for pattern-based generation
+            use_config: If True, use ConfigurationManager for name generation
+        
+        Raises:
+            ValueError: If use_config=True but configuration_manager not provided
+            ValueError: If required patterns missing from configuration
+        """
         self.config = config
+        self.configuration_manager = configuration_manager
+        self.use_config = use_config
+        
         self._validate_config()
+        
+        if use_config:
+            if not configuration_manager:
+                raise ValueError("configuration_manager required when use_config=True")
+            self._validate_patterns_at_init()
     
     def _validate_config(self):
         """Validate configuration parameters"""
@@ -83,6 +112,98 @@ class DatabricksNamingGenerator:
         
         if not re.match(r'^[a-z0-9-]+$', self.config.project):
             raise ValueError(f"Invalid project name: {self.config.project}")
+    
+    def _validate_patterns_at_init(self) -> None:
+        """
+        Validate all required Databricks patterns exist in configuration.
+        Fail-fast approach - catches configuration errors at initialization.
+        
+        Raises:
+            ValueError: If any required pattern is missing
+        """
+        required_patterns = [
+            'databricks_workspace',
+            'databricks_cluster',
+            'databricks_job',
+            'databricks_notebook_path',
+            'databricks_repo',
+            'databricks_pipeline',
+            'databricks_sql_warehouse',
+            'databricks_catalog',
+            'databricks_schema',
+            'databricks_table',
+            'databricks_volume',
+            'databricks_secret_scope',
+            'databricks_instance_pool',
+            'databricks_policy',
+        ]
+        
+        missing = []
+        for pattern_name in required_patterns:
+            if not self.configuration_manager.has_pattern(pattern_name):
+                missing.append(pattern_name)
+        
+        if missing:
+            raise ValueError(
+                f"Missing required patterns in configuration: {', '.join(missing)}"
+            )
+    
+    def _generate_with_config(self,
+                             resource_type: str,
+                             method_params: Dict[str, Any],
+                             metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate resource name using ConfigurationManager.
+        
+        Args:
+            resource_type: Databricks resource type (e.g., 'databricks_cluster')
+            method_params: Parameters from the calling method
+            metadata: Optional blueprint metadata for value precedence
+        
+        Returns:
+            Generated resource name
+        
+        Raises:
+            ValueError: If name generation fails
+            NotImplementedError: If use_config=False
+        """
+        if not self.use_config:
+            raise NotImplementedError(
+                "Config-based generation required. Set use_config=True and provide "
+                "ConfigurationManager with pattern definitions."
+            )
+        
+        # Merge config values with method params
+        values = {
+            'environment': self.config.environment,
+            'project': self.config.project,
+            'region': self.config.region,
+        }
+        
+        if self.config.team:
+            values['team'] = self.config.team
+        if self.config.cost_center:
+            values['cost_center'] = self.config.cost_center
+        if self.config.data_classification:
+            values['data_classification'] = self.config.data_classification
+        
+        # Add method-specific parameters
+        values.update(method_params)
+        
+        # Add metadata if provided (highest precedence)
+        if metadata:
+            values.update(metadata)
+        
+        # Generate name using ConfigurationManager
+        result = self.configuration_manager.generate_name(
+            resource_type=resource_type,
+            values=values
+        )
+        
+        if not result.is_valid:
+            raise ValueError(f"Generated invalid name: {', '.join(result.validation_errors)}")
+        
+        return result.generated_name
     
     def _sanitize_name(self, name: str, resource_type: DatabricksResourceType) -> str:
         """Sanitize name based on resource type constraints"""
@@ -118,277 +239,490 @@ class DatabricksNamingGenerator:
         prefix = name[:prefix_length]
         return f"{prefix}-{suffix}"
     
-    def generate_workspace_name(self, purpose: str = "data") -> str:
-        """Generate workspace name"""
-        parts = [
-            "dbx",
-            self.config.project,
-            purpose,
-            self.config.environment,
-            self.config.region.replace('-', '')
-        ]
-        name = '-'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, DatabricksResourceType.WORKSPACE),
-            DatabricksResourceType.WORKSPACE
+    def generate_workspace_name(self, 
+                               purpose: str = "data",
+                               metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate Databricks workspace name.
+        
+        Args:
+            purpose: Workspace purpose (data, analytics, ml, etc.)
+            metadata: Optional blueprint metadata for value precedence
+        
+        Returns:
+            Generated workspace name
+        
+        Raises:
+            ValueError: If name generation fails
+            NotImplementedError: If use_config=False
+        
+        Example:
+            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> name = gen.generate_workspace_name('analytics')
+            >>> print(name)
+            'dbx-dataplatform-analytics-prd-useast1'
+        """
+        params = {'purpose': purpose}
+        return self._generate_with_config(
+            resource_type='databricks_workspace',
+            method_params=params,
+            metadata=metadata
         )
     
     def generate_cluster_name(self, 
                             workload: str,
                             cluster_type: str = "shared",
-                            version: Optional[str] = None) -> str:
-        """Generate cluster name
+                            version: Optional[str] = None,
+                            metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate Databricks cluster name.
         
         Args:
             workload: Workload identifier (etl, ml, analytics, etc.)
             cluster_type: shared, dedicated, or job
             version: Optional version suffix
-        """
-        parts = [
-            self.config.project,
-            workload,
-            cluster_type,
-            self.config.environment
-        ]
-        if version:
-            parts.append(f"v{version}")
+            metadata: Optional blueprint metadata for value precedence
         
-        name = '-'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, DatabricksResourceType.CLUSTER),
-            DatabricksResourceType.CLUSTER
+        Returns:
+            Generated cluster name
+        
+        Raises:
+            ValueError: If name generation fails
+            NotImplementedError: If use_config=False
+        
+        Example:
+            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> name = gen.generate_cluster_name('etl', 'shared')
+            >>> print(name)
+            'dataplatform-etl-shared-prd'
+        """
+        params = {
+            'workload': workload,
+            'cluster_type': cluster_type,
+        }
+        if version:
+            params['version'] = version
+        
+        return self._generate_with_config(
+            resource_type='databricks_cluster',
+            method_params=params,
+            metadata=metadata
         )
     
     def generate_job_name(self,
                          job_type: str,
                          purpose: str,
-                         schedule: Optional[str] = None) -> str:
-        """Generate job name
+                         schedule: Optional[str] = None,
+                         metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate Databricks job name.
         
         Args:
             job_type: batch, streaming, ml, etc.
             purpose: Business purpose or data domain
             schedule: Optional schedule indicator (daily, hourly, etc.)
-        """
-        parts = [
-            self.config.project,
-            job_type,
-            purpose,
-            self.config.environment
-        ]
-        if schedule:
-            parts.append(schedule)
+            metadata: Optional blueprint metadata for value precedence
         
-        name = '-'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, DatabricksResourceType.JOB),
-            DatabricksResourceType.JOB
+        Returns:
+            Generated job name
+        
+        Raises:
+            ValueError: If name generation fails
+            NotImplementedError: If use_config=False
+        
+        Example:
+            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> name = gen.generate_job_name('batch', 'customer-load', 'daily')
+            >>> print(name)
+            'dataplatform-batch-customer-load-prd-daily'
+        """
+        params = {
+            'job_type': job_type,
+            'purpose': purpose,
+        }
+        if schedule:
+            params['schedule'] = schedule
+        
+        return self._generate_with_config(
+            resource_type='databricks_job',
+            method_params=params,
+            metadata=metadata
         )
     
     def generate_notebook_path(self,
                               domain: str,
                               purpose: str,
-                              notebook_name: str) -> str:
-        """Generate notebook path
+                              notebook_name: str,
+                              metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate Databricks notebook path.
         
         Args:
             domain: Data domain (finance, marketing, etc.)
             purpose: etl, analysis, ml, etc.
             notebook_name: Descriptive notebook name
+            metadata: Optional blueprint metadata for value precedence
+        
+        Returns:
+            Generated notebook path (starts with /)
+        
+        Raises:
+            ValueError: If name generation fails
+            NotImplementedError: If use_config=False
+        
+        Example:
+            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> path = gen.generate_notebook_path('finance', 'etl', 'customer-load')
+            >>> print(path)
+            '/dataplatform/finance/etl/prd/customer-load'
         """
-        parts = [
-            self.config.project,
-            domain,
-            purpose,
-            self.config.environment,
-            notebook_name
-        ]
-        path = '/'.join(parts)
-        return f"/{path}"
+        params = {
+            'domain': domain,
+            'purpose': purpose,
+            'notebook_name': notebook_name,
+        }
+        return self._generate_with_config(
+            resource_type='databricks_notebook_path',
+            method_params=params,
+            metadata=metadata
+        )
     
-    def generate_repo_name(self, repo_purpose: str) -> str:
-        """Generate Git repo integration name"""
-        parts = [
-            self.config.project,
-            repo_purpose,
-            self.config.environment
-        ]
-        name = '-'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, DatabricksResourceType.REPO),
-            DatabricksResourceType.REPO
+    def generate_repo_name(self, 
+                          repo_purpose: str,
+                          metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate Git repo integration name.
+        
+        Args:
+            repo_purpose: Repository purpose (code, notebooks, pipelines, etc.)
+            metadata: Optional blueprint metadata for value precedence
+        
+        Returns:
+            Generated repo name
+        
+        Raises:
+            ValueError: If name generation fails
+            NotImplementedError: If use_config=False
+        
+        Example:
+            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> name = gen.generate_repo_name('etl')
+            >>> print(name)
+            'dataplatform-etl-prd'
+        """
+        params = {'repo_purpose': repo_purpose}
+        return self._generate_with_config(
+            resource_type='databricks_repo',
+            method_params=params,
+            metadata=metadata
         )
     
     def generate_pipeline_name(self,
                               source: str,
                               target: str,
-                              pipeline_type: str = "dlt") -> str:
-        """Generate Delta Live Tables pipeline name
+                              pipeline_type: str = "dlt",
+                              metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate Delta Live Tables pipeline name.
         
         Args:
             source: Source system or data domain
             target: Target table/dataset
             pipeline_type: dlt (Delta Live Tables) or other
+            metadata: Optional blueprint metadata for value precedence
+        
+        Returns:
+            Generated pipeline name
+        
+        Raises:
+            ValueError: If name generation fails
+            NotImplementedError: If use_config=False
+        
+        Example:
+            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> name = gen.generate_pipeline_name('kafka', 'events', 'dlt')
+            >>> print(name)
+            'dataplatform-dlt-kafka-events-prd'
         """
-        parts = [
-            self.config.project,
-            pipeline_type,
-            source,
-            target,
-            self.config.environment
-        ]
-        name = '-'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, DatabricksResourceType.PIPELINE),
-            DatabricksResourceType.PIPELINE
+        params = {
+            'source': source,
+            'target': target,
+            'pipeline_type': pipeline_type,
+        }
+        return self._generate_with_config(
+            resource_type='databricks_pipeline',
+            method_params=params,
+            metadata=metadata
         )
     
     def generate_sql_warehouse_name(self,
                                    size: str = "medium",
-                                   purpose: str = "analytics") -> str:
-        """Generate SQL warehouse name
+                                   purpose: str = "analytics",
+                                   metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate SQL warehouse name.
         
         Args:
             size: small, medium, large, xlarge
             purpose: analytics, reporting, adhoc
+            metadata: Optional blueprint metadata for value precedence
+        
+        Returns:
+            Generated SQL warehouse name
+        
+        Raises:
+            ValueError: If name generation fails
+            NotImplementedError: If use_config=False
+        
+        Example:
+            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> name = gen.generate_sql_warehouse_name('medium', 'analytics')
+            >>> print(name)
+            'dataplatform-sql-analytics-medium-prd'
         """
-        parts = [
-            self.config.project,
-            "sql",
-            purpose,
-            size,
-            self.config.environment
-        ]
-        name = '-'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, DatabricksResourceType.SQL_WAREHOUSE),
-            DatabricksResourceType.SQL_WAREHOUSE
+        params = {
+            'size': size,
+            'purpose': purpose,
+        }
+        return self._generate_with_config(
+            resource_type='databricks_sql_warehouse',
+            method_params=params,
+            metadata=metadata
         )
     
-    def generate_catalog_name(self, catalog_type: str = "main") -> str:
-        """Generate Unity Catalog catalog name
+    def generate_catalog_name(self, 
+                             catalog_type: str = "main",
+                             metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate Unity Catalog catalog name.
         
         Args:
             catalog_type: main, dev, test, sandbox
+            metadata: Optional blueprint metadata for value precedence
+        
+        Returns:
+            Generated catalog name (uses underscores)
+        
+        Raises:
+            ValueError: If name generation fails
+            NotImplementedError: If use_config=False
+        
+        Example:
+            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> name = gen.generate_catalog_name('main')
+            >>> print(name)
+            'dataplatform_main_prd'
         """
-        parts = [
-            self.config.project,
-            catalog_type,
-            self.config.environment
-        ]
-        name = '_'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, DatabricksResourceType.CATALOG),
-            DatabricksResourceType.CATALOG
+        params = {'catalog_type': catalog_type}
+        return self._generate_with_config(
+            resource_type='databricks_catalog',
+            method_params=params,
+            metadata=metadata
         )
     
     def generate_schema_name(self,
                            domain: str,
-                           layer: str = "bronze") -> str:
-        """Generate Unity Catalog schema name
+                           layer: str = "bronze",
+                           metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate Unity Catalog schema name.
         
         Args:
             domain: Data domain (finance, marketing, etc.)
             layer: bronze, silver, gold (medallion architecture)
+            metadata: Optional blueprint metadata for value precedence
+        
+        Returns:
+            Generated schema name (uses underscores)
+        
+        Raises:
+            ValueError: If name generation fails
+            NotImplementedError: If use_config=False
+        
+        Example:
+            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> name = gen.generate_schema_name('finance', 'gold')
+            >>> print(name)
+            'finance_gold'
         """
-        parts = [domain, layer]
-        name = '_'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, DatabricksResourceType.SCHEMA),
-            DatabricksResourceType.SCHEMA
+        params = {
+            'domain': domain,
+            'layer': layer,
+        }
+        return self._generate_with_config(
+            resource_type='databricks_schema',
+            method_params=params,
+            metadata=metadata
         )
     
     def generate_table_name(self,
                           entity: str,
-                          table_type: str = "fact") -> str:
-        """Generate Unity Catalog table name
+                          table_type: str = "fact",
+                          metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate Unity Catalog table name.
         
         Args:
             entity: Business entity (customers, orders, etc.)
             table_type: fact, dim, bridge, etc.
-        """
-        if table_type == "fact":
-            name = f"fact_{entity}"
-        elif table_type == "dim":
-            name = f"dim_{entity}"
-        else:
-            name = f"{table_type}_{entity}"
+            metadata: Optional blueprint metadata for value precedence
         
-        return self._truncate_name(
-            self._sanitize_name(name, DatabricksResourceType.TABLE),
-            DatabricksResourceType.TABLE
+        Returns:
+            Generated table name (uses underscores with type prefix)
+        
+        Raises:
+            ValueError: If name generation fails
+            NotImplementedError: If use_config=False
+        
+        Example:
+            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> name = gen.generate_table_name('customers', 'dim')
+            >>> print(name)
+            'dim_customers'
+        """
+        params = {
+            'entity': entity,
+            'table_type': table_type,
+        }
+        return self._generate_with_config(
+            resource_type='databricks_table',
+            method_params=params,
+            metadata=metadata
         )
     
     def generate_volume_name(self,
                            purpose: str,
-                           data_type: str = "raw") -> str:
-        """Generate Unity Catalog volume name
+                           data_type: str = "raw",
+                           metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate Unity Catalog volume name.
         
         Args:
             purpose: Business purpose
             data_type: raw, processed, archive
+            metadata: Optional blueprint metadata for value precedence
+        
+        Returns:
+            Generated volume name (uses underscores)
+        
+        Raises:
+            ValueError: If name generation fails
+            NotImplementedError: If use_config=False
+        
+        Example:
+            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> name = gen.generate_volume_name('landing', 'raw')
+            >>> print(name)
+            'raw_landing'
         """
-        parts = [data_type, purpose]
-        name = '_'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, DatabricksResourceType.VOLUME),
-            DatabricksResourceType.VOLUME
+        params = {
+            'purpose': purpose,
+            'data_type': data_type,
+        }
+        return self._generate_with_config(
+            resource_type='databricks_volume',
+            method_params=params,
+            metadata=metadata
         )
     
-    def generate_secret_scope_name(self, purpose: str = "general") -> str:
-        """Generate secret scope name"""
-        parts = [
-            self.config.project,
-            purpose,
-            self.config.environment
-        ]
-        name = '-'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, DatabricksResourceType.SECRET_SCOPE),
-            DatabricksResourceType.SECRET_SCOPE
+    def generate_secret_scope_name(self, 
+                                  purpose: str = "general",
+                                  metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate secret scope name.
+        
+        Args:
+            purpose: Secret scope purpose (general, aws, azure, etc.)
+            metadata: Optional blueprint metadata for value precedence
+        
+        Returns:
+            Generated secret scope name
+        
+        Raises:
+            ValueError: If name generation fails
+            NotImplementedError: If use_config=False
+        
+        Example:
+            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> name = gen.generate_secret_scope_name('aws')
+            >>> print(name)
+            'dataplatform-aws-prd'
+        """
+        params = {'purpose': purpose}
+        return self._generate_with_config(
+            resource_type='databricks_secret_scope',
+            method_params=params,
+            metadata=metadata
         )
     
     def generate_instance_pool_name(self,
                                    node_type: str,
-                                   purpose: str = "general") -> str:
-        """Generate instance pool name
+                                   purpose: str = "general",
+                                   metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate instance pool name.
         
         Args:
             node_type: Node type identifier (compute, memory, etc.)
             purpose: general, ml, etl
+            metadata: Optional blueprint metadata for value precedence
+        
+        Returns:
+            Generated instance pool name
+        
+        Raises:
+            ValueError: If name generation fails
+            NotImplementedError: If use_config=False
+        
+        Example:
+            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> name = gen.generate_instance_pool_name('compute', 'etl')
+            >>> print(name)
+            'dataplatform-pool-compute-etl-prd'
         """
-        parts = [
-            self.config.project,
-            "pool",
-            node_type,
-            purpose,
-            self.config.environment
-        ]
-        name = '-'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, DatabricksResourceType.INSTANCE_POOL),
-            DatabricksResourceType.INSTANCE_POOL
+        params = {
+            'node_type': node_type,
+            'purpose': purpose,
+        }
+        return self._generate_with_config(
+            resource_type='databricks_instance_pool',
+            method_params=params,
+            metadata=metadata
         )
     
     def generate_policy_name(self,
                            policy_type: str,
-                           target: str = "cluster") -> str:
-        """Generate policy name
+                           target: str = "cluster",
+                           metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate policy name.
         
         Args:
             policy_type: security, cost, performance
             target: cluster, sql, job
+            metadata: Optional blueprint metadata for value precedence
+        
+        Returns:
+            Generated policy name
+        
+        Raises:
+            ValueError: If name generation fails
+            NotImplementedError: If use_config=False
+        
+        Example:
+            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> name = gen.generate_policy_name('security', 'cluster')
+            >>> print(name)
+            'dataplatform-cluster-security-prd'
         """
-        parts = [
-            self.config.project,
-            target,
-            policy_type,
-            self.config.environment
-        ]
-        name = '-'.join(parts)
-        return self._truncate_name(
-            self._sanitize_name(name, DatabricksResourceType.POLICY),
-            DatabricksResourceType.POLICY
+        params = {
+            'policy_type': policy_type,
+            'target': target,
+        }
+        return self._generate_with_config(
+            resource_type='databricks_policy',
+            method_params=params,
+            metadata=metadata
         )
     
     def generate_standard_tags(self, 
@@ -421,11 +755,35 @@ class DatabricksNamingGenerator:
                                      domain: str,
                                      layer: str,
                                      entity: str,
-                                     table_type: str = "fact") -> str:
-        """Generate fully qualified table name"""
-        catalog = self.generate_catalog_name(catalog_type)
-        schema = self.generate_schema_name(domain, layer)
-        table = self.generate_table_name(entity, table_type)
+                                     table_type: str = "fact",
+                                     metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate fully qualified Unity Catalog table reference.
+        
+        Args:
+            catalog_type: main, dev, test, sandbox
+            domain: Data domain (finance, marketing, etc.)
+            layer: bronze, silver, gold (medallion architecture)
+            entity: Business entity (customers, orders, etc.)
+            table_type: fact, dim, bridge, etc.
+            metadata: Optional blueprint metadata for value precedence
+        
+        Returns:
+            Fully qualified table name (catalog.schema.table)
+        
+        Raises:
+            ValueError: If name generation fails
+            NotImplementedError: If use_config=False
+        
+        Example:
+            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> ref = gen.generate_full_table_reference('main', 'finance', 'gold', 'customers', 'dim')
+            >>> print(ref)
+            'dataplatform_main_prd.finance_gold.dim_customers'
+        """
+        catalog = self.generate_catalog_name(catalog_type, metadata)
+        schema = self.generate_schema_name(domain, layer, metadata)
+        table = self.generate_table_name(entity, table_type, metadata)
         return f"{catalog}.{schema}.{table}"
 
 
