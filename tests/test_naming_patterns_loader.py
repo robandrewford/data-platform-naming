@@ -88,18 +88,39 @@ class TestNamingPatternsLoader:
     
     @pytest.fixture
     def valid_config(self):
-        """Valid configuration dict"""
+        """Valid configuration dict with all 27 required resource types"""
         return {
             "version": "1.0",
             "patterns": {
-                "aws_s3_bucket": "{project}-{purpose}-{environment}",
-                "aws_glue_database": "{project}_{domain}_{environment}",
+                # AWS Resources (13 total)
+                "aws_s3_bucket": "{project}-{purpose}-{layer}-{environment}-{region_short}",
+                "aws_glue_database": "{project}_{domain}_{layer}_{environment}",
                 "aws_glue_table": "{table_type}_{entity}",
-                "dbx_cluster": "{project}-{workload}-{environment}",
-                "dbx_job": "{project}-{job_type}-{environment}",
+                "aws_glue_crawler": "{project}-{environment}-crawler-{database}-{source}",
+                "aws_lambda_function": "{project}-{environment}-{domain}-{trigger}-{action}",
+                "aws_iam_role": "{project}-{environment}-{service}-{purpose}-role",
+                "aws_iam_policy": "{project}-{environment}-{service}-{purpose}-policy",
+                "aws_kinesis_stream": "{project}-{environment}-{domain}-{source}-stream",
+                "aws_kinesis_firehose": "{project}-{environment}-{domain}-to-{destination}",
+                "aws_dynamodb_table": "{project}-{environment}-{entity}-{purpose}",
+                "aws_sns_topic": "{project}-{environment}-{event_type}-{purpose}",
+                "aws_sqs_queue": "{project}-{environment}-{purpose}-{queue_type}",
+                "aws_step_function": "{project}-{environment}-{workflow}-{purpose}",
+                # Databricks Resources (14 total)
+                "dbx_workspace": "dbx-{project}-{purpose}-{environment}-{region_short}",
+                "dbx_cluster": "{project}-{workload}-{cluster_type}-{environment}",
+                "dbx_job": "{project}-{job_type}-{purpose}-{schedule}-{environment}",
+                "dbx_notebook_path": "/{project}/{domain}/{purpose}/{environment}/{notebook_name}",
+                "dbx_repo": "{project}-{repo_purpose}-{environment}",
+                "dbx_pipeline": "{project}-{pipeline_type}-{source}-{target}-{environment}",
+                "dbx_sql_warehouse": "{project}-sql-{purpose}-{size}-{environment}",
                 "dbx_catalog": "{project}_{catalog_type}_{environment}",
                 "dbx_schema": "{domain}_{layer}",
-                "dbx_table": "{table_type}_{entity}"
+                "dbx_table": "{table_type}_{entity}",
+                "dbx_volume": "{data_type}_{purpose}",
+                "dbx_secret_scope": "{project}-{purpose}-{environment}",
+                "dbx_instance_pool": "{project}-pool-{node_type}-{purpose}-{environment}",
+                "dbx_policy": "{project}-{target}-{policy_type}-{environment}"
             },
             "transformations": {
                 "region_mapping": {
@@ -110,12 +131,45 @@ class TestNamingPatternsLoader:
                 "uppercase": ["cost_center"],
                 "replace_hyphens": {
                     "project": "_"
+                },
+                "hash_generation": {
+                    "algorithm": "md5",
+                    "length": 8,
+                    "prefix": "",
+                    "separator": "-"
                 }
             },
             "validation": {
                 "max_length": {
+                    # AWS Resources
                     "aws_s3_bucket": 63,
-                    "dbx_cluster": 100
+                    "aws_glue_database": 255,
+                    "aws_glue_table": 255,
+                    "aws_glue_crawler": 255,
+                    "aws_lambda_function": 64,
+                    "aws_iam_role": 64,
+                    "aws_iam_policy": 128,
+                    "aws_kinesis_stream": 128,
+                    "aws_kinesis_firehose": 64,
+                    "aws_dynamodb_table": 255,
+                    "aws_sns_topic": 256,
+                    "aws_sqs_queue": 80,
+                    "aws_step_function": 80,
+                    # Databricks Resources
+                    "dbx_workspace": 100,
+                    "dbx_cluster": 100,
+                    "dbx_job": 200,
+                    "dbx_notebook_path": 512,
+                    "dbx_repo": 100,
+                    "dbx_pipeline": 200,
+                    "dbx_sql_warehouse": 128,
+                    "dbx_catalog": 255,
+                    "dbx_schema": 255,
+                    "dbx_table": 255,
+                    "dbx_volume": 255,
+                    "dbx_secret_scope": 128,
+                    "dbx_instance_pool": 128,
+                    "dbx_policy": 128
                 },
                 "allowed_chars": {
                     "aws_s3_bucket": "^[a-z0-9-]+$",
@@ -239,7 +293,7 @@ class TestNamingPatternsLoader:
         loader.load_from_dict(valid_config)
         
         pattern = loader.get_pattern("aws_s3_bucket")
-        assert pattern.pattern == "{project}-{purpose}-{environment}"
+        assert pattern.pattern == "{project}-{purpose}-{layer}-{environment}-{region_short}"
         assert pattern.resource_type == "aws_s3_bucket"
         assert "project" in pattern.required_variables
     
@@ -264,7 +318,7 @@ class TestNamingPatternsLoader:
         loader.load_from_dict(valid_config)
         
         patterns = loader.get_all_patterns()
-        assert len(patterns) == 8
+        assert len(patterns) == 27  # All 27 resource types
         assert "aws_s3_bucket" in patterns
         assert "dbx_cluster" in patterns
         assert all(isinstance(p, NamingPattern) for p in patterns.values())
@@ -396,7 +450,7 @@ class TestNamingPatternsLoader:
         types = loader.list_resource_types()
         assert "aws_s3_bucket" in types
         assert "dbx_cluster" in types
-        assert len(types) == 8
+        assert len(types) == 27  # All 27 resource types
     
     def test_get_version(self, valid_config):
         """Test getting configuration version"""
@@ -417,7 +471,7 @@ class TestNamingPatternsLoader:
         
         repr_str = repr(loader)
         assert "version=1.0" in repr_str
-        assert "patterns=8" in repr_str
+        assert "patterns=27" in repr_str  # All 27 resource types
         assert "transformations=True" in repr_str
         assert "validation=True" in repr_str
         assert "path=" not in repr_str  # No path when loaded from dict
@@ -429,7 +483,7 @@ class TestNamingPatternsLoader:
         
         repr_str = repr(loader)
         assert "version=1.0" in repr_str
-        assert "patterns=8" in repr_str
+        assert "patterns=27" in repr_str  # All 27 resource types
         assert "path=" in repr_str
         assert str(temp_yaml_file) in repr_str
     
@@ -438,14 +492,34 @@ class TestNamingPatternsLoader:
         minimal_config = {
             "version": "1.0",
             "patterns": {
+                # All 27 required patterns with minimal placeholders
                 "aws_s3_bucket": "{project}",
                 "aws_glue_database": "{project}",
                 "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}",
+                "aws_lambda_function": "{project}",
+                "aws_iam_role": "{project}",
+                "aws_iam_policy": "{project}",
+                "aws_kinesis_stream": "{project}",
+                "aws_kinesis_firehose": "{project}",
+                "aws_dynamodb_table": "{project}",
+                "aws_sns_topic": "{project}",
+                "aws_sqs_queue": "{project}",
+                "aws_step_function": "{project}",
+                "dbx_workspace": "{project}",
                 "dbx_cluster": "{project}",
                 "dbx_job": "{project}",
+                "dbx_notebook_path": "/{project}",
+                "dbx_repo": "{project}",
+                "dbx_pipeline": "{project}",
+                "dbx_sql_warehouse": "{project}",
                 "dbx_catalog": "{project}",
                 "dbx_schema": "{domain}",
-                "dbx_table": "{entity}"
+                "dbx_table": "{entity}",
+                "dbx_volume": "{project}",
+                "dbx_secret_scope": "{project}",
+                "dbx_instance_pool": "{project}",
+                "dbx_policy": "{project}"
             }
         }
         
@@ -479,6 +553,302 @@ class TestNamingPatternsLoader:
         loader = NamingPatternsLoader()
         with pytest.raises(SchemaValidationError):
             loader.load_from_dict(invalid_config)
+
+
+class TestNamingPatternsLoaderHashGeneration:
+    """Test hash generation functionality"""
+    
+    @pytest.fixture
+    def config_with_hash(self):
+        """Configuration with hash generation settings"""
+        return {
+            "version": "1.0",
+            "patterns": {
+                # Minimal patterns to satisfy schema
+                "aws_s3_bucket": "{project}",
+                "aws_glue_database": "{project}",
+                "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}",
+                "aws_lambda_function": "{project}",
+                "aws_iam_role": "{project}",
+                "aws_iam_policy": "{project}",
+                "aws_kinesis_stream": "{project}",
+                "aws_kinesis_firehose": "{project}",
+                "aws_dynamodb_table": "{project}",
+                "aws_sns_topic": "{project}",
+                "aws_sqs_queue": "{project}",
+                "aws_step_function": "{project}",
+                "dbx_workspace": "{project}",
+                "dbx_cluster": "{project}",
+                "dbx_job": "{project}",
+                "dbx_notebook_path": "/{project}",
+                "dbx_repo": "{project}",
+                "dbx_pipeline": "{project}",
+                "dbx_sql_warehouse": "{project}",
+                "dbx_catalog": "{project}",
+                "dbx_schema": "{domain}",
+                "dbx_table": "{entity}",
+                "dbx_volume": "{project}",
+                "dbx_secret_scope": "{project}",
+                "dbx_instance_pool": "{project}",
+                "dbx_policy": "{project}"
+            },
+            "transformations": {
+                "hash_generation": {
+                    "algorithm": "md5",
+                    "length": 8,
+                    "prefix": "",
+                    "separator": "-"
+                }
+            }
+        }
+    
+    def test_generate_hash_default_md5(self, config_with_hash):
+        """Test hash generation with default MD5 algorithm"""
+        loader = NamingPatternsLoader()
+        loader.load_from_dict(config_with_hash)
+        
+        hash_value = loader.generate_hash("test-input")
+        
+        # MD5 hash should be 8 characters (as configured)
+        assert len(hash_value) == 8
+        # Should be hexadecimal
+        assert all(c in "0123456789abcdef" for c in hash_value)
+    
+    def test_generate_hash_sha256(self):
+        """Test hash generation with SHA256 algorithm"""
+        config = {
+            "version": "1.0",
+            "patterns": {
+                # Minimal patterns
+                "aws_s3_bucket": "{project}",
+                "aws_glue_database": "{project}",
+                "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}",
+                "aws_lambda_function": "{project}",
+                "aws_iam_role": "{project}",
+                "aws_iam_policy": "{project}",
+                "aws_kinesis_stream": "{project}",
+                "aws_kinesis_firehose": "{project}",
+                "aws_dynamodb_table": "{project}",
+                "aws_sns_topic": "{project}",
+                "aws_sqs_queue": "{project}",
+                "aws_step_function": "{project}",
+                "dbx_workspace": "{project}",
+                "dbx_cluster": "{project}",
+                "dbx_job": "{project}",
+                "dbx_notebook_path": "/{project}",
+                "dbx_repo": "{project}",
+                "dbx_pipeline": "{project}",
+                "dbx_sql_warehouse": "{project}",
+                "dbx_catalog": "{project}",
+                "dbx_schema": "{domain}",
+                "dbx_table": "{entity}",
+                "dbx_volume": "{project}",
+                "dbx_secret_scope": "{project}",
+                "dbx_instance_pool": "{project}",
+                "dbx_policy": "{project}"
+            },
+            "transformations": {
+                "hash_generation": {
+                    "algorithm": "sha256",
+                    "length": 16,
+                    "prefix": "",
+                    "separator": "-"
+                }
+            }
+        }
+        
+        loader = NamingPatternsLoader()
+        loader.load_from_dict(config)
+        
+        hash_value = loader.generate_hash("test-input")
+        
+        # SHA256 hash should be 16 characters (as configured)
+        assert len(hash_value) == 16
+        # Should be hexadecimal
+        assert all(c in "0123456789abcdef" for c in hash_value)
+    
+    def test_generate_hash_custom_length(self):
+        """Test hash generation with custom length"""
+        config = {
+            "version": "1.0",
+            "patterns": {
+                # Minimal patterns
+                "aws_s3_bucket": "{project}",
+                "aws_glue_database": "{project}",
+                "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}",
+                "aws_lambda_function": "{project}",
+                "aws_iam_role": "{project}",
+                "aws_iam_policy": "{project}",
+                "aws_kinesis_stream": "{project}",
+                "aws_kinesis_firehose": "{project}",
+                "aws_dynamodb_table": "{project}",
+                "aws_sns_topic": "{project}",
+                "aws_sqs_queue": "{project}",
+                "aws_step_function": "{project}",
+                "dbx_workspace": "{project}",
+                "dbx_cluster": "{project}",
+                "dbx_job": "{project}",
+                "dbx_notebook_path": "/{project}",
+                "dbx_repo": "{project}",
+                "dbx_pipeline": "{project}",
+                "dbx_sql_warehouse": "{project}",
+                "dbx_catalog": "{project}",
+                "dbx_schema": "{domain}",
+                "dbx_table": "{entity}",
+                "dbx_volume": "{project}",
+                "dbx_secret_scope": "{project}",
+                "dbx_instance_pool": "{project}",
+                "dbx_policy": "{project}"
+            },
+            "transformations": {
+                "hash_generation": {
+                    "algorithm": "md5",
+                    "length": 12,
+                    "prefix": "",
+                    "separator": "-"
+                }
+            }
+        }
+        
+        loader = NamingPatternsLoader()
+        loader.load_from_dict(config)
+        
+        hash_value = loader.generate_hash("test-input")
+        assert len(hash_value) == 12
+    
+    def test_generate_hash_with_prefix(self):
+        """Test hash generation with prefix"""
+        config = {
+            "version": "1.0",
+            "patterns": {
+                # Minimal patterns
+                "aws_s3_bucket": "{project}",
+                "aws_glue_database": "{project}",
+                "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}",
+                "aws_lambda_function": "{project}",
+                "aws_iam_role": "{project}",
+                "aws_iam_policy": "{project}",
+                "aws_kinesis_stream": "{project}",
+                "aws_kinesis_firehose": "{project}",
+                "aws_dynamodb_table": "{project}",
+                "aws_sns_topic": "{project}",
+                "aws_sqs_queue": "{project}",
+                "aws_step_function": "{project}",
+                "dbx_workspace": "{project}",
+                "dbx_cluster": "{project}",
+                "dbx_job": "{project}",
+                "dbx_notebook_path": "/{project}",
+                "dbx_repo": "{project}",
+                "dbx_pipeline": "{project}",
+                "dbx_sql_warehouse": "{project}",
+                "dbx_catalog": "{project}",
+                "dbx_schema": "{domain}",
+                "dbx_table": "{entity}",
+                "dbx_volume": "{project}",
+                "dbx_secret_scope": "{project}",
+                "dbx_instance_pool": "{project}",
+                "dbx_policy": "{project}"
+            },
+            "transformations": {
+                "hash_generation": {
+                    "algorithm": "md5",
+                    "length": 8,
+                    "prefix": "h",
+                    "separator": "-"
+                }
+            }
+        }
+        
+        loader = NamingPatternsLoader()
+        loader.load_from_dict(config)
+        
+        hash_value = loader.generate_hash("test-input")
+        
+        # Should start with prefix
+        assert hash_value.startswith("h")
+        # Total length should be prefix + hash length
+        assert len(hash_value) == 9  # "h" + 8 chars
+    
+    def test_generate_hash_consistency(self, config_with_hash):
+        """Test that same input produces same hash"""
+        loader = NamingPatternsLoader()
+        loader.load_from_dict(config_with_hash)
+        
+        hash1 = loader.generate_hash("consistent-input")
+        hash2 = loader.generate_hash("consistent-input")
+        
+        assert hash1 == hash2
+    
+    def test_generate_hash_uniqueness(self, config_with_hash):
+        """Test that different inputs produce different hashes"""
+        loader = NamingPatternsLoader()
+        loader.load_from_dict(config_with_hash)
+        
+        hash1 = loader.generate_hash("input-one")
+        hash2 = loader.generate_hash("input-two")
+        
+        assert hash1 != hash2
+    
+    def test_generate_hash_no_config(self):
+        """Test hash generation falls back to defaults when no config"""
+        config = {
+            "version": "1.0",
+            "patterns": {
+                # Minimal patterns
+                "aws_s3_bucket": "{project}",
+                "aws_glue_database": "{project}",
+                "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}",
+                "aws_lambda_function": "{project}",
+                "aws_iam_role": "{project}",
+                "aws_iam_policy": "{project}",
+                "aws_kinesis_stream": "{project}",
+                "aws_kinesis_firehose": "{project}",
+                "aws_dynamodb_table": "{project}",
+                "aws_sns_topic": "{project}",
+                "aws_sqs_queue": "{project}",
+                "aws_step_function": "{project}",
+                "dbx_workspace": "{project}",
+                "dbx_cluster": "{project}",
+                "dbx_job": "{project}",
+                "dbx_notebook_path": "/{project}",
+                "dbx_repo": "{project}",
+                "dbx_pipeline": "{project}",
+                "dbx_sql_warehouse": "{project}",
+                "dbx_catalog": "{project}",
+                "dbx_schema": "{domain}",
+                "dbx_table": "{entity}",
+                "dbx_volume": "{project}",
+                "dbx_secret_scope": "{project}",
+                "dbx_instance_pool": "{project}",
+                "dbx_policy": "{project}"
+            }
+            # No transformations section
+        }
+        
+        loader = NamingPatternsLoader()
+        loader.load_from_dict(config)
+        
+        hash_value = loader.generate_hash("test-input")
+        
+        # Should use defaults: md5, 8 chars, no prefix
+        assert len(hash_value) == 8
+        assert all(c in "0123456789abcdef" for c in hash_value)
+    
+    def test_generate_hash_empty_input(self, config_with_hash):
+        """Test hash generation with empty input"""
+        loader = NamingPatternsLoader()
+        loader.load_from_dict(config_with_hash)
+        
+        hash_value = loader.generate_hash("")
+        
+        # Should still generate valid hash
+        assert len(hash_value) == 8
+        assert all(c in "0123456789abcdef" for c in hash_value)
 
 
 if __name__ == "__main__":

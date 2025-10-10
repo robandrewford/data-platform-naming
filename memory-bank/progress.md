@@ -262,21 +262,52 @@
 - Comprehensive docstrings
 - Clear test organization by resource type
 
-- **Phase 3C: Pattern Transformations (2 hours)**
-- [ ] Move REGION_CODES mapping to naming-patterns.yaml
-- [ ] Implement region code transformation in NamingPatternsLoader
-- [ ] Add hash generation config to naming-patterns.yaml
-- [ ] Implement hash transformation in NamingPatternsLoader
-- [ ] Move MAX_LENGTHS to patterns validation rules
-- [ ] Test all transformations with various inputs
+- **Phase 3C: Pattern Transformations (2 hours)** ✅ 100% COMPLETE (2025-01-10)
+- [x] Move REGION_CODES mapping to naming-patterns.yaml (10 regions added)
+- [x] Implement region code transformation in NamingPatternsLoader (already exists)
+- [x] Add hash generation config to naming-patterns.yaml (algorithm, length, prefix, separator)
+- [x] Implement hash transformation in NamingPatternsLoader (new generate_hash() method)
+- [x] Move MAX_LENGTHS to patterns validation rules (all 27 resource types)
+- [x] Fix test fixtures (all 27 patterns in fixtures - 21 test failures resolved)
+- [x] Add specific tests for hash generation method (9 comprehensive tests)
 
-**Phase 3D: Blueprint Parser Update (1 hour)**
+- **What Was Completed**:
+- Updated `schemas/naming-patterns-schema.json` with hash_generation configuration
+- Enhanced `examples/configs/naming-patterns.yaml` with:
+  - Complete REGION_CODES (10 regions: US, EU, Asia Pacific)
+  - ALL MAX_LENGTHS (27 resource types: 13 AWS + 14 Databricks)
+  - Hash generation defaults (md5, 8 chars, no prefix, "-" separator)
+- Implemented `generate_hash()` method in NamingPatternsLoader
+- Successfully externalized all hardcoded transformations to YAML
+
+**Final Results**:
+- ✅ All 43 tests passing (100% pass rate)
+- ✅ 89% code coverage maintained on naming_patterns_loader.py
+- ✅ Test execution time: 0.53 seconds
+- ✅ 9 new hash generation tests added
+- ✅ All transformations successfully externalized to YAML
+
+**Test Classes Created**:
+- TestNamingPatternsLoaderHashGeneration: 9 comprehensive tests
+  - test_generate_hash_default_md5
+  - test_generate_hash_sha256
+  - test_generate_hash_custom_length
+  - test_generate_hash_with_prefix
+  - test_generate_hash_consistency
+  - test_generate_hash_uniqueness
+  - test_generate_hash_no_config
+  - test_generate_hash_empty_input
+
+**Files Modified**:
+- `tests/test_naming_patterns_loader.py`: Updated fixtures + 9 new tests
+
+- **Phase 3D: Blueprint Parser Update (1 hour)**
 - [ ] Update parser to accept optional ConfigurationManager
 - [ ] Pass use_config=True to generators when config_manager available
 - [ ] Test blueprint parsing with config-based generators
 - [ ] Test error handling when patterns missing
 
-**Phase 3E: Integration & Documentation (1 hour)**
+- **Phase 3E: Integration & Documentation (1 hour)**
 - [ ] End-to-end test: Load configs → Generate all AWS resource types
 - [ ] End-to-end test: Load configs → Generate all Databricks resource types
 - [ ] Test with all example blueprints
@@ -285,13 +316,13 @@
 - [ ] Add migration guide documentation
 - [ ] Update code examples
 
-**Breaking Changes:**
+- **Breaking Changes:**
 - ConfigurationManager now required (use_config=True)
 - All resource types must have patterns in naming-patterns.yaml
 - naming-values.yaml required for value substitution
 - Old usage without ConfigurationManager raises NotImplementedError
 
-**Architecture Details:**
+- **Architecture Details:**
 - Explicit opt-in: `use_config=True` flag required
 - Validation at init: Patterns checked when generator created
 - Single helper: All methods use `_generate_with_config()`

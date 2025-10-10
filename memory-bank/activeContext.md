@@ -81,6 +81,74 @@ Successfully moved hardcoded transformations from Python code to YAML configurat
 - Max lengths centralized in one place
 - Easy to extend for new regions or resource types
 
+**Files Modified**:
+- `schemas/naming-patterns-schema.json`: Added hash_generation schema
+- `examples/configs/naming-patterns.yaml`: Complete REGION_CODES and MAX_LENGTHS
+- `src/data_platform_naming/config/naming_patterns_loader.py`: Added generate_hash() method
+
+**Transformations Successfully Externalized**:
+- ✅ REGION_CODES (10 regions) → transformations.region_mapping
+- ✅ MAX_LENGTHS (27 resource types) → validation.max_length
+- ✅ Hash generation (NEW) → transformations.hash_generation
+
+**Test Status**:
+- ⚠️ 21 tests failing in test_naming_patterns_loader.py
+- Cause: Test fixtures need updating to include all 27 required resource types
+- Core functionality working correctly
+- Simple fix: Update test fixture with complete patterns
+
+**Remaining Work** (10% - 30 minutes):
+- Update test fixtures in `tests/test_naming_patterns_loader.py` with all 27 patterns
+- Add specific tests for hash generation method
+- Verify all transformations work end-to-end
+
+**Next Phase**: Phase 3D - Update blueprint parser to inject ConfigurationManager
+
+### Phase 3B: Databricks Generator Refactoring & Testing (COMPLETED)
+
+**Date**: 2025-01-10
+
+Successfully refactored DatabricksNamingGenerator for configuration-based name generation AND created comprehensive test suite:
+
+**Key Changes**:
+1. **Constructor Enhancement**
+   - Added `configuration_manager` parameter (Optional[ConfigurationManager])
+   - Added explicit `use_config: bool = False` flag
+   - Removed `_validate_patterns_at_init()` - schema validation handles this
+
+2. **New Helper Method**
+   - `_generate_with_config()`: Unified generation logic for all 14 methods
+     - Merges config values with method parameters
+     - Calls ConfigurationManager.generate_name() with proper parameters
+     - Validates generated names
+     - Returns clean result or raises ValueError
+
+3. **All 14 Methods Refactored**
+   - Each method now uses `_generate_with_config()` helper
+   - Added optional `metadata` parameter for blueprint context
+   - Comprehensive docstrings (Args, Returns, Raises, Examples)
+   - Raises NotImplementedError if use_config=False
+   
+   Refactored methods:
+   - generate_workspace_name
+   - generate_cluster_name
+   - generate_job_name
+   - generate_notebook_path
+   - generate_repo_name
+   - generate_pipeline_name
+   - generate_sql_warehouse_name
+   - generate_catalog_name
+   - generate_schema_name
+   - generate_table_name
+   - generate_volume_name
+   - generate_secret_scope_name
+   - generate_instance_pool_name
+   - generate_policy_name
+   - generate_full_table_reference (composite method)
+
+4. **Comprehensive Test Suite Created**
+   - **File**: `tests/test_dbx_naming.py`
+   - **Tests**: 66 tests covering all aspects
    - **Coverage**: 75% for dbx_naming.py (core logic >95%)
    - **Pass Rate**: 66/66 passing (100%)
    - **Organization**: 13 test classes by functionality
