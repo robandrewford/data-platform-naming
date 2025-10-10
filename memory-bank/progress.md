@@ -95,10 +95,10 @@
 - [x] Unit tests for all loaders (>80% coverage achieved: 88%, 89%, 94%)
 
 **Phase 2: Scope Filtering (Week 1)**
-- [ ] Implement `ScopeFilter` class with wildcard support
+- [x] Implement `ScopeFilter` class with wildcard support
 - [ ] Add `scope` section to blueprint JSON schema
 - [ ] Integrate scope filter with blueprint parser
-- [ ] Unit tests for filtering logic (include/exclude modes)
+- [x] Unit tests for filtering logic (33 tests, 100% coverage)
 
 **Phase 3: Generator Refactoring (Week 2)**
 - [ ] Refactor `AWSNamingGenerator` to accept pattern + values
