@@ -9,6 +9,7 @@ validate them against JSON Schema, and apply transformations to pattern variable
 import json
 import yaml
 import re
+import hashlib
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Set
 from dataclasses import dataclass
@@ -240,6 +241,48 @@ class NamingPatternsLoader:
             patterns[resource_type] = self.get_pattern(resource_type)
         
         return patterns
+    
+    def generate_hash(self, input_string: str) -> str:
+        """
+        Generate hash suffix for uniqueness.
+        
+        Uses configuration from transformations.hash_generation section.
+        Defaults: md5, 8 characters, no prefix, '-' separator
+        
+        Args:
+            input_string: String to hash (typically the base name)
+            
+        Returns:
+            Hash string formatted according to config
+            
+        Example:
+            >>> loader.generate_hash("dataplatform-raw-prd")
+            'a1b2c3d4'
+        """
+        if self.config is None:
+            raise ConfigurationError("No configuration loaded")
+        
+        transformations = self.config.get("transformations", {})
+        hash_config = transformations.get("hash_generation", {})
+        
+        # Get configuration with defaults
+        algorithm = hash_config.get("algorithm", "md5")
+        length = hash_config.get("length", 8)
+        prefix = hash_config.get("prefix", "")
+        
+        # Generate hash
+        if algorithm == "sha256":
+            hash_obj = hashlib.sha256(input_string.encode())
+        else:  # default to md5
+            hash_obj = hashlib.md5(input_string.encode())
+        
+        hash_str = hash_obj.hexdigest()[:length]
+        
+        # Add prefix if configured
+        if prefix:
+            return f"{prefix}{hash_str}"
+        
+        return hash_str
     
     def apply_transformations(self, values: Dict[str, Any]) -> Dict[str, Any]:
         """

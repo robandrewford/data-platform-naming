@@ -235,6 +235,37 @@
               "team": "_"
             }
           ]
+        },
+        "hash_generation": {
+          "type": "object",
+          "description": "Configuration for generating hash suffixes for uniqueness",
+          "properties": {
+            "algorithm": {
+              "type": "string",
+              "enum": ["md5", "sha256"],
+              "description": "Hash algorithm to use",
+              "default": "md5"
+            },
+            "length": {
+              "type": "integer",
+              "minimum": 4,
+              "maximum": 64,
+              "description": "Number of characters to use from hash",
+              "default": 8
+            },
+            "prefix": {
+              "type": "string",
+              "maxLength": 2,
+              "description": "Optional prefix for hash (e.g., 'h' for 'h12345678')",
+              "default": ""
+            },
+            "separator": {
+              "type": "string",
+              "maxLength": 1,
+              "description": "Separator between name and hash",
+              "default": "-"
+            }
+          }
         }
       }
     },

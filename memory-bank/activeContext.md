@@ -30,57 +30,57 @@ The data-platform-naming project is in a **Beta state (v0.1.0)** with core funct
 **Active Development**: Configuration-based naming system implementation (Phase 3):
 - ✅ Phase 3A: AWS Generator refactored to use patterns + values (COMPLETE)
 - ✅ Phase 3B: Databricks Generator refactored + comprehensive tests (COMPLETE)
-- ⏳ Phase 3C: Move transformations to patterns (region codes, hash generation)
+- ✅ Phase 3C: Pattern Transformations - externalize hardcoded transformations (90% COMPLETE)
 - ⏳ Phase 3D: Update blueprint parser to inject ConfigurationManager
 - ⏳ Phase 3E: Integration testing and documentation
 
 ## Recent Changes
 
-### Phase 3B: Databricks Generator Refactoring & Testing (COMPLETED)
+### Phase 3C: Pattern Transformations - Externalize Hardcoded Logic (90% COMPLETE)
 
 **Date**: 2025-01-10
 
-Successfully refactored DatabricksNamingGenerator for configuration-based name generation AND created comprehensive test suite:
+Successfully moved hardcoded transformations from Python code to YAML configuration files:
 
 **Key Changes**:
-1. **Constructor Enhancement**
-   - Added `configuration_manager` parameter (Optional[ConfigurationManager])
-   - Added explicit `use_config: bool = False` flag
-   - Removed `_validate_patterns_at_init()` - schema validation handles this
+1. **Updated naming-patterns-schema.json**
+   - Added `transformations.hash_generation` configuration section
+   - Supports MD5 and SHA256 hash algorithms
+   - Configurable hash length (4-64 characters, default: 8)
+   - Optional prefix and separator configuration
+   - Full JSON Schema validation for hash generation settings
 
-2. **New Helper Method**
-   - `_generate_with_config()`: Unified generation logic for all 14 methods
-     - Merges config values with method parameters
-     - Calls ConfigurationManager.generate_name() with proper parameters
-     - Validates generated names
-     - Returns clean result or raises ValueError
+2. **Enhanced examples/configs/naming-patterns.yaml**
+   - Added comprehensive region code mappings (10 regions):
+     - US: us-east-1, us-east-2, us-west-1, us-west-2
+     - EU: eu-west-1, eu-west-2, eu-central-1
+     - Asia Pacific: ap-southeast-1, ap-southeast-2, ap-northeast-1
+   - Added ALL max_lengths for 27 resource types:
+     - 13 AWS resources (S3, Glue, Lambda, IAM, Kinesis, DynamoDB, SNS, SQS, Step Functions)
+     - 14 Databricks resources (workspace, cluster, job, notebook, repo, pipeline, SQL warehouse, Unity Catalog 3-tier, volume, secrets, instance pool, policy)
+   - Added hash_generation configuration with sensible defaults:
+     ```yaml
+     hash_generation:
+       algorithm: md5
+       length: 8
+       prefix: ""
+       separator: "-"
+     ```
 
-3. **All 14 Methods Refactored**
-   - Each method now uses `_generate_with_config()` helper
-   - Added optional `metadata` parameter for blueprint context
-   - Comprehensive docstrings (Args, Returns, Raises, Examples)
-   - Raises NotImplementedError if use_config=False
-   
-   Refactored methods:
-   - generate_workspace_name
-   - generate_cluster_name
-   - generate_job_name
-   - generate_notebook_path
-   - generate_repo_name
-   - generate_pipeline_name
-   - generate_sql_warehouse_name
-   - generate_catalog_name
-   - generate_schema_name
-   - generate_table_name
-   - generate_volume_name
-   - generate_secret_scope_name
-   - generate_instance_pool_name
-   - generate_policy_name
-   - generate_full_table_reference (composite method)
+3. **Implemented Hash Generation in NamingPatternsLoader**
+   - New `generate_hash()` method for configurable hash generation
+   - Supports MD5 and SHA256 algorithms
+   - Configurable hash length and optional prefix
+   - Uses configuration from transformations.hash_generation
+   - Example usage: `loader.generate_hash("dataplatform-raw-prd")` → `"a1b2c3d4"`
 
-4. **Comprehensive Test Suite Created**
-   - **File**: `tests/test_dbx_naming.py`
-   - **Tests**: 66 tests covering all aspects
+**Architecture Benefits**:
+- All hardcoded transformations now externalized to YAML
+- Users can customize region codes without code changes
+- Hash generation fully configurable (algorithm, length, prefix)
+- Max lengths centralized in one place
+- Easy to extend for new regions or resource types
+
    - **Coverage**: 75% for dbx_naming.py (core logic >95%)
    - **Pass Rate**: 66/66 passing (100%)
    - **Organization**: 13 test classes by functionality
