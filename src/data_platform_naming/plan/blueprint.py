@@ -89,6 +89,27 @@ BLUEPRINT_SCHEMA = {
                     }
                 }
             }
+        },
+        "scope": {
+            "type": "object",
+            "required": ["mode", "patterns"],
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "enum": ["include", "exclude"],
+                    "description": "Filter mode: 'include' processes only matching types, 'exclude' processes all except matching types"
+                },
+                "patterns": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "minItems": 1,
+                    "description": "Wildcard patterns for resource types (e.g., 'aws_*', 'dbx_cluster', '*_bucket')"
+                }
+            },
+            "additionalProperties": False
         }
     },
     "definitions": {
@@ -203,6 +224,7 @@ class ParsedBlueprint:
     metadata: Dict[str, Any]
     resources: List[ParsedResource]
     dependency_graph: Dict[str, List[str]]
+    scope_config: Optional[Dict[str, Any]] = None
     
     def get_execution_order(self) -> List[ParsedResource]:
         """Topological sort for dependency resolution"""
@@ -270,6 +292,11 @@ class BlueprintParser:
             )
             resources.extend(dbx_resources)
         
+        # Apply scope filter if configured
+        scope_config = blueprint.get('scope')
+        if scope_config:
+            resources = self._apply_scope_filter(resources, scope_config)
+        
         # Build dependency graph
         for resource in resources:
             dependency_graph[resource.resource_id] = resource.dependencies
@@ -277,7 +304,8 @@ class BlueprintParser:
         return ParsedBlueprint(
             metadata=metadata,
             resources=resources,
-            dependency_graph=dependency_graph
+            dependency_graph=dependency_graph,
+            scope_config=scope_config
         )
     
     def _validate(self, blueprint: Dict) -> None:
@@ -286,6 +314,36 @@ class BlueprintParser:
             jsonschema.validate(instance=blueprint, schema=self.schema)
         except jsonschema.ValidationError as e:
             raise ValueError(f"Blueprint validation failed: {e.message}")
+    
+    def _apply_scope_filter(
+        self, 
+        resources: List[ParsedResource], 
+        scope_config: Dict[str, Any]
+    ) -> List[ParsedResource]:
+        """
+        Apply scope filtering to resources based on configuration.
+        
+        Args:
+            resources: List of parsed resources
+            scope_config: Scope configuration with 'mode' and 'patterns'
+            
+        Returns:
+            Filtered list of resources
+        """
+        # Import here to avoid circular dependency
+        from ..config.scope_filter import ScopeFilter, FilterMode
+        
+        # Create filter
+        mode = FilterMode.INCLUDE if scope_config['mode'] == 'include' else FilterMode.EXCLUDE
+        scope_filter = ScopeFilter(mode=mode, patterns=scope_config['patterns'])
+        
+        # Filter resources
+        filtered_resources = [
+            resource for resource in resources
+            if scope_filter.should_process(resource.resource_type)
+        ]
+        
+        return filtered_resources
     
     def _parse_aws(self, aws_config: Dict, metadata: Dict) -> List[ParsedResource]:
         """Parse AWS resources"""

@@ -144,6 +144,70 @@
 
 **Future**: API server mode can wrap CLI commands
 
+## Configuration System Architecture (New - 60% Complete)
+
+### High-Level Architecture
+
+```md
+┌─────────────────────────────────────────────────────────┐
+│                   Configuration Files                    │
+│  ┌──────────────────────┐  ┌──────────────────────┐    │
+│  │ naming-values.yaml   │  │ naming-patterns.yaml │    │
+│  │ • defaults           │  │ • patterns           │    │
+│  │ • environments       │  │ • transformations    │    │
+│  │ • resource_types     │  │ • validation         │    │
+│  └──────────────────────┘  └──────────────────────┘    │
+└────────────────┬──────────────────┬─────────────────────┘
+                 │                  │
+┌────────────────▼──────────────────▼─────────────────────┐
+│              ConfigurationManager                        │
+│  ┌──────────────────────┐  ┌──────────────────────┐    │
+│  │ NamingValuesLoader   │  │ NamingPatternsLoader │    │
+│  │ • Load YAML          │  │ • Load patterns      │    │
+│  │ • Merge precedence   │  │ • Apply transforms   │    │
+│  │ • Resolve values     │  │ • Validate names     │    │
+│  └──────────────────────┘  └──────────────────────┘    │
+│  ┌──────────────────────┐                               │
+│  │    ScopeFilter       │                               │
+│  │ • Include/exclude    │                               │
+│  │ • Wildcard matching  │                               │
+│  └──────────────────────┘                               │
+└────────────────┬────────────────────────────────────────┘
+                 │
+┌────────────────▼────────────────────────────────────────┐
+│            Name Generators (TODO)                        │
+│  ┌──────────────────────┐  ┌──────────────────────┐    │
+│  │ AWSNamingGenerator   │  │ DBXNamingGenerator   │    │
+│  │ • Use ConfigMgr      │  │ • Use ConfigMgr      │    │
+│  │ • Generate names     │  │ • Generate names     │    │
+│  └──────────────────────┘  └──────────────────────┘    │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+1. **Configuration Loading**
+   - Load naming-values.yaml
+   - Load naming-patterns.yaml
+   - Validate against JSON schemas
+   - Build internal data structures
+
+2. **Value Resolution**
+   - Merge defaults → environments → resource_types → blueprint metadata
+   - Apply transformations (lowercase, region mapping, etc.)
+   - Create final value dictionary
+
+3. **Name Generation**
+   - Get pattern template for resource type
+   - Substitute {variables} with resolved values
+   - Validate generated name (length, chars, required vars)
+   - Return GeneratedName object with metadata
+
+4. **Scope Filtering**
+   - Apply include/exclude patterns
+   - Filter resources by type
+   - Support wildcards (aws_*, *_bucket)
+
 ## New Design Patterns (Configuration System)
 
 ### 1. Strategy Pattern (Configurable Naming)

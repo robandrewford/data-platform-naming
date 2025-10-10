@@ -1,0 +1,85 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "environment": "dev",
+    "project": "dataplatform",
+    "region": "us-east-1",
+    "team": "data-engineering",
+    "cost_center": "IT-1001",
+    "data_classification": "internal"
+  },
+  "scope": {
+    "mode": "exclude",
+    "patterns": ["dbx_cluster", "dbx_job"]
+  },
+  "resources": {
+    "aws": {
+      "s3_buckets": [
+        {
+          "purpose": "landing",
+          "layer": "raw",
+          "versioning": false,
+          "lifecycle_days": 30
+        }
+      ],
+      "glue_databases": [
+        {
+          "domain": "sales",
+          "layer": "bronze",
+          "description": "Raw sales data ingestion"
+        }
+      ]
+    },
+    "databricks": {
+      "clusters": [
+        {
+          "workload": "etl",
+          "cluster_type": "shared",
+          "node_type": "i3.xlarge",
+          "spark_version": "13.3.x-scala2.12",
+          "autoscale": {
+            "min": 1,
+            "max": 4
+          }
+        }
+      ],
+      "jobs": [
+        {
+          "job_type": "batch",
+          "purpose": "daily-sales-load",
+          "cluster_ref": "etl",
+          "schedule": "daily",
+          "tasks": [
+            {
+              "task_key": "extract",
+              "notebook_path": "/etl/sales/extract"
+            }
+          ]
+        }
+      ],
+      "unity_catalog": {
+        "catalogs": [
+          {
+            "catalog_type": "dev",
+            "schemas": [
+              {
+                "domain": "sales",
+                "layer": "bronze",
+                "tables": [
+                  {
+                    "entity": "orders",
+                    "table_type": "fact",
+                    "columns": [
+                      {"name": "order_id", "type": "BIGINT"},
+                      {"name": "amount", "type": "DECIMAL(10,2)"}
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
