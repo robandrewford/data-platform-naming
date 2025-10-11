@@ -660,8 +660,8 @@ dpn status
 - [x] Document value precedence rules
 - [x] Document transformations and validation
 - [x] Create migration examples (platform → oncology)
-- [ ] Update main README with configuration workflow
-- [ ] Add troubleshooting guide for config errors
+- [x] Update main README with configuration workflow (completed in Phase 4 Day 5)
+- [x] Add troubleshooting guide for config errors (completed in Phase 4 Day 5)
 
 **Completed Components:**
 
