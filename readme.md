@@ -78,6 +78,158 @@ dpn --help
 - **Update**: In-place modifications
 - **Delete**: Archive or permanent removal
 
+## Configuration
+
+### Quick Start with Configuration
+
+The configuration system allows you to customize naming patterns and values without modifying code:
+
+```bash
+# 1. Initialize configuration
+dpn config init
+# Prompts for: project, environment, region
+
+# 2. Validate configuration
+dpn config validate
+
+# 3. View configuration
+dpn config show
+dpn config show --resource-type aws_s3_bucket
+
+# 4. Use in commands (automatic with ~/.dpn/ configs)
+dpn plan preview dev.json
+dpn create --blueprint dev.json
+```
+
+### Configuration Files
+
+Two YAML files control resource naming:
+
+**`naming-values.yaml`** - Variable values with precedence hierarchy:
+```yaml
+defaults:
+  project: dataplatform
+  environment: dev
+  region: us-east-1
+  team: data-engineering
+
+environments:
+  prd:
+    environment: prd
+    team: data-platform
+
+resource_types:
+  aws_s3_bucket:
+    purpose: analytics
+```
+
+**`naming-patterns.yaml`** - Template patterns with placeholders:
+```yaml
+patterns:
+  aws_s3_bucket:
+    template: "{project}-{purpose}-{layer}-{environment}-{region_code}"
+    required_variables: ["project", "purpose", "layer", "environment", "region_code"]
+  
+  dbx_cluster:
+    template: "{project}-{workload}-{cluster_type}-{environment}"
+    required_variables: ["project", "workload", "cluster_type", "environment"]
+
+transformations:
+  region_mapping:
+    us-east-1: "use1"
+    us-west-2: "usw2"
+
+validation:
+  max_length:
+    aws_s3_bucket: 63
+    dbx_cluster: 100
+```
+
+### Configuration Locations
+
+**Default location:** `~/.dpn/`
+- `~/.dpn/naming-values.yaml`
+- `~/.dpn/naming-patterns.yaml`
+
+**Custom paths:** Use flags with any command
+```bash
+dpn plan preview dev.json \
+  --values-config custom-values.yaml \
+  --patterns-config custom-patterns.yaml
+```
+
+### Runtime Overrides
+
+Override any value at runtime without modifying config files:
+
+```bash
+# Single override
+dpn plan preview dev.json --override environment=prd
+
+# Multiple overrides
+dpn plan preview dev.json \
+  --override environment=prd \
+  --override project=oncology \
+  --override region=us-west-2
+
+# Works with all commands
+dpn create --blueprint dev.json \
+  --override environment=prd \
+  --dry-run
+```
+
+### Value Precedence (highest to lowest)
+
+1. **Runtime overrides** (`--override` flags)
+2. **Blueprint metadata** (explicit values in blueprint)
+3. **Resource type overrides** (in naming-values.yaml)
+4. **Environment overrides** (in naming-values.yaml)
+5. **Defaults** (in naming-values.yaml)
+
+### Configuration Workflow
+
+```bash
+# Initialize (one-time setup)
+dpn config init --project myproject --environment dev --region us-east-1
+
+# Customize values
+vim ~/.dpn/naming-values.yaml
+
+# Customize patterns (optional)
+vim ~/.dpn/naming-patterns.yaml
+
+# Validate changes
+dpn config validate
+
+# View effective configuration
+dpn config show
+
+# Test with preview
+dpn plan preview my-blueprint.json
+
+# Create resources
+dpn create --blueprint my-blueprint.json
+```
+
+### Backward Compatibility
+
+Commands work without configuration files (legacy mode):
+```bash
+# Without config - uses hardcoded patterns
+dpn plan preview dev.json
+# ⚠ No configuration files found, using legacy mode
+# Run 'dpn config init' to create configuration files
+
+# With config - uses customizable patterns
+dpn config init
+dpn plan preview dev.json
+# ✓ Using configuration-based naming
+```
+
+### Migration Guide
+
+For detailed migration instructions, see [Configuration Migration Guide](docs/configuration-migration-guide.md).
+
 ## Usage
 
 ### 1. Plan Mode

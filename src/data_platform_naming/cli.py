@@ -120,7 +120,20 @@ def cli():
     """Data Platform Naming Convention CLI
     
     Generate, validate, and execute infrastructure blueprints
-    for AWS and Databricks resources.
+    for AWS and Databricks resources with consistent naming conventions.
+    
+    Configuration:
+      Initialize config:  dpn config init
+      Validate config:    dpn config validate
+      Show config:        dpn config show
+    
+    Common Workflow:
+      1. dpn config init              # Set up configuration
+      2. dpn plan init --env dev      # Create blueprint template
+      3. dpn plan preview dev.json    # Preview resource names
+      4. dpn create --blueprint dev.json  # Create resources
+    
+    For more information on each command, use: dpn <command> --help
     """
     pass
 
@@ -653,6 +666,310 @@ def delete(resource_id: str, resource_type: str, archive: bool,
 
 
 # =============================================================================
+# CONFIG COMMANDS
+# =============================================================================
+
+@cli.group()
+def config():
+    """Configuration management commands"""
+    pass
+
+
+@config.command('init')
+@click.option('--project', prompt='Project name', help='Project name (e.g., dataplatform, oncology)')
+@click.option('--environment', prompt='Environment', 
+              type=click.Choice(['dev', 'stg', 'prd']), 
+              default='dev', help='Default environment')
+@click.option('--region', prompt='AWS region', 
+              default='us-east-1', help='Default AWS region')
+@click.option('--force', is_flag=True, help='Overwrite existing files')
+def config_init(project: str, environment: str, region: str, force: bool):
+    """Initialize default configuration files in ~/.dpn/
+    
+    Creates naming-values.yaml and naming-patterns.yaml with sensible defaults.
+    Prompts for basic values (project, environment, region) to customize the templates.
+    
+    Examples:
+      dpn config init
+      dpn config init --project oncology --environment prd --region us-west-2
+      dpn config init --force  # Overwrite existing files
+    """
+    
+    import shutil
+    
+    try:
+        # Create ~/.dpn directory
+        config_dir = Path.home() / '.dpn'
+        config_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Define target paths
+        values_path = config_dir / 'naming-values.yaml'
+        patterns_path = config_dir / 'naming-patterns.yaml'
+        
+        # Check if files exist
+        if values_path.exists() and not force:
+            console.print(f"[yellow]Warning:[/yellow] {values_path} already exists")
+            console.print("[yellow]Use --force to overwrite[/yellow]")
+            sys.exit(1)
+        
+        if patterns_path.exists() and not force:
+            console.print(f"[yellow]Warning:[/yellow] {patterns_path} already exists")
+            console.print("[yellow]Use --force to overwrite[/yellow]")
+            sys.exit(1)
+        
+        # Copy example files
+        example_dir = Path(__file__).parent.parent.parent / 'examples' / 'configs'
+        
+        if not example_dir.exists():
+            console.print(f"[red]Error:[/red] Example configs not found at {example_dir}")
+            console.print("[yellow]Hint:[/yellow] Run from project root or install package properly")
+            sys.exit(1)
+        
+        # Copy and customize naming-values.yaml
+        example_values = example_dir / 'naming-values.yaml'
+        if example_values.exists():
+            import yaml
+            with open(example_values, 'r') as f:
+                values_data = yaml.safe_load(f)
+            
+            # Customize with prompted values
+            if 'defaults' in values_data:
+                values_data['defaults']['project'] = project.lower().replace(' ', '-')
+                values_data['defaults']['environment'] = environment
+                values_data['defaults']['region'] = region
+            
+            with open(values_path, 'w') as f:
+                yaml.dump(values_data, f, default_flow_style=False, sort_keys=False)
+            
+            console.print(f"[green]✓[/green] Created: {values_path}")
+        else:
+            console.print(f"[yellow]Warning:[/yellow] Example naming-values.yaml not found")
+        
+        # Copy naming-patterns.yaml as-is
+        example_patterns = example_dir / 'naming-patterns.yaml'
+        if example_patterns.exists():
+            shutil.copy(example_patterns, patterns_path)
+            console.print(f"[green]✓[/green] Created: {patterns_path}")
+        else:
+            console.print(f"[yellow]Warning:[/yellow] Example naming-patterns.yaml not found")
+        
+        # Success message with next steps
+        console.print("\n[green]Configuration initialized successfully![/green]")
+        console.print("\n[bold]Next steps:[/bold]")
+        console.print(f"1. Review and customize: {values_path}")
+        console.print(f"2. Review patterns: {patterns_path}")
+        console.print(f"3. Validate configs: [cyan]dpn config validate[/cyan]")
+        console.print(f"4. Preview names: [cyan]dpn plan preview <blueprint>[/cyan]")
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Initialization failed: {str(e)}")
+        sys.exit(1)
+
+
+@config.command('validate')
+@click.option('--values-config', type=click.Path(exists=True),
+              help='Path to naming-values.yaml (default: ~/.dpn/naming-values.yaml)')
+@click.option('--patterns-config', type=click.Path(exists=True),
+              help='Path to naming-patterns.yaml (default: ~/.dpn/naming-patterns.yaml)')
+def config_validate(values_config: Optional[str], patterns_config: Optional[str]):
+    """Validate configuration files against JSON schemas
+    
+    Checks both naming-values.yaml and naming-patterns.yaml for:
+    - Valid YAML syntax
+    - Required fields present
+    - Correct data types
+    - Valid pattern variables
+    
+    Examples:
+      dpn config validate
+      dpn config validate --values-config custom-values.yaml --patterns-config custom-patterns.yaml
+    """
+    
+    try:
+        import jsonschema
+        import yaml
+        
+        # Determine file paths
+        if values_config or patterns_config:
+            if not (values_config and patterns_config):
+                raise click.ClickException(
+                    "Must provide both --values-config and --patterns-config, or neither"
+                )
+            values_path = Path(values_config)
+            patterns_path = Path(patterns_config)
+        else:
+            values_path = Path.home() / '.dpn' / 'naming-values.yaml'
+            patterns_path = Path.home() / '.dpn' / 'naming-patterns.yaml'
+        
+        # Check files exist
+        if not values_path.exists():
+            raise click.ClickException(
+                f"Values config not found: {values_path}\n"
+                "Run 'dpn config init' to create default configuration"
+            )
+        
+        if not patterns_path.exists():
+            raise click.ClickException(
+                f"Patterns config not found: {patterns_path}\n"
+                "Run 'dpn config init' to create default configuration"
+            )
+        
+        # Load schemas
+        schema_dir = Path(__file__).parent.parent.parent / 'schemas'
+        values_schema_path = schema_dir / 'naming-values-schema.json'
+        patterns_schema_path = schema_dir / 'naming-patterns-schema.json'
+        
+        if not values_schema_path.exists() or not patterns_schema_path.exists():
+            raise click.ClickException(
+                f"Schema files not found in {schema_dir}\n"
+                "Ensure package is properly installed"
+            )
+        
+        with open(values_schema_path, 'r') as f:
+            values_schema = json.load(f)
+        
+        with open(patterns_schema_path, 'r') as f:
+            patterns_schema = json.load(f)
+        
+        # Validate naming-values.yaml
+        console.print(f"[dim]Validating {values_path}...[/dim]")
+        with open(values_path, 'r') as f:
+            values_data = yaml.safe_load(f)
+        
+        try:
+            jsonschema.validate(instance=values_data, schema=values_schema)
+            console.print(f"[green]✓[/green] {values_path.name} is valid")
+        except jsonschema.ValidationError as e:
+            console.print(f"[red]✗[/red] {values_path.name} validation failed:")
+            console.print(f"  Path: {'.'.join(str(p) for p in e.path)}")
+            console.print(f"  Error: {e.message}")
+            sys.exit(1)
+        
+        # Validate naming-patterns.yaml
+        console.print(f"[dim]Validating {patterns_path}...[/dim]")
+        with open(patterns_path, 'r') as f:
+            patterns_data = yaml.safe_load(f)
+        
+        try:
+            jsonschema.validate(instance=patterns_data, schema=patterns_schema)
+            console.print(f"[green]✓[/green] {patterns_path.name} is valid")
+        except jsonschema.ValidationError as e:
+            console.print(f"[red]✗[/red] {patterns_path.name} validation failed:")
+            console.print(f"  Path: {'.'.join(str(p) for p in e.path)}")
+            console.print(f"  Error: {e.message}")
+            sys.exit(1)
+        
+        # Success
+        console.print("\n[green]All configuration files are valid![/green]")
+        
+    except Exception as e:
+        if isinstance(e, click.ClickException):
+            raise
+        console.print(f"[red]✗[/red] Validation failed: {str(e)}")
+        sys.exit(1)
+
+
+@config.command('show')
+@click.option('--values-config', type=click.Path(exists=True),
+              help='Path to naming-values.yaml (default: ~/.dpn/naming-values.yaml)')
+@click.option('--patterns-config', type=click.Path(exists=True),
+              help='Path to naming-patterns.yaml (default: ~/.dpn/naming-patterns.yaml)')
+@click.option('--resource-type', help='Filter by resource type (e.g., aws_s3_bucket)')
+@click.option('--format', type=click.Choice(['table', 'json']), default='table',
+              help='Output format')
+def config_show(values_config: Optional[str], patterns_config: Optional[str],
+                resource_type: Optional[str], format: str):
+    """Display current configuration values
+    
+    Shows the effective configuration after merging:
+    - defaults
+    - environment overrides
+    - resource_type overrides
+    
+    Examples:
+      dpn config show
+      dpn config show --resource-type aws_s3_bucket
+      dpn config show --format json
+    """
+    
+    try:
+        # Load configuration manager
+        config_manager = load_configuration_manager(values_config, patterns_config, None)
+        
+        if not config_manager:
+            raise click.ClickException(
+                "No configuration found. Run 'dpn config init' to create default configuration."
+            )
+        
+        if format == 'json':
+            # JSON output
+            output = {
+                'defaults': config_manager.values_loader.defaults,
+                'environments': config_manager.values_loader.environments,
+                'resource_types': config_manager.values_loader.resource_type_overrides,
+                'patterns': config_manager.patterns_loader.patterns
+            }
+            
+            if resource_type:
+                # Filter to specific resource type
+                output = {
+                    'resource_type': resource_type,
+                    'values': config_manager.get_values_for_resource(resource_type),
+                    'pattern': config_manager.patterns_loader.patterns.get(resource_type)
+                }
+            
+            console.print_json(data=output)
+        
+        else:
+            # Table output
+            if resource_type:
+                # Show specific resource type
+                values = config_manager.get_values_for_resource(resource_type)
+                pattern = config_manager.patterns_loader.patterns.get(resource_type, {})
+                
+                table = Table(title=f"Configuration for {resource_type}")
+                table.add_column("Setting", style="cyan")
+                table.add_column("Value", style="green")
+                
+                # Values
+                for key, value in sorted(values.items()):
+                    table.add_row(key, str(value))
+                
+                console.print(table)
+                
+                # Pattern
+                if pattern:
+                    console.print(f"\n[bold]Pattern Template:[/bold]")
+                    console.print(f"  {pattern.get('template', 'N/A')}")
+                
+            else:
+                # Show all defaults
+                table = Table(title="Default Configuration Values")
+                table.add_column("Key", style="cyan")
+                table.add_column("Value", style="green")
+                table.add_column("Source", style="yellow")
+                
+                defaults = config_manager.values_loader.defaults
+                for key, value in sorted(defaults.items()):
+                    table.add_row(key, str(value), "defaults")
+                
+                console.print(table)
+                
+                # Show available resource types
+                console.print(f"\n[bold]Available Resource Types:[/bold]")
+                resource_types = list(config_manager.patterns_loader.patterns.keys())
+                console.print(f"  {', '.join(sorted(resource_types))}")
+                
+                console.print(f"\n[dim]Use --resource-type to see specific configuration[/dim]")
+        
+    except Exception as e:
+        if isinstance(e, click.ClickException):
+            raise
+        console.print(f"[red]✗[/red] Failed to show configuration: {str(e)}")
+        sys.exit(1)
+
+
+# =============================================================================
 # UTILITY COMMANDS
 # =============================================================================
 
@@ -672,7 +989,14 @@ def recover():
 
 @cli.command('status')
 def status():
-    """Show CLI status and configuration"""
+    """Show CLI status and configuration
+    
+    Displays system health including:
+    - Directory locations (config, WAL, state)
+    - Configuration file status and validation
+    - AWS authentication status
+    - Databricks authentication status
+    """
     
     config_dir = Path.home() / '.dpn'
     
@@ -680,9 +1004,35 @@ def status():
     table.add_column("Component", style="cyan")
     table.add_column("Status", style="green")
     
+    # Directory locations
     table.add_row("Config Dir", str(config_dir))
     table.add_row("WAL Dir", str(config_dir / 'wal'))
     table.add_row("State Store", str(config_dir / 'state'))
+    
+    # Check config files
+    values_path = config_dir / 'naming-values.yaml'
+    patterns_path = config_dir / 'naming-patterns.yaml'
+    
+    if values_path.exists() and patterns_path.exists():
+        # Try to validate configs
+        try:
+            config_manager = load_configuration_manager(None, None, None)
+            if config_manager:
+                table.add_row("Config Files", "✓ Valid")
+                table.add_row("  Values Config", str(values_path))
+                table.add_row("  Patterns Config", str(patterns_path))
+            else:
+                table.add_row("Config Files", "- Not loaded")
+        except Exception as e:
+            table.add_row("Config Files", f"✗ Invalid: {str(e)[:50]}")
+            table.add_row("  Values Config", str(values_path))
+            table.add_row("  Patterns Config", str(patterns_path))
+    else:
+        table.add_row("Config Files", "- Not found")
+        if not values_path.exists():
+            table.add_row("  Missing", "naming-values.yaml")
+        if not patterns_path.exists():
+            table.add_row("  Missing", "naming-patterns.yaml")
     
     # Check AWS
     try:
@@ -702,6 +1052,12 @@ def status():
         table.add_row("Databricks Auth", "✗ Not configured")
     
     console.print(table)
+    
+    # Helpful hints
+    if not (values_path.exists() and patterns_path.exists()):
+        console.print("\n[dim]Run 'dpn config init' to create configuration files[/dim]")
+    elif config_manager is None:
+        console.print("\n[dim]Run 'dpn config validate' to check configuration[/dim]")
 
 
 if __name__ == '__main__':
