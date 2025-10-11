@@ -393,9 +393,24 @@ def plan_schema(output: str):
 @click.option('--aws-profile', help='AWS profile')
 @click.option('--dbx-host', envvar='DATABRICKS_HOST', help='Databricks host')
 @click.option('--dbx-token', envvar='DATABRICKS_TOKEN', help='Databricks token')
+@click.option('--values-config', type=click.Path(exists=True),
+              help='Path to naming-values.yaml (default: ~/.dpn/naming-values.yaml)')
+@click.option('--patterns-config', type=click.Path(exists=True),
+              help='Path to naming-patterns.yaml (default: ~/.dpn/naming-patterns.yaml)')
+@click.option('--override', multiple=True,
+              help='Override values (format: key=value, e.g., environment=dev)')
 def create(blueprint: str, dry_run: bool, aws_profile: Optional[str], 
-           dbx_host: Optional[str], dbx_token: Optional[str]):
-    """Create resources from blueprint"""
+           dbx_host: Optional[str], dbx_token: Optional[str],
+           values_config: Optional[str], patterns_config: Optional[str],
+           override: tuple):
+    """Create resources from blueprint
+    
+    Examples:
+      dpn create --blueprint dev.json
+      dpn create --blueprint dev.json --values-config custom-values.yaml --patterns-config custom-patterns.yaml
+      dpn create --blueprint dev.json --override environment=dev --override project=oncology
+      dpn create --blueprint dev.json --dry-run
+    """
     
     try:
         # Load blueprint
@@ -403,6 +418,9 @@ def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
             data = json.load(f)
         
         metadata = data['metadata']
+        
+        # Load configuration manager
+        config_manager = load_configuration_manager(values_config, patterns_config, override)
         
         # Initialize generators
         aws_config = AWSNamingConfig(
@@ -417,13 +435,31 @@ def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
             region=metadata['region']
         )
         
-        generators = {
-            'aws': AWSNamingGenerator(aws_config),
-            'databricks': DatabricksNamingGenerator(dbx_config)
-        }
+        # Create generators with or without ConfigurationManager
+        if config_manager:
+            console.print("[dim]Using configuration-based naming[/dim]")
+            generators = {
+                'aws': AWSNamingGenerator(
+                    config=aws_config,
+                    configuration_manager=config_manager,
+                    use_config=True
+                ),
+                'databricks': DatabricksNamingGenerator(
+                    config=dbx_config,
+                    configuration_manager=config_manager,
+                    use_config=True
+                )
+            }
+        else:
+            console.print("[yellow]No configuration files found, using legacy mode[/yellow]")
+            console.print("[yellow]Run 'dpn config init' to create configuration files[/yellow]\n")
+            generators = {
+                'aws': AWSNamingGenerator(aws_config),
+                'databricks': DatabricksNamingGenerator(dbx_config)
+            }
         
-        # Parse
-        parser = BlueprintParser(generators)
+        # Parse with optional ConfigurationManager
+        parser = BlueprintParser(generators, configuration_manager=config_manager)
         parsed = parser.parse(Path(blueprint))
         
         # Build operations

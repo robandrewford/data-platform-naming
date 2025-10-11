@@ -25,22 +25,119 @@ The data-platform-naming project is in a **Beta state (v0.1.0)** with core funct
 
 ### Active Areas
 
-**Current Status**: Phase 4 Day 1 Complete - CLI integration in progress! 🚀
+**Current Status**: Phase 4 Day 2 Complete - Create command integrated! 🎉
 
 **Development Phase**: Beta (v0.1.0 → v0.2.0) - CLI integration with configuration system.
 
 **Active Development**: Phase 4 - CLI Integration (IN PROGRESS):
 - ✅ Phase 3: Configuration-based naming system (100% COMPLETE)
-- ⏳ Phase 4: CLI Integration (Day 1 of 5 COMPLETE)
+- ⏳ Phase 4: CLI Integration (Day 2 of 5 COMPLETE)
   - ✅ Day 1: Config loading helper & plan preview integration (COMPLETE)
-  - [ ] Day 2: Create command integration & generator updates
+  - ✅ Day 2: Create command integration & generator updates (COMPLETE)
   - [ ] Day 3: Config command group (init, validate, show)
   - [ ] Day 4: Help text & status command updates
   - [ ] Day 5: Integration tests & documentation
 
-**Next Steps**: Day 2 - Update create command with config support
+**Next Steps**: Day 3 - Implement config command group (init, validate, show)
 
 ## Recent Changes
+
+### Phase 4: CLI Integration - Day 2 (COMPLETE)
+
+**Date**: 2025-01-10
+
+Successfully integrated configuration support into the `create` command, mirroring the pattern from Day 1:
+
+**What Was Completed**:
+
+1. **Added Configuration Flags to Create Command**
+   - **New Flags**:
+     - `--values-config PATH`: Path to naming-values.yaml
+     - `--patterns-config PATH`: Path to naming-patterns.yaml
+     - `--override key=value`: Runtime value overrides (multiple allowed)
+   - **Location**: Lines 377-388 in cli.py
+   - **Consistent with**: Same flags as `plan preview` command
+
+2. **Updated Create Function Signature**
+   - Added parameters: `values_config`, `patterns_config`, `override`
+   - Maintains backward compatibility with existing parameters
+   - Total parameters: 8 (blueprint, dry-run, aws-profile, dbx-host, dbx-token, values-config, patterns-config, override)
+
+3. **Integrated ConfigurationManager Loading**
+   - Calls `load_configuration_manager()` helper function
+   - 3-tier priority: Explicit paths → Default ~/.dpn/ → None (backward compatibility)
+   - Applies runtime overrides if provided
+   - Location: After blueprint loading, before generator creation
+
+4. **Updated Generator Instantiation Logic**
+   - **Config Mode** (when ConfigurationManager available):
+     - Creates generators with `use_config=True`
+     - Passes ConfigurationManager to both AWS and Databricks generators
+     - Shows: "Using configuration-based naming"
+   - **Legacy Mode** (no config files found):
+     - Creates generators without ConfigurationManager
+     - Shows warning: "No configuration files found, using legacy mode"
+     - Advises: "Run 'dpn config init' to create configuration files"
+
+5. **Updated BlueprintParser Integration**
+   - Passes optional ConfigurationManager to parser
+   - Parser forwards metadata to generators
+   - Enables config-based name generation throughout execution flow
+
+6. **Added Usage Examples in Docstring**
+   - Example 1: Basic usage (default configs from ~/.dpn/)
+   - Example 2: Custom config files
+   - Example 3: Runtime value overrides
+   - Example 4: Dry-run preview
+
+**Usage Examples**:
+```bash
+# Use default configs from ~/.dpn/
+dpn create --blueprint dev.json
+
+# Use custom config files
+dpn create --blueprint dev.json \
+  --values-config custom-values.yaml \
+  --patterns-config custom-patterns.yaml
+
+# Override values at runtime
+dpn create --blueprint dev.json \
+  --override environment=dev \
+  --override project=oncology
+
+# Dry-run with configs
+dpn create --blueprint dev.json --dry-run
+```
+
+**Architecture Benefits**:
+- ✅ Consistent pattern with `plan preview` command
+- ✅ Reuses `load_configuration_manager()` helper
+- ✅ Backward compatible - works without config files
+- ✅ Clear user feedback (config mode vs legacy mode)
+- ✅ Transaction manager works seamlessly with config-based names
+
+**Files Modified**:
+- `src/data_platform_naming/cli.py`: 
+  - Added config flags (3 new options)
+  - Updated function signature
+  - Added config loading logic
+  - Updated generator instantiation (conditional based on config availability)
+  - Updated parser instantiation with ConfigurationManager
+  - Added usage examples in docstring
+
+**Implementation Time**: ~30 minutes (as estimated)
+
+**Testing Strategy**:
+1. Without configs: `dpn create --blueprint dev.json` (legacy mode)
+2. With default configs: `dpn create --blueprint dev.json` (uses ~/.dpn/)
+3. With explicit configs: `dpn create --blueprint dev.json --values-config X --patterns-config Y`
+4. With overrides: `dpn create --blueprint dev.json --override environment=dev`
+
+**Next Steps** (Day 3):
+- Implement `config` command group
+- Add `config init` subcommand (creates default configs)
+- Add `config validate` subcommand (validates YAML against schemas)
+- Add `config show` subcommand (displays current values)
 
 ### Phase 4: CLI Integration - Day 1 (COMPLETE)
 

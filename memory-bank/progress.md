@@ -84,7 +84,7 @@
 
 ### Short-Term (Next 3-6 Months)
 
-- **1. Configuration-Based Naming System** (IN PROGRESS - 60% Complete)
+- **1. Configuration-Based Naming System** (IN PROGRESS - 75% Complete)
 
 **Phase 1: Foundation (Day 1)** ✅ COMPLETE
 
@@ -371,15 +371,65 @@
 
 **Estimated Timeline:** 10-12 hours (1.5-2 work days)
 
-**Phase 4: CLI Integration (Week 2)** ⏳ NOT STARTED
+**Phase 4: CLI Integration (Week 2)** ⏳ IN PROGRESS - Day 1 of 5 COMPLETE
 
-- [ ] Add `config` command group (`init`, `validate`)
-- [ ] Add `--values-config` flag to create/preview commands
-- [ ] Add `--patterns-config` flag to create/preview commands
-- [ ] Add `--override` flag for inline value substitution
-- [ ] Support explicit paths and default locations (~/.dpn/)
-- [ ] Update help text and examples
-- [ ] Integration tests for full workflow
+**Day 1: Config Loading Helper & Plan Preview Integration** ✅ COMPLETE (2025-01-10)
+- [x] Create `load_configuration_manager()` helper function in cli.py
+  - 3-tier priority: Explicit paths → Default ~/.dpn/ → None (backward compatibility)
+  - Runtime override support via `--override key=value` flags
+  - Clear error messages for invalid configurations
+  - User feedback showing what configs were loaded
+- [x] Update `plan preview` command with configuration support
+  - Added `--values-config PATH` flag
+  - Added `--patterns-config PATH` flag
+  - Added `--override key=value` flag (multiple allowed)
+  - Attempts to load from ~/.dpn/ by default
+  - Falls back to legacy mode with helpful message if no configs found
+  - Creates generators with `use_config=True` when configs available
+  - Passes ConfigurationManager to BlueprintParser
+- [x] Maintain backward compatibility
+  - Commands work without config files
+  - Shows message: "Run 'dpn config init' to create configuration files"
+  - Legacy mode supported for existing users
+
+**Day 2: Create Command Integration** ⏳ NOT STARTED
+- [ ] Add `--values-config` flag to create command
+- [ ] Add `--patterns-config` flag to create command
+- [ ] Add `--override` flag to create command
+- [ ] Update generator instantiation in create command
+- [ ] Test with actual config files
+- [ ] Ensure transaction manager works with config-based names
+
+**Day 3: Config Command Group** ⏳ NOT STARTED
+- [ ] Add `config` command group to CLI
+- [ ] Implement `config init` subcommand
+  - Creates default naming-values.yaml in ~/.dpn/
+  - Creates default naming-patterns.yaml in ~/.dpn/
+  - Prompts for basic values (project, environment, region)
+- [ ] Implement `config validate` subcommand
+  - Validates naming-values.yaml against schema
+  - Validates naming-patterns.yaml against schema
+  - Reports errors with clear messages
+- [ ] Implement `config show` subcommand
+  - Displays current configuration values
+  - Shows precedence (defaults → env → resource_type)
+  - Optionally filter by resource type
+
+**Day 4: Help Text & Status Command Updates** ⏳ NOT STARTED
+- [ ] Update all command help text with config examples
+- [ ] Add config usage to main CLI help
+- [ ] Update `status` command to show config file locations
+- [ ] Add config validation to status checks
+- [ ] Document config workflow in command help
+
+**Day 5: Integration Tests & Documentation** ⏳ NOT STARTED
+- [ ] Create integration tests for full config workflow
+- [ ] Test config init → validate → create workflow
+- [ ] Test runtime overrides
+- [ ] Test default ~/.dpn/ loading
+- [ ] Update main README with configuration workflow
+- [ ] Add troubleshooting guide for config errors
+- [ ] Validate all example blueprints with new system
 
 **Phase 5: Documentation & Examples (Week 3)** ✅ COMPLETE
 
