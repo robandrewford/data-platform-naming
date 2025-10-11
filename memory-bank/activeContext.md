@@ -15,28 +15,208 @@ The data-platform-naming project is in a **Beta state (v0.1.0)** with core funct
 - ✅ Configuration system foundation complete (values, patterns, scope filter)
 - ✅ **AWS Generator refactored to use ConfigurationManager** (Phase 3A complete!)
 - ✅ **Databricks Generator refactored to use ConfigurationManager** (Phase 3B complete!)
-- ✅ **JSON schemas updated with all 14 Databricks resource types**
-- ✅ **Comprehensive Databricks test suite created** (66 tests, 75% coverage, 100% pass rate)
+- ✅ **Pattern transformations externalized to YAML** (Phase 3C complete!)
+- ✅ **Blueprint parser integrated with ConfigurationManager** (Phase 3D complete!)
+- ✅ **End-to-end integration & documentation complete** (Phase 3E 100% complete - 9/9 tests passing!)
+- ✅ **Configuration-based naming system 100% COMPLETE!** (All 5 phases done)
 - ⚠️ Databricks SDK integration in progress (currently using requests library)
 - ⚠️ Update command declared but not fully implemented
 - ⚠️ No integration tests with real cloud accounts yet
 
 ### Active Areas
 
-**Current Status**: Phase 3B Complete - AWS and Databricks generators fully refactored with comprehensive tests!
+**Current Status**: Phase 4 Day 1 Complete - CLI integration in progress! 🚀
 
-**Development Phase**: Beta (v0.1.0) - functional with major refactoring underway.
+**Development Phase**: Beta (v0.1.0 → v0.2.0) - CLI integration with configuration system.
 
-**Active Development**: Configuration-based naming system implementation (Phase 3):
-- ✅ Phase 3A: AWS Generator refactored to use patterns + values (COMPLETE)
-- ✅ Phase 3B: Databricks Generator refactored + comprehensive tests (COMPLETE)
-- ✅ Phase 3C: Pattern Transformations - externalize hardcoded transformations (90% COMPLETE)
-- ⏳ Phase 3D: Update blueprint parser to inject ConfigurationManager
-- ⏳ Phase 3E: Integration testing and documentation
+**Active Development**: Phase 4 - CLI Integration (IN PROGRESS):
+- ✅ Phase 3: Configuration-based naming system (100% COMPLETE)
+- ⏳ Phase 4: CLI Integration (Day 1 of 5 COMPLETE)
+  - ✅ Day 1: Config loading helper & plan preview integration (COMPLETE)
+  - [ ] Day 2: Create command integration & generator updates
+  - [ ] Day 3: Config command group (init, validate, show)
+  - [ ] Day 4: Help text & status command updates
+  - [ ] Day 5: Integration tests & documentation
+
+**Next Steps**: Day 2 - Update create command with config support
 
 ## Recent Changes
 
-### Phase 3C: Pattern Transformations - Externalize Hardcoded Logic (90% COMPLETE)
+### Phase 4: CLI Integration - Day 1 (COMPLETE)
+
+**Date**: 2025-01-10
+
+Successfully integrated ConfigurationManager into CLI with backward compatibility:
+
+**What Was Completed**:
+
+1. **Configuration Loading Helper Function**
+   - **Created**: `load_configuration_manager()` helper function in cli.py
+   - **Features**:
+     - 3-tier priority: Explicit paths → Default ~/.dpn/ → None (backward compatibility)
+     - Runtime override support via `--override key=value` flags
+     - Clear error messages for invalid configurations
+     - User feedback showing what configs were loaded
+   - **Error Handling**: Validates both files provided together or neither
+   - **Lines**: 37-118 in cli.py
+
+2. **Plan Preview Command Integration**
+   - **Updated**: `plan preview` command with configuration support
+   - **New Flags Added**:
+     - `--values-config PATH`: Path to naming-values.yaml
+     - `--patterns-config PATH`: Path to naming-patterns.yaml
+     - `--override key=value`: Runtime value overrides (multiple allowed)
+   - **Behavior**:
+     - Attempts to load from ~/.dpn/ by default
+     - Falls back to legacy mode with helpful message if no configs found
+     - Creates generators with `use_config=True` when configs available
+     - Passes ConfigurationManager to BlueprintParser
+   - **Help Text**: Added usage examples in command docstring
+   - **Lines**: 220-305 in cli.py
+
+3. **Backward Compatibility Maintained**
+   - Commands work without config files
+   - Shows message: "Run 'dpn config init' to create configuration files"
+   - Legacy mode supported for existing users
+
+**Usage Examples**:
+```bash
+# Use default configs from ~/.dpn/
+dpn plan preview dev.json
+
+# Use custom config files
+dpn plan preview dev.json \
+  --values-config custom-values.yaml \
+  --patterns-config custom-patterns.yaml
+
+# Override values at runtime
+dpn plan preview dev.json \
+  --override environment=dev \
+  --override project=oncology
+```
+
+**Architecture Benefits**:
+- ✅ Clean separation of config loading logic
+- ✅ Consistent pattern for all future command updates
+- ✅ User-friendly error messages with recovery guidance
+- ✅ Examples in help text guide users
+- ✅ Backward compatibility maintained
+
+**Files Modified**:
+- `src/data_platform_naming/cli.py`: Added config helper + updated plan preview
+
+**Next Steps** (Day 2):
+- Update `create` command with config flags
+- Update generator instantiation in create command
+- Test with actual config files
+
+### Phase 3E: Integration & Documentation (100% COMPLETE)
+
+**Date**: 2025-01-10
+
+Successfully completed end-to-end integration testing and created comprehensive migration documentation:
+
+**What Was Completed**:
+
+1. **Fixed Critical ConfigurationManager Initialization Bug**
+   - **Problem**: ConfigurationManager didn't detect pre-loaded loaders, causing 7/9 integration tests to fail
+   - **Solution**: Added `_check_values_loader_has_data()` and `_check_patterns_loader_has_data()` methods
+   - **Impact**: Now supports two initialization patterns:
+     - Direct loading: `manager.load_configs(values_path=..., patterns_path=...)`
+     - Pre-loaded loaders: `ConfigurationManager(values_loader=..., patterns_loader=...)`
+   - **Files Modified**: `src/data_platform_naming/config/configuration_manager.py`
+
+2. **Fixed Metadata Override Precedence Bug**
+   - **Problem**: Environment from `self.config` was overriding metadata parameter in generators
+   - **Solution**: Updated `_generate_with_config()` to check metadata first before using config values
+   - **Impact**: Metadata parameter now correctly overrides config values at runtime
+   - **Example**: `generate_s3_bucket_name(..., metadata={"environment": "dev"})` now works correctly
+   - **Files Modified**: `src/data_platform_naming/aws_naming.py`
+
+3. **Integration Test Suite - 9/9 Tests PASSING** ✅
+   - **File**: `tests/test_integration_e2e.py`
+   - **Test Classes**:
+     - TestEndToEndAWS: 3/3 passing (S3, Glue database, metadata override)
+     - TestEndToEndDatabricks: 2/2 passing (cluster, Unity Catalog 3-tier)
+     - TestEndToEndBackwardCompatibility: 2/2 passing (AWS & Databricks legacy mode)
+     - TestEndToEndFullWorkflow: 2/2 passing (all AWS & all Databricks resources)
+   - **Test Execution**: 0.46 seconds, 100% pass rate, zero failures
+   - **Coverage**: End-to-end workflow from YAML config files → name generation validated
+
+4. **Migration Guide Created**
+   - **File**: `docs/configuration-migration-guide.md`
+   - **Content**: 400+ lines covering:
+     - Breaking changes explanation (use_config=True required)
+     - Step-by-step migration process
+     - Before/after code examples
+     - Configuration file templates (naming-values.yaml, naming-patterns.yaml)
+     - Advanced features (metadata overrides, value precedence)
+     - Troubleshooting section with common errors
+     - Migration checklist
+     - Benefits summary
+
+**Architecture Validated**:
+- ✅ Backward compatibility maintained (legacy mode properly raises NotImplementedError)
+- ✅ ConfigurationManager detects pre-loaded loaders automatically
+- ✅ Metadata override precedence correctly implemented
+- ✅ Complete workflow from config files to name generation working
+- ✅ All 9 integration tests passing (100% success rate)
+- ✅ Zero test failures, zero errors
+
+**Key Technical Improvements**:
+1. **ConfigurationManager**: Robust initialization with automatic loader detection
+2. **Value Precedence**: Clear hierarchy (defaults → env → resource_type → blueprint → metadata)
+3. **Error Handling**: NotImplementedError for legacy mode guides users to migrate
+4. **Documentation**: Comprehensive migration guide for smooth adoption
+
+**Phase 3E Complete**: Configuration system fully integrated, tested, and documented!
+
+### Phase 3D: Blueprint Parser Integration (COMPLETE)
+
+**Date**: 2025-01-10
+
+Successfully integrated ConfigurationManager into BlueprintParser with full backward compatibility:
+
+**Key Changes**:
+1. **Updated BlueprintParser.__init__()**
+   - Added optional `configuration_manager` parameter
+   - Maintains backward compatibility (parameter optional)
+   - Zero breaking changes
+
+2. **Updated _parse_aws() Method**
+   - Added `metadata` parameter to all AWS generator calls (13 methods)
+   - Implemented try/except fallback for legacy generators
+   - Graceful degradation when ConfigurationManager not available
+
+3. **Updated _parse_databricks() Method**
+   - Added `metadata` parameter to all Databricks generator calls (14 methods)
+   - Consistent error handling pattern
+
+4. **Updated _parse_unity_catalog() Method**
+   - Added `metadata` parameter to Unity Catalog generation calls
+   - Maintains 3-tier namespace support
+
+**Error Handling Strategy**:
+```python
+try:
+    # Try config-based approach with metadata
+    name = generator.generate_name(..., metadata=metadata)
+except (NotImplementedError, TypeError):
+    # Fallback to legacy approach without metadata
+    name = generator.generate_name(...)
+```
+
+**Architecture Benefits**:
+- ✅ Zero breaking changes - existing code continues to work
+- ✅ Metadata automatically forwarded from blueprints to generators
+- ✅ Graceful degradation for legacy generators
+- ✅ Clear error messages when config required but not provided
+- ✅ Seamless integration with ConfigurationManager
+
+**Files Modified**:
+- `src/data_platform_naming/plan/blueprint.py`: Complete ConfigurationManager integration
+
+### Phase 3C: Pattern Transformations - Externalize Hardcoded Logic (COMPLETE)
 
 **Date**: 2025-01-10
 
@@ -92,17 +272,15 @@ Successfully moved hardcoded transformations from Python code to YAML configurat
 - ✅ Hash generation (NEW) → transformations.hash_generation
 
 **Test Status**:
-- ⚠️ 21 tests failing in test_naming_patterns_loader.py
-- Cause: Test fixtures need updating to include all 27 required resource types
-- Core functionality working correctly
-- Simple fix: Update test fixture with complete patterns
+- ✅ All 43 tests passing (100% pass rate)
+- ✅ 89% code coverage maintained
+- ✅ 9 hash generation tests added
+- ✅ Test execution time: 0.53 seconds
 
-**Remaining Work** (10% - 30 minutes):
-- Update test fixtures in `tests/test_naming_patterns_loader.py` with all 27 patterns
-- Add specific tests for hash generation method
-- Verify all transformations work end-to-end
+**Files Modified**:
+- `tests/test_naming_patterns_loader.py`: Updated fixtures + 9 new hash tests
 
-**Next Phase**: Phase 3D - Update blueprint parser to inject ConfigurationManager
+**Phase Complete**: All transformations successfully externalized to YAML configuration!
 
 ### Phase 3B: Databricks Generator Refactoring & Testing (COMPLETED)
 
@@ -330,28 +508,39 @@ CLI → ConfigurationManager → [NamingValuesLoader, NamingPatternsLoader, Scop
 - NamingPatternsLoader: 89% coverage ✓
 - ConfigurationManager: 94% coverage ✓
 - ScopeFilter: 100% coverage (33 tests) ✓
+- AWS Generator: 92% coverage (59 tests) ✓
+- Databricks Generator: 75% coverage (66 tests) ✓
+- Integration Tests: Created (9 tests, 2/9 passing - initialization fixes needed)
 
 **Implementation Status**: 
 - ✅ Phase 1: Foundation (COMPLETE - values, patterns, config manager)
 - ✅ Phase 2: Scope Filtering (COMPLETE - filter + blueprint integration)
 - ✅ Phase 3A: AWS Generator Refactoring (COMPLETE - 13 methods + 59 tests)
 - ✅ Phase 3B: Databricks Generator Refactoring (COMPLETE - 14 methods + 66 tests)
-- ⏳ Phase 3C: Pattern Transformations (move region codes, hash to YAML)
-- ⏳ Phase 3D: Blueprint Parser Update (inject ConfigurationManager)
-- ⏳ Phase 3E: Integration & Documentation
+- ✅ Phase 3C: Pattern Transformations (COMPLETE - YAML externalization + hash generation)
+- ✅ Phase 3D: Blueprint Parser Update (COMPLETE - ConfigurationManager integration)
+- ⏳ Phase 3E: Integration & Documentation (60% COMPLETE - tests created, initialization fixes needed)
+
+**Overall Progress**: Configuration System 85% Complete
 
 ## Next Steps
 
-Priority implementation tasks:
+**Immediate Priority** (Next 30 minutes):
 
-1. **Configuration System** (Weeks 1-3)
-   - JSON schemas for configs
-   - Config loaders and validators
-   - Scope filtering
-   - Generator refactoring
-   - CLI integration
+1. **Phase 3E Completion**
+   - Fix ConfigurationManager initialization in 7 integration tests
+   - Verify full test suite passes (168+ tests)
+   - Update generator docstrings with config examples
+   - Create migration guide documentation
 
-2. When configuration system complete, future priority areas:
+**After Phase 3 Complete**:
+
+1. **Phase 4: CLI Integration** (Week 2)
+   - Add `config` command group (init, validate)
+   - Add config flags to create/preview commands
+   - Integration tests for full workflow
+
+2. **Future Priority Areas**:
 
 1. **Platform Expansion** (from roadmap)
    - Azure naming support

@@ -24,8 +24,94 @@ from data_platform_naming.crud.transaction_manager import (
 )
 from data_platform_naming.crud.aws_operations import AWSExecutorRegistry
 from data_platform_naming.crud.dbx_operations import DatabricksExecutorRegistry, DatabricksConfig
+from data_platform_naming.config.configuration_manager import ConfigurationManager
 
 console = Console()
+
+
+# =============================================================================
+# CONFIGURATION HELPERS
+# =============================================================================
+
+def load_configuration_manager(
+    values_config: Optional[str] = None,
+    patterns_config: Optional[str] = None,
+    overrides: Optional[tuple] = None
+) -> Optional[ConfigurationManager]:
+    """
+    Load ConfigurationManager from files or defaults.
+    
+    Priority:
+    1. Explicit paths (--values-config, --patterns-config)
+    2. Default location (~/.dpn/)
+    3. Return None if no configs found (backward compatibility)
+    
+    Args:
+        values_config: Explicit path to naming-values.yaml
+        patterns_config: Explicit path to naming-patterns.yaml
+        overrides: Tuple of key=value overrides
+        
+    Returns:
+        ConfigurationManager or None if no configs found
+        
+    Raises:
+        click.ClickException: If only one config file provided, or validation fails
+    """
+    manager = None
+    
+    # Try explicit paths
+    if values_config or patterns_config:
+        if not (values_config and patterns_config):
+            raise click.ClickException(
+                "Must provide both --values-config and --patterns-config, or neither.\n"
+                "Run 'dpn config init' to create default configuration files."
+            )
+        
+        try:
+            manager = ConfigurationManager()
+            manager.load_configs(
+                values_path=Path(values_config),
+                patterns_path=Path(patterns_config)
+            )
+            console.print(f"[dim]Loaded config from: {values_config}, {patterns_config}[/dim]")
+        except Exception as e:
+            raise click.ClickException(f"Failed to load config files: {str(e)}")
+    
+    # Try default location
+    else:
+        default_dir = Path.home() / '.dpn'
+        values_path = default_dir / 'naming-values.yaml'
+        patterns_path = default_dir / 'naming-patterns.yaml'
+        
+        if values_path.exists() and patterns_path.exists():
+            try:
+                manager = ConfigurationManager()
+                manager.load_from_default_locations()
+                console.print(f"[dim]Loaded config from: ~/.dpn/[/dim]")
+            except Exception as e:
+                raise click.ClickException(
+                    f"Config files found in ~/.dpn/ but failed to load: {str(e)}\n"
+                    "Run 'dpn config validate' to check configuration."
+                )
+    
+    # Apply overrides if provided
+    if overrides and manager:
+        override_dict = {}
+        for override in overrides:
+            if '=' not in override:
+                raise click.ClickException(
+                    f"Invalid override format: '{override}'\n"
+                    "Use format: key=value (e.g., environment=dev)"
+                )
+            key, value = override.split('=', 1)
+            override_dict[key.strip()] = value.strip()
+        
+        # Store overrides for use in name generation
+        manager._cli_overrides = override_dict
+        if override_dict:
+            console.print(f"[dim]Applied overrides: {', '.join(f'{k}={v}' for k, v in override_dict.items())}[/dim]")
+    
+    return manager
 
 
 @click.group()
@@ -171,10 +257,23 @@ def plan_validate(blueprint: str):
 
 @plan.command('preview')
 @click.argument('blueprint', type=click.Path(exists=True))
+@click.option('--values-config', type=click.Path(exists=True),
+              help='Path to naming-values.yaml (default: ~/.dpn/naming-values.yaml)')
+@click.option('--patterns-config', type=click.Path(exists=True),
+              help='Path to naming-patterns.yaml (default: ~/.dpn/naming-patterns.yaml)')
+@click.option('--override', multiple=True,
+              help='Override values (format: key=value, e.g., environment=dev)')
 @click.option('--output', type=click.Path(), help='Export to JSON')
 @click.option('--format', type=click.Choice(['table', 'json']), default='table')
-def plan_preview(blueprint: str, output: Optional[str], format: str):
-    """Preview resource names"""
+def plan_preview(blueprint: str, values_config: Optional[str], patterns_config: Optional[str],
+                override: tuple, output: Optional[str], format: str):
+    """Preview resource names
+    
+    Examples:
+      dpn plan preview dev.json
+      dpn plan preview dev.json --values-config custom-values.yaml --patterns-config custom-patterns.yaml
+      dpn plan preview dev.json --override environment=dev --override project=oncology
+    """
     
     try:
         # Load blueprint
@@ -182,6 +281,9 @@ def plan_preview(blueprint: str, output: Optional[str], format: str):
             data = json.load(f)
         
         metadata = data['metadata']
+        
+        # Load configuration manager
+        config_manager = load_configuration_manager(values_config, patterns_config, override)
         
         # Initialize generators
         aws_config = AWSNamingConfig(
@@ -196,13 +298,31 @@ def plan_preview(blueprint: str, output: Optional[str], format: str):
             region=metadata['region']
         )
         
-        generators = {
-            'aws': AWSNamingGenerator(aws_config),
-            'databricks': DatabricksNamingGenerator(dbx_config)
-        }
+        # Create generators with or without ConfigurationManager
+        if config_manager:
+            console.print("[dim]Using configuration-based naming[/dim]")
+            generators = {
+                'aws': AWSNamingGenerator(
+                    config=aws_config,
+                    configuration_manager=config_manager,
+                    use_config=True
+                ),
+                'databricks': DatabricksNamingGenerator(
+                    config=dbx_config,
+                    configuration_manager=config_manager,
+                    use_config=True
+                )
+            }
+        else:
+            console.print("[yellow]No configuration files found, using legacy mode[/yellow]")
+            console.print("[yellow]Run 'dpn config init' to create configuration files[/yellow]\n")
+            generators = {
+                'aws': AWSNamingGenerator(aws_config),
+                'databricks': DatabricksNamingGenerator(dbx_config)
+            }
         
-        # Parse
-        parser = BlueprintParser(generators)
+        # Parse with optional ConfigurationManager
+        parser = BlueprintParser(generators, configuration_manager=config_manager)
         parsed = parser.parse(Path(blueprint))
         
         if format == 'json' or output:

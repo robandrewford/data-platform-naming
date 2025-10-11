@@ -75,8 +75,10 @@ class ConfigurationManager:
         """
         self.values_loader = values_loader or NamingValuesLoader()
         self.patterns_loader = patterns_loader or NamingPatternsLoader()
-        self._values_loaded = False
-        self._patterns_loaded = False
+        
+        # Detect if loaders already have data loaded
+        self._values_loaded = self._check_values_loader_has_data()
+        self._patterns_loaded = self._check_patterns_loader_has_data()
     
     def load_configs(
         self,
@@ -382,6 +384,24 @@ class ConfigurationManager:
             values_used=transformed,
             validation_errors=errors
         )
+    
+    def _check_values_loader_has_data(self) -> bool:
+        """Check if values loader has data loaded"""
+        try:
+            # Try to get defaults - will fail if no data loaded
+            defaults = self.values_loader.get_defaults()
+            return bool(defaults)
+        except (ConfigurationError, AttributeError):
+            return False
+    
+    def _check_patterns_loader_has_data(self) -> bool:
+        """Check if patterns loader has data loaded"""
+        try:
+            # Try to get version - will exist if data loaded
+            version = self.patterns_loader.get_version()
+            return version is not None
+        except (PatternError, AttributeError):
+            return False
     
     def _check_loaded(self) -> None:
         """Check that both configurations are loaded"""

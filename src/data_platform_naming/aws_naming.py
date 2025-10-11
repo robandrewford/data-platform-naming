@@ -190,13 +190,15 @@ class AWSNamingGenerator:
                 "Please provide a ConfigurationManager and set use_config=True."
             )
         
-        # Merge config values with provided values
+        # Start with config values (lowest precedence)
         merged_values = {
-            "environment": self.config.environment,
             "project": self.config.project,
             "region": self.config.region,
-            **values
         }
+        
+        # Add environment only if not in metadata (metadata has higher precedence)
+        if not metadata or "environment" not in metadata:
+            merged_values["environment"] = self.config.environment
         
         # Add optional config values if present
         if self.config.team:
@@ -204,7 +206,11 @@ class AWSNamingGenerator:
         if self.config.cost_center:
             merged_values["cost_center"] = self.config.cost_center
         
+        # Add provided values (medium precedence)
+        merged_values.update(values)
+        
         # Generate using ConfigurationManager
+        # metadata will have highest precedence in ConfigurationManager
         result = self.config_manager.generate_name(
             resource_type=resource_type,
             environment=self.config.environment,
