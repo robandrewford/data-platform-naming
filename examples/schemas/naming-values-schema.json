@@ -1,0 +1,148 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/robandrewford/data-platform-naming/schemas/naming-values-schema.json",
+  "title": "Naming Values Configuration Schema",
+  "description": "Schema for naming value substitutions (project, environment, etc.) with hierarchical precedence support",
+  "type": "object",
+  "required": ["version", "defaults"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^1\\.0$",
+      "description": "Schema version"
+    },
+    "defaults": {
+      "$ref": "#/definitions/values",
+      "description": "Default values applied to all resources (lowest precedence)"
+    },
+    "environments": {
+      "type": "object",
+      "description": "Environment-specific value overrides (medium precedence)",
+      "propertyNames": {
+        "enum": ["dev", "stg", "prd"]
+      },
+      "additionalProperties": {
+        "$ref": "#/definitions/values"
+      }
+    },
+    "resource_types": {
+      "type": "object",
+      "description": "Resource-type-specific value overrides (high precedence)",
+      "propertyNames": {
+        "pattern": "^(aws_s3_bucket|aws_glue_database|aws_glue_table|aws_glue_crawler|aws_lambda_function|aws_iam_role|aws_iam_policy|aws_kinesis_stream|aws_kinesis_firehose|aws_dynamodb_table|aws_sns_topic|aws_sqs_queue|aws_step_function|dbx_workspace|dbx_cluster|dbx_job|dbx_notebook_path|dbx_repo|dbx_pipeline|dbx_sql_warehouse|dbx_catalog|dbx_schema|dbx_table|dbx_volume|dbx_secret_scope|dbx_instance_pool|dbx_policy)$"
+      },
+      "additionalProperties": {
+        "$ref": "#/definitions/values"
+      }
+    }
+  },
+  "definitions": {
+    "values": {
+      "type": "object",
+      "description": "Set of naming values that can be substituted into patterns",
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Project name (lowercase alphanumeric with hyphens)",
+          "examples": ["dataplatform", "oncology", "finance"]
+        },
+        "environment": {
+          "type": "string",
+          "enum": ["dev", "stg", "prd"],
+          "description": "Environment code"
+        },
+        "region": {
+          "type": "string",
+          "pattern": "^[a-z]+-[a-z]+-[0-9]$",
+          "description": "AWS region code",
+          "examples": ["us-east-1", "us-west-2", "eu-west-1"]
+        },
+        "region_short": {
+          "type": "string",
+          "pattern": "^[a-z]{2,4}[0-9]$",
+          "description": "Abbreviated region code",
+          "examples": ["use1", "usw2", "euw1"]
+        },
+        "team": {
+          "type": "string",
+          "description": "Team name",
+          "examples": ["data-platform", "analytics", "ml-ops"]
+        },
+        "cost_center": {
+          "type": "string",
+          "description": "Cost center or billing code",
+          "examples": ["CC-12345", "DEPT-IT"]
+        },
+        "data_classification": {
+          "type": "string",
+          "enum": ["public", "internal", "confidential", "restricted"],
+          "description": "Data classification level"
+        },
+        "workload": {
+          "type": "string",
+          "description": "Workload type for compute resources",
+          "examples": ["etl", "analytics", "ml-training"]
+        },
+        "purpose": {
+          "type": "string",
+          "description": "Resource purpose",
+          "examples": ["raw", "processed", "curated", "backup"]
+        },
+        "domain": {
+          "type": "string",
+          "description": "Business domain",
+          "examples": ["finance", "sales", "marketing", "hr"]
+        },
+        "layer": {
+          "type": "string",
+          "enum": ["raw", "bronze", "silver", "gold", "processed", "curated"],
+          "description": "Data layer in medallion architecture"
+        },
+        "owner": {
+          "type": "string",
+          "description": "Resource owner email or team",
+          "examples": ["data-team@company.com", "john.doe@company.com"]
+        }
+      },
+      "additionalProperties": {
+        "type": "string",
+        "description": "Custom values can be added for specific use cases"
+      }
+    }
+  },
+  "examples": [
+    {
+      "version": "1.0",
+      "defaults": {
+        "project": "dataplatform",
+        "region": "us-east-1",
+        "region_short": "use1",
+        "team": "data-platform",
+        "cost_center": "CC-12345"
+      },
+      "environments": {
+        "dev": {
+          "environment": "dev",
+          "data_classification": "internal"
+        },
+        "stg": {
+          "environment": "stg",
+          "data_classification": "internal"
+        },
+        "prd": {
+          "environment": "prd",
+          "data_classification": "confidential"
+        }
+      },
+      "resource_types": {
+        "aws_s3_bucket": {
+          "purpose": "raw"
+        },
+        "dbx_cluster": {
+          "workload": "etl"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,411 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/robandrewford/data-platform-naming/schemas/naming-patterns-schema.json",
+  "title": "Naming Patterns Configuration Schema",
+  "description": "Schema for naming pattern templates with placeholder variables for resource name generation",
+  "type": "object",
+  "required": ["version", "patterns"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^1\\.0$",
+      "description": "Schema version"
+    },
+    "patterns": {
+      "type": "object",
+      "description": "Naming patterns for each resource type",
+      "required": [
+        "aws_s3_bucket",
+        "aws_glue_database",
+        "aws_glue_table",
+        "aws_glue_crawler",
+        "aws_lambda_function",
+        "aws_iam_role",
+        "aws_iam_policy",
+        "aws_kinesis_stream",
+        "aws_kinesis_firehose",
+        "aws_dynamodb_table",
+        "aws_sns_topic",
+        "aws_sqs_queue",
+        "aws_step_function",
+        "dbx_workspace",
+        "dbx_cluster",
+        "dbx_job",
+        "dbx_notebook_path",
+        "dbx_repo",
+        "dbx_pipeline",
+        "dbx_sql_warehouse",
+        "dbx_catalog",
+        "dbx_schema",
+        "dbx_table",
+        "dbx_volume",
+        "dbx_secret_scope",
+        "dbx_instance_pool",
+        "dbx_policy"
+      ],
+      "properties": {
+        "aws_s3_bucket": {
+          "$ref": "#/definitions/pattern",
+          "description": "S3 bucket naming pattern",
+          "examples": ["{project}-{purpose}-{layer}-{environment}-{region_short}"]
+        },
+        "aws_glue_database": {
+          "$ref": "#/definitions/pattern",
+          "description": "Glue database naming pattern",
+          "examples": ["{project}_{domain}_{layer}_{environment}"]
+        },
+        "aws_glue_table": {
+          "$ref": "#/definitions/pattern",
+          "description": "Glue table naming pattern",
+          "examples": ["{table_type}_{entity}"]
+        },
+        "aws_glue_crawler": {
+          "$ref": "#/definitions/pattern",
+          "description": "Glue crawler naming pattern",
+          "examples": ["{project}-{environment}-crawler-{database}-{source}"]
+        },
+        "aws_lambda_function": {
+          "$ref": "#/definitions/pattern",
+          "description": "Lambda function naming pattern",
+          "examples": ["{project}-{environment}-{domain}-{trigger}-{action}"]
+        },
+        "aws_iam_role": {
+          "$ref": "#/definitions/pattern",
+          "description": "IAM role naming pattern",
+          "examples": ["{project}-{environment}-{service}-{purpose}-role"]
+        },
+        "aws_iam_policy": {
+          "$ref": "#/definitions/pattern",
+          "description": "IAM policy naming pattern",
+          "examples": ["{project}-{environment}-{service}-{purpose}-policy"]
+        },
+        "aws_kinesis_stream": {
+          "$ref": "#/definitions/pattern",
+          "description": "Kinesis stream naming pattern",
+          "examples": ["{project}-{environment}-{domain}-{source}-stream"]
+        },
+        "aws_kinesis_firehose": {
+          "$ref": "#/definitions/pattern",
+          "description": "Kinesis Firehose delivery stream naming pattern",
+          "examples": ["{project}-{environment}-{domain}-to-{destination}"]
+        },
+        "aws_dynamodb_table": {
+          "$ref": "#/definitions/pattern",
+          "description": "DynamoDB table naming pattern",
+          "examples": ["{project}-{environment}-{entity}-{purpose}"]
+        },
+        "aws_sns_topic": {
+          "$ref": "#/definitions/pattern",
+          "description": "SNS topic naming pattern",
+          "examples": ["{project}-{environment}-{event_type}-{purpose}"]
+        },
+        "aws_sqs_queue": {
+          "$ref": "#/definitions/pattern",
+          "description": "SQS queue naming pattern",
+          "examples": ["{project}-{environment}-{purpose}-{queue_type}"]
+        },
+        "aws_step_function": {
+          "$ref": "#/definitions/pattern",
+          "description": "Step Functions state machine naming pattern",
+          "examples": ["{project}-{environment}-{workflow}-{purpose}"]
+        },
+        "dbx_workspace": {
+          "$ref": "#/definitions/pattern",
+          "description": "Databricks workspace naming pattern",
+          "examples": ["dbx-{project}-{purpose}-{environment}-{region_short}"]
+        },
+        "dbx_cluster": {
+          "$ref": "#/definitions/pattern",
+          "description": "Databricks cluster naming pattern",
+          "examples": ["{project}-{workload}-{cluster_type}-{environment}"]
+        },
+        "dbx_job": {
+          "$ref": "#/definitions/pattern",
+          "description": "Databricks job naming pattern",
+          "examples": ["{project}-{job_type}-{purpose}-{schedule}-{environment}"]
+        },
+        "dbx_notebook_path": {
+          "$ref": "#/definitions/pattern",
+          "description": "Databricks notebook path naming pattern",
+          "examples": ["/{project}/{domain}/{purpose}/{environment}/{notebook_name}"]
+        },
+        "dbx_repo": {
+          "$ref": "#/definitions/pattern",
+          "description": "Databricks Git repo naming pattern",
+          "examples": ["{project}-{repo_purpose}-{environment}"]
+        },
+        "dbx_pipeline": {
+          "$ref": "#/definitions/pattern",
+          "description": "Databricks Delta Live Tables pipeline naming pattern",
+          "examples": ["{project}-{pipeline_type}-{source}-{target}-{environment}"]
+        },
+        "dbx_sql_warehouse": {
+          "$ref": "#/definitions/pattern",
+          "description": "Databricks SQL warehouse naming pattern",
+          "examples": ["{project}-sql-{purpose}-{size}-{environment}"]
+        },
+        "dbx_catalog": {
+          "$ref": "#/definitions/pattern",
+          "description": "Unity Catalog catalog naming pattern",
+          "examples": ["{project}_{catalog_type}_{environment}"]
+        },
+        "dbx_schema": {
+          "$ref": "#/definitions/pattern",
+          "description": "Unity Catalog schema naming pattern",
+          "examples": ["{domain}_{layer}"]
+        },
+        "dbx_table": {
+          "$ref": "#/definitions/pattern",
+          "description": "Unity Catalog table naming pattern",
+          "examples": ["{table_type}_{entity}"]
+        },
+        "dbx_volume": {
+          "$ref": "#/definitions/pattern",
+          "description": "Unity Catalog volume naming pattern",
+          "examples": ["{data_type}_{purpose}"]
+        },
+        "dbx_secret_scope": {
+          "$ref": "#/definitions/pattern",
+          "description": "Databricks secret scope naming pattern",
+          "examples": ["{project}-{purpose}-{environment}"]
+        },
+        "dbx_instance_pool": {
+          "$ref": "#/definitions/pattern",
+          "description": "Databricks instance pool naming pattern",
+          "examples": ["{project}-pool-{node_type}-{purpose}-{environment}"]
+        },
+        "dbx_policy": {
+          "$ref": "#/definitions/pattern",
+          "description": "Databricks policy naming pattern",
+          "examples": ["{project}-{target}-{policy_type}-{environment}"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "transformations": {
+      "type": "object",
+      "description": "Optional transformation rules applied to pattern variables",
+      "properties": {
+        "region_mapping": {
+          "type": "object",
+          "description": "Map full region names to abbreviated codes",
+          "propertyNames": {
+            "pattern": "^[a-z]+-[a-z]+-[0-9]$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[a-z]{2,4}[0-9]$"
+          },
+          "examples": [
+            {
+              "us-east-1": "use1",
+              "us-west-2": "usw2",
+              "eu-west-1": "euw1"
+            }
+          ]
+        },
+        "lowercase": {
+          "type": "array",
+          "description": "Variables to convert to lowercase",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "examples": [["project", "environment", "domain"]]
+        },
+        "uppercase": {
+          "type": "array",
+          "description": "Variables to convert to UPPERCASE",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "examples": [["cost_center"]]
+        },
+        "replace_hyphens": {
+          "type": "object",
+          "description": "Variables where hyphens should be replaced with another character",
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 1
+          },
+          "examples": [
+            {
+              "project": "_",
+              "team": "_"
+            }
+          ]
+        },
+        "hash_generation": {
+          "type": "object",
+          "description": "Configuration for generating hash suffixes for uniqueness",
+          "properties": {
+            "algorithm": {
+              "type": "string",
+              "enum": ["md5", "sha256"],
+              "description": "Hash algorithm to use",
+              "default": "md5"
+            },
+            "length": {
+              "type": "integer",
+              "minimum": 4,
+              "maximum": 64,
+              "description": "Number of characters to use from hash",
+              "default": 8
+            },
+            "prefix": {
+              "type": "string",
+              "maxLength": 2,
+              "description": "Optional prefix for hash (e.g., 'h' for 'h12345678')",
+              "default": ""
+            },
+            "separator": {
+              "type": "string",
+              "maxLength": 1,
+              "description": "Separator between name and hash",
+              "default": "-"
+            }
+          }
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "description": "Validation rules for generated names",
+      "properties": {
+        "max_length": {
+          "type": "object",
+          "description": "Maximum length constraints per resource type",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "examples": [
+            {
+              "aws_s3_bucket": 63,
+              "aws_glue_database": 255,
+              "dbx_cluster": 100
+            }
+          ]
+        },
+        "allowed_chars": {
+          "type": "object",
+          "description": "Regex patterns for allowed characters per resource type",
+          "additionalProperties": {
+            "type": "string",
+            "format": "regex"
+          },
+          "examples": [
+            {
+              "aws_s3_bucket": "^[a-z0-9-]+$",
+              "aws_glue_database": "^[a-z0-9_]+$"
+            }
+          ]
+        },
+        "required_variables": {
+          "type": "object",
+          "description": "Variables that must be present for each resource type",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "examples": [
+            {
+              "aws_s3_bucket": ["project", "environment", "region_short"],
+              "dbx_cluster": ["project", "workload", "environment"]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "definitions": {
+    "pattern": {
+      "type": "string",
+      "description": "Naming pattern template with {placeholder} variables",
+      "pattern": ".*\\{[a-z_]+\\}.*",
+      "minLength": 3
+    }
+  },
+  "examples": [
+    {
+      "version": "1.0",
+      "patterns": {
+        "aws_s3_bucket": "{project}-{purpose}-{layer}-{environment}-{region_short}",
+        "aws_glue_database": "{project}_{domain}_{layer}_{environment}",
+        "aws_glue_table": "{table_type}_{entity}",
+        "aws_glue_crawler": "{project}-{environment}-crawler-{database}-{source}",
+        "aws_lambda_function": "{project}-{environment}-{domain}-{trigger}-{action}",
+        "aws_iam_role": "{project}-{environment}-{service}-{purpose}-role",
+        "aws_iam_policy": "{project}-{environment}-{service}-{purpose}-policy",
+        "aws_kinesis_stream": "{project}-{environment}-{domain}-{source}-stream",
+        "aws_kinesis_firehose": "{project}-{environment}-{domain}-to-{destination}",
+        "aws_dynamodb_table": "{project}-{environment}-{entity}-{purpose}",
+        "aws_sns_topic": "{project}-{environment}-{event_type}-{purpose}",
+        "aws_sqs_queue": "{project}-{environment}-{purpose}-{queue_type}",
+        "aws_step_function": "{project}-{environment}-{workflow}-{purpose}",
+        "dbx_workspace": "dbx-{project}-{purpose}-{environment}-{region_short}",
+        "dbx_cluster": "{project}-{workload}-{cluster_type}-{environment}",
+        "dbx_job": "{project}-{job_type}-{purpose}-{schedule}-{environment}",
+        "dbx_notebook_path": "/{project}/{domain}/{purpose}/{environment}/{notebook_name}",
+        "dbx_repo": "{project}-{repo_purpose}-{environment}",
+        "dbx_pipeline": "{project}-{pipeline_type}-{source}-{target}-{environment}",
+        "dbx_sql_warehouse": "{project}-sql-{purpose}-{size}-{environment}",
+        "dbx_catalog": "{project}_{catalog_type}_{environment}",
+        "dbx_schema": "{domain}_{layer}",
+        "dbx_table": "{table_type}_{entity}",
+        "dbx_volume": "{data_type}_{purpose}",
+        "dbx_secret_scope": "{project}-{purpose}-{environment}",
+        "dbx_instance_pool": "{project}-pool-{node_type}-{purpose}-{environment}",
+        "dbx_policy": "{project}-{target}-{policy_type}-{environment}"
+      },
+      "transformations": {
+        "region_mapping": {
+          "us-east-1": "use1",
+          "us-west-2": "usw2",
+          "eu-west-1": "euw1",
+          "eu-central-1": "euc1",
+          "ap-southeast-1": "apse1"
+        },
+        "lowercase": ["project", "environment", "domain", "layer"],
+        "replace_hyphens": {
+          "project": "_"
+        }
+      },
+      "validation": {
+        "max_length": {
+          "aws_s3_bucket": 63,
+          "aws_glue_database": 255,
+          "aws_glue_table": 255,
+          "dbx_cluster": 100,
+          "dbx_job": 200,
+          "dbx_catalog": 255,
+          "dbx_schema": 255,
+          "dbx_table": 255
+        },
+        "allowed_chars": {
+          "aws_s3_bucket": "^[a-z0-9-]+$",
+          "aws_glue_database": "^[a-z0-9_]+$",
+          "aws_glue_table": "^[a-z0-9_]+$",
+          "dbx_cluster": "^[a-zA-Z0-9-_]+$",
+          "dbx_catalog": "^[a-zA-Z0-9_]+$",
+          "dbx_schema": "^[a-zA-Z0-9_]+$",
+          "dbx_table": "^[a-zA-Z0-9_]+$"
+        },
+        "required_variables": {
+          "aws_s3_bucket": ["project", "purpose", "layer", "environment", "region_short"],
+          "aws_glue_database": ["project", "domain", "layer", "environment"],
+          "aws_glue_table": ["entity"],
+          "dbx_cluster": ["project", "workload", "cluster_type", "environment"],
+          "dbx_job": ["project", "job_type", "purpose", "environment"],
+          "dbx_catalog": ["project", "catalog_type", "environment"],
+          "dbx_schema": ["domain", "layer"],
+          "dbx_table": ["entity"]
+        }
+      }
+    }
+  ]
+}

@@ -182,11 +182,22 @@ def patterns_config():
 @pytest.fixture
 def config_manager(values_config, patterns_config):
     """ConfigurationManager loaded with test configs"""
-    manager = ConfigurationManager()
-    manager.load_configs(
-        values_dict=values_config,
-        patterns_dict=patterns_config
+    from data_platform_naming.config.naming_values_loader import NamingValuesLoader
+    from data_platform_naming.config.naming_patterns_loader import NamingPatternsLoader
+    
+    # Pre-load loaders with dict data
+    values_loader = NamingValuesLoader()
+    values_loader.load_from_dict(values_config)
+    
+    patterns_loader = NamingPatternsLoader()
+    patterns_loader.load_from_dict(patterns_config)
+    
+    # Initialize ConfigurationManager with pre-loaded loaders
+    manager = ConfigurationManager(
+        values_loader=values_loader,
+        patterns_loader=patterns_loader
     )
+    
     return manager
 
 
