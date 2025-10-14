@@ -12,10 +12,7 @@ from enum import Enum
 from typing import Any, Optional
 
 # Import ConfigurationManager for config-based name generation
-try:
-    from .config.configuration_manager import ConfigurationManager
-except ImportError:
-    ConfigurationManager = None  # Make optional for backwards compatibility
+from .config.configuration_manager import ConfigurationManager
 
 
 class DatabricksResourceType(Enum):
@@ -78,31 +75,25 @@ class DatabricksNamingGenerator:
         DatabricksResourceType.VOLUME: r'^[a-zA-Z0-9_]+$',
     }
 
-    def __init__(self,
-                 config: DatabricksNamingConfig,
-                 configuration_manager: Optional['ConfigurationManager'] = None,
-                 use_config: bool = False):
+    def __init__(
+        self,
+        config: DatabricksNamingConfig,
+        configuration_manager: ConfigurationManager
+    ):
         """
         Initialize Databricks naming generator.
         
         Args:
             config: Databricks naming configuration
-            configuration_manager: Optional configuration manager for pattern-based generation
-            use_config: If True, use ConfigurationManager for name generation
+            configuration_manager: ConfigurationManager for pattern-based generation
         
         Raises:
-            ValueError: If use_config=True but configuration_manager not provided
             ValueError: If required patterns missing from configuration
         """
         self.config = config
         self.configuration_manager = configuration_manager
-        self.use_config = use_config
 
         self._validate_config()
-
-        if use_config:
-            if not configuration_manager:
-                raise ValueError("configuration_manager required when use_config=True")
 
     def _validate_config(self):
         """Validate configuration parameters"""
@@ -130,14 +121,7 @@ class DatabricksNamingGenerator:
         
         Raises:
             ValueError: If name generation fails
-            NotImplementedError: If use_config=False
         """
-        if not self.use_config:
-            raise NotImplementedError(
-                "Config-based generation required. Set use_config=True and provide "
-                "ConfigurationManager with pattern definitions."
-            )
-
         # Merge config values with method params
         values = {
             'environment': self.config.environment,
@@ -221,10 +205,9 @@ class DatabricksNamingGenerator:
 
         Raises:
             ValueError: If name generation fails
-            NotImplementedError: If use_config=False
 
         Example:
-            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> gen = DatabricksNamingGenerator(config, config_mgr)
             >>> name = gen.generate_workspace_name('analytics')
             >>> print(name)
             'dbx-dataplatform-analytics-prd-useast1'
@@ -255,10 +238,9 @@ class DatabricksNamingGenerator:
         
         Raises:
             ValueError: If name generation fails
-            NotImplementedError: If use_config=False
         
         Example:
-            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> gen = DatabricksNamingGenerator(config, config_mgr)
             >>> name = gen.generate_cluster_name('etl', 'shared')
             >>> print(name)
             'dataplatform-etl-shared-prd'

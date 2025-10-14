@@ -9,6 +9,9 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Optional
 
+# Import ConfigurationManager for type hints
+from .config.configuration_manager import ConfigurationManager
+
 
 class AWSResourceType(Enum):
     """AWS resource types with naming patterns"""
@@ -74,35 +77,23 @@ class AWSNamingGenerator:
     def __init__(
         self,
         config: AWSNamingConfig,
-        configuration_manager: Optional[Any] = None,
-        use_config: bool = False
+        configuration_manager: ConfigurationManager
     ):
         """
         Initialize AWSNamingGenerator.
         
         Args:
             config: AWS naming configuration
-            configuration_manager: Optional ConfigurationManager for pattern-based generation
-            use_config: If True, use ConfigurationManager for all name generation.
-                       If False, raises NotImplementedError (legacy mode removed).
+            configuration_manager: ConfigurationManager for pattern-based generation
         
         Raises:
-            ValueError: If use_config=True but configuration_manager is None
             ValueError: If pattern validation fails during initialization
         """
         self.config = config
         self.config_manager = configuration_manager
-        self.use_config = use_config
 
         self._validate_config()
-
-        # If using config mode, validate patterns at initialization
-        if self.use_config:
-            if not self.config_manager:
-                raise ValueError(
-                    "use_config=True requires configuration_manager parameter"
-                )
-            self._validate_patterns_at_init()
+        self._validate_patterns_at_init()
 
     def _validate_config(self):
         """Validate configuration parameters"""
@@ -180,16 +171,8 @@ class AWSNamingGenerator:
             Generated resource name
         
         Raises:
-            NotImplementedError: If use_config is False
             ValueError: If name generation or validation fails
         """
-        if not self.use_config:
-            raise NotImplementedError(
-                f"Generator requires use_config=True to generate {resource_type}. "
-                "Legacy mode has been removed. "
-                "Please provide a ConfigurationManager and set use_config=True."
-            )
-
         # Start with config values (lowest precedence)
         merged_values = {
             "project": self.config.project,
@@ -291,7 +274,6 @@ class AWSNamingGenerator:
             Generated S3 bucket name
         
         Raises:
-            NotImplementedError: If use_config is False
             ValueError: If name generation fails
         """
         return self._generate_with_config(
@@ -325,7 +307,6 @@ class AWSNamingGenerator:
             Generated Glue database name
         
         Raises:
-            NotImplementedError: If use_config is False
             ValueError: If name generation fails
         """
         return self._generate_with_config(
@@ -358,7 +339,6 @@ class AWSNamingGenerator:
             Generated Glue table name
         
         Raises:
-            NotImplementedError: If use_config is False
             ValueError: If name generation fails
         """
         return self._generate_with_config(
@@ -391,7 +371,6 @@ class AWSNamingGenerator:
             Generated Glue crawler name
         
         Raises:
-            NotImplementedError: If use_config is False
             ValueError: If name generation fails
         """
         return self._generate_with_config(
@@ -426,7 +405,6 @@ class AWSNamingGenerator:
             Generated Lambda function name
         
         Raises:
-            NotImplementedError: If use_config is False
             ValueError: If name generation fails
         """
         return self._generate_with_config(
@@ -460,7 +438,6 @@ class AWSNamingGenerator:
             Generated IAM role name
         
         Raises:
-            NotImplementedError: If use_config is False
             ValueError: If name generation fails
         """
         return self._generate_with_config(
@@ -493,7 +470,6 @@ class AWSNamingGenerator:
             Generated IAM policy name
         
         Raises:
-            NotImplementedError: If use_config is False
             ValueError: If name generation fails
         """
         return self._generate_with_config(
@@ -526,7 +502,6 @@ class AWSNamingGenerator:
             Generated Kinesis stream name
         
         Raises:
-            NotImplementedError: If use_config is False
             ValueError: If name generation fails
         """
         return self._generate_with_config(
@@ -559,7 +534,6 @@ class AWSNamingGenerator:
             Generated Kinesis Firehose name
         
         Raises:
-            NotImplementedError: If use_config is False
             ValueError: If name generation fails
         """
         return self._generate_with_config(
@@ -592,7 +566,6 @@ class AWSNamingGenerator:
             Generated DynamoDB table name
         
         Raises:
-            NotImplementedError: If use_config is False
             ValueError: If name generation fails
         """
         return self._generate_with_config(
@@ -625,7 +598,6 @@ class AWSNamingGenerator:
             Generated SNS topic name
         
         Raises:
-            NotImplementedError: If use_config is False
             ValueError: If name generation fails
         """
         return self._generate_with_config(
@@ -658,7 +630,6 @@ class AWSNamingGenerator:
             Generated SQS queue name
         
         Raises:
-            NotImplementedError: If use_config is False
             ValueError: If name generation fails
         """
         return self._generate_with_config(
@@ -691,7 +662,6 @@ class AWSNamingGenerator:
             Generated Step Function name
         
         Raises:
-            NotImplementedError: If use_config is False
             ValueError: If name generation fails
         """
         return self._generate_with_config(
