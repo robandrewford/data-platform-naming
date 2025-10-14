@@ -6,19 +6,17 @@ This module provides a unified interface for managing naming configurations
 by coordinating between NamingValuesLoader and NamingPatternsLoader.
 """
 
-from pathlib import Path
-from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from .naming_values_loader import (
-    NamingValuesLoader,
-    NamingValues,
-    ConfigurationError,
-)
 from .naming_patterns_loader import (
     NamingPatternsLoader,
-    NamingPattern,
     PatternError,
+)
+from .naming_values_loader import (
+    ConfigurationError,
+    NamingValuesLoader,
 )
 
 
@@ -30,7 +28,7 @@ class GeneratedName:
     pattern_used: str
     values_used: Dict[str, Any]
     validation_errors: List[str]
-    
+
     @property
     def is_valid(self) -> bool:
         """Check if name is valid (no validation errors)"""
@@ -60,7 +58,7 @@ class ConfigurationManager:
         >>> print(result.name)
         'dataplatform-raw-raw-prd-use1'
     """
-    
+
     def __init__(
         self,
         values_loader: Optional[NamingValuesLoader] = None,
@@ -75,11 +73,11 @@ class ConfigurationManager:
         """
         self.values_loader = values_loader or NamingValuesLoader()
         self.patterns_loader = patterns_loader or NamingPatternsLoader()
-        
+
         # Detect if loaders already have data loaded
         self._values_loaded = self._check_values_loader_has_data()
         self._patterns_loaded = self._check_patterns_loader_has_data()
-    
+
     def load_configs(
         self,
         values_path: Optional[Path] = None,
@@ -110,7 +108,7 @@ class ConfigurationManager:
             raise ConfigurationError(
                 "Must provide either values_path or values_dict"
             )
-        
+
         # Load patterns
         if patterns_path:
             self.patterns_loader.load_from_file(patterns_path)
@@ -120,11 +118,11 @@ class ConfigurationManager:
             raise ConfigurationError(
                 "Must provide either patterns_path or patterns_dict"
             )
-        
+
         # Update flags after successful loading
         self._values_loaded = self._check_values_loader_has_data()
         self._patterns_loaded = self._check_patterns_loader_has_data()
-    
+
     def load_from_default_locations(self, base_dir: Optional[Path] = None) -> bool:
         """
         Load configurations from default locations.
@@ -144,19 +142,19 @@ class ConfigurationManager:
         """
         if base_dir is None:
             base_dir = Path.cwd() / ".dpn"
-        
+
         values_path = base_dir / "naming-values.yaml"
         patterns_path = base_dir / "naming-patterns.yaml"
-        
+
         if not (values_path.exists() and patterns_path.exists()):
             return False
-        
+
         self.load_configs(
             values_path=values_path,
             patterns_path=patterns_path
         )
         return True
-    
+
     def generate_name(
         self,
         resource_type: str,
@@ -189,35 +187,35 @@ class ConfigurationManager:
             PatternError: If pattern not found or variables missing
         """
         self._check_loaded()
-        
+
         # Get merged values
         values = self.values_loader.get_values_for_resource(
             resource_type=resource_type,
             environment=environment,
             blueprint_metadata=blueprint_metadata
         )
-        
+
         # Apply any additional overrides
         merged_values = dict(values.values)
         if value_overrides:
             merged_values.update(value_overrides)
-        
+
         # Apply transformations
         transformed_values = self.patterns_loader.apply_transformations(
             merged_values
         )
-        
+
         # Get pattern
         pattern = self.patterns_loader.get_pattern(resource_type)
-        
+
         # Format pattern with values
         name = pattern.format(transformed_values)
-        
+
         # Validate name
         validation_errors = self.patterns_loader.validate_name(
             resource_type, name
         )
-        
+
         return GeneratedName(
             name=name,
             resource_type=resource_type,
@@ -225,7 +223,7 @@ class ConfigurationManager:
             values_used=transformed_values,
             validation_errors=validation_errors
         )
-    
+
     def generate_names_for_blueprint(
         self,
         resources: List[Dict[str, Any]],
@@ -247,17 +245,17 @@ class ConfigurationManager:
             ConfigurationError: If configs not loaded
         """
         self._check_loaded()
-        
+
         results = {}
         for resource in resources:
             resource_id = resource.get("id", resource.get("type"))
             resource_type = resource["type"]
-            
+
             # Merge blueprint metadata with resource metadata
             resource_metadata = dict(blueprint_metadata or {})
             if "metadata" in resource:
                 resource_metadata.update(resource["metadata"])
-            
+
             try:
                 result = self.generate_name(
                     resource_type=resource_type,
@@ -274,9 +272,9 @@ class ConfigurationManager:
                     values_used={},
                     validation_errors=[str(e)]
                 )
-        
+
         return results
-    
+
     def validate_configuration(self) -> List[str]:
         """
         Validate the loaded configuration.
@@ -290,20 +288,20 @@ class ConfigurationManager:
             List of validation warnings/errors (empty if valid)
         """
         self._check_loaded()
-        
+
         warnings = []
-        
+
         # Get all patterns
         patterns = self.patterns_loader.get_all_patterns()
-        
+
         # Get default values to check against
         defaults = self.values_loader.get_defaults()
-        
+
         # Check each pattern
         for resource_type, pattern in patterns.items():
             pattern_vars = pattern.get_variables()
             required_vars = set(pattern.required_variables)
-            
+
             # Check if pattern variables are available in defaults
             # (environment and resource-type specific values may add more)
             missing_required = required_vars - set(defaults.keys())
@@ -312,7 +310,7 @@ class ConfigurationManager:
                     f"{resource_type}: Required variables not in defaults: "
                     f"{', '.join(sorted(missing_required))}"
                 )
-            
+
             # Check for variables in pattern but not marked as required
             unmarked_vars = pattern_vars - required_vars
             if unmarked_vars and not defaults.keys() >= unmarked_vars:
@@ -322,9 +320,9 @@ class ConfigurationManager:
                         f"{resource_type}: Pattern uses variables not in defaults "
                         f"or required list: {', '.join(sorted(missing))}"
                     )
-        
+
         return warnings
-    
+
     def get_available_resource_types(self) -> List[str]:
         """
         Get list of resource types that have both values and patterns defined.
@@ -334,7 +332,7 @@ class ConfigurationManager:
         """
         self._check_loaded()
         return self.patterns_loader.list_resource_types()
-    
+
     def get_available_environments(self) -> List[str]:
         """
         Get list of configured environments.
@@ -344,7 +342,7 @@ class ConfigurationManager:
         """
         self._check_loaded()
         return self.values_loader.list_environments()
-    
+
     def preview_name(
         self,
         resource_type: str,
@@ -364,19 +362,19 @@ class ConfigurationManager:
         """
         if not self._patterns_loaded:
             raise ConfigurationError("Patterns configuration not loaded")
-        
+
         # Apply transformations
         transformed = self.patterns_loader.apply_transformations(values)
-        
+
         # Get pattern
         pattern = self.patterns_loader.get_pattern(resource_type)
-        
+
         # Format
         name = pattern.format(transformed)
-        
+
         # Validate
         errors = self.patterns_loader.validate_name(resource_type, name)
-        
+
         return GeneratedName(
             name=name,
             resource_type=resource_type,
@@ -384,7 +382,7 @@ class ConfigurationManager:
             values_used=transformed,
             validation_errors=errors
         )
-    
+
     def _check_values_loader_has_data(self) -> bool:
         """Check if values loader has data loaded"""
         try:
@@ -393,7 +391,7 @@ class ConfigurationManager:
             return bool(defaults)
         except (ConfigurationError, AttributeError, Exception):
             return False
-    
+
     def _check_patterns_loader_has_data(self) -> bool:
         """Check if patterns loader has data loaded"""
         try:
@@ -402,29 +400,29 @@ class ConfigurationManager:
             return version is not None
         except (PatternError, ConfigurationError, AttributeError):
             return False
-    
+
     def _check_loaded(self) -> None:
         """Check that both configurations are loaded"""
         if not self._values_loaded:
             raise ConfigurationError("Naming values configuration not loaded")
         if not self._patterns_loaded:
             raise ConfigurationError("Naming patterns configuration not loaded")
-    
+
     @property
     def is_loaded(self) -> bool:
         """Check if both configurations are loaded"""
         return self._values_loaded and self._patterns_loaded
-    
+
     def __repr__(self) -> str:
         """String representation of manager"""
         if not self.is_loaded:
             return "ConfigurationManager(not loaded)"
-        
+
         values_version = self.values_loader.get_version()
         patterns_version = self.patterns_loader.get_version()
         resource_type_count = len(self.get_available_resource_types())
         environment_count = len(self.get_available_environments())
-        
+
         return (
             f"ConfigurationManager("
             f"values_version={values_version}, "
@@ -438,34 +436,34 @@ class ConfigurationManager:
 if __name__ == "__main__":
     # Initialize manager
     manager = ConfigurationManager()
-    
+
     # Load configurations
     manager.load_configs(
         values_path=Path("examples/configs/naming-values.yaml"),
         patterns_path=Path("examples/configs/naming-patterns.yaml")
     )
-    
+
     print(f"Loaded: {manager}")
     print(f"Resource types: {manager.get_available_resource_types()}")
     print(f"Environments: {manager.get_available_environments()}")
-    
+
     # Generate a name
     result = manager.generate_name(
         resource_type="aws_s3_bucket",
         environment="prd"
     )
-    
+
     print(f"\nGenerated name: {result.name}")
     print(f"Pattern used: {result.pattern_used}")
     print(f"Valid: {result.is_valid}")
-    
+
     if not result.is_valid:
         print(f"Validation errors: {result.validation_errors}")
-    
+
     # Validate configuration
     warnings = manager.validate_configuration()
     if warnings:
-        print(f"\nConfiguration warnings:")
+        print("\nConfiguration warnings:")
         for warning in warnings:
             print(f"  - {warning}")
     else:

@@ -5,11 +5,11 @@ Validates JSON Schema definitions and example configurations
 """
 
 import json
+from pathlib import Path
+
 import pytest
 import yaml
-from pathlib import Path
-from jsonschema import validate, ValidationError, Draft7Validator
-
+from jsonschema import Draft7Validator, ValidationError, validate
 
 # Get project root directory
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -17,25 +17,25 @@ PROJECT_ROOT = Path(__file__).parent.parent
 
 class TestNamingValuesSchema:
     """Test naming-values-schema.json"""
-    
+
     @pytest.fixture
     def schema(self):
         """Load naming-values schema"""
         schema_path = PROJECT_ROOT / "schemas" / "naming-values-schema.json"
         with open(schema_path) as f:
             return json.load(f)
-    
+
     @pytest.fixture
     def example_config(self):
         """Load example naming-values.yaml"""
         config_path = PROJECT_ROOT / "examples" / "configs" / "naming-values.yaml"
         with open(config_path) as f:
             return yaml.safe_load(f)
-    
+
     def test_schema_is_valid_json_schema(self, schema):
         """Verify the schema itself is valid JSON Schema Draft 7"""
         Draft7Validator.check_schema(schema)
-    
+
     def test_schema_has_required_properties(self, schema):
         """Verify schema has all required top-level properties"""
         assert "$schema" in schema
@@ -47,11 +47,11 @@ class TestNamingValuesSchema:
         assert "required" in schema
         assert "version" in schema["required"]
         assert "defaults" in schema["required"]
-    
+
     def test_example_config_validates(self, schema, example_config):
         """Verify example naming-values.yaml validates against schema"""
         validate(instance=example_config, schema=schema)
-    
+
     def test_valid_minimal_config(self, schema):
         """Test minimal valid configuration"""
         config = {
@@ -62,7 +62,7 @@ class TestNamingValuesSchema:
             }
         }
         validate(instance=config, schema=schema)
-    
+
     def test_valid_full_config(self, schema):
         """Test full configuration with all sections"""
         config = {
@@ -99,7 +99,7 @@ class TestNamingValuesSchema:
             }
         }
         validate(instance=config, schema=schema)
-    
+
     def test_invalid_version(self, schema):
         """Test that invalid version is rejected"""
         config = {
@@ -108,7 +108,7 @@ class TestNamingValuesSchema:
         }
         with pytest.raises(ValidationError):
             validate(instance=config, schema=schema)
-    
+
     def test_missing_required_version(self, schema):
         """Test that missing version is rejected"""
         config = {
@@ -116,7 +116,7 @@ class TestNamingValuesSchema:
         }
         with pytest.raises(ValidationError):
             validate(instance=config, schema=schema)
-    
+
     def test_missing_required_defaults(self, schema):
         """Test that missing defaults is rejected"""
         config = {
@@ -124,7 +124,7 @@ class TestNamingValuesSchema:
         }
         with pytest.raises(ValidationError):
             validate(instance=config, schema=schema)
-    
+
     def test_invalid_environment_name(self, schema):
         """Test that invalid environment name is rejected"""
         config = {
@@ -136,7 +136,7 @@ class TestNamingValuesSchema:
         }
         with pytest.raises(ValidationError):
             validate(instance=config, schema=schema)
-    
+
     def test_invalid_project_format(self, schema):
         """Test that invalid project format is rejected"""
         config = {
@@ -147,7 +147,7 @@ class TestNamingValuesSchema:
         }
         with pytest.raises(ValidationError):
             validate(instance=config, schema=schema)
-    
+
     def test_valid_project_formats(self, schema):
         """Test various valid project name formats"""
         valid_projects = [
@@ -163,7 +163,7 @@ class TestNamingValuesSchema:
                 "defaults": {"project": project}
             }
             validate(instance=config, schema=schema)
-    
+
     def test_invalid_region_format(self, schema):
         """Test that invalid region format is rejected"""
         config = {
@@ -175,7 +175,7 @@ class TestNamingValuesSchema:
         }
         with pytest.raises(ValidationError):
             validate(instance=config, schema=schema)
-    
+
     def test_valid_region_formats(self, schema):
         """Test various valid region formats"""
         valid_regions = [
@@ -193,7 +193,7 @@ class TestNamingValuesSchema:
                 }
             }
             validate(instance=config, schema=schema)
-    
+
     def test_custom_variables(self, schema):
         """Test that custom variables are allowed"""
         config = {
@@ -206,7 +206,7 @@ class TestNamingValuesSchema:
             }
         }
         validate(instance=config, schema=schema)
-    
+
     def test_valid_data_classification_values(self, schema):
         """Test all valid data classification values"""
         classifications = ["public", "internal", "confidential", "restricted"]
@@ -219,7 +219,7 @@ class TestNamingValuesSchema:
                 }
             }
             validate(instance=config, schema=schema)
-    
+
     def test_invalid_data_classification(self, schema):
         """Test that invalid data classification is rejected"""
         config = {
@@ -235,25 +235,25 @@ class TestNamingValuesSchema:
 
 class TestNamingPatternsSchema:
     """Test naming-patterns-schema.json"""
-    
+
     @pytest.fixture
     def schema(self):
         """Load naming-patterns schema"""
         schema_path = PROJECT_ROOT / "schemas" / "naming-patterns-schema.json"
         with open(schema_path) as f:
             return json.load(f)
-    
+
     @pytest.fixture
     def example_config(self):
         """Load example naming-patterns.yaml"""
         config_path = PROJECT_ROOT / "examples" / "configs" / "naming-patterns.yaml"
         with open(config_path) as f:
             return yaml.safe_load(f)
-    
+
     def test_schema_is_valid_json_schema(self, schema):
         """Verify the schema itself is valid JSON Schema Draft 7"""
         Draft7Validator.check_schema(schema)
-    
+
     def test_schema_has_required_properties(self, schema):
         """Verify schema has all required top-level properties"""
         assert "$schema" in schema
@@ -265,11 +265,11 @@ class TestNamingPatternsSchema:
         assert "required" in schema
         assert "version" in schema["required"]
         assert "patterns" in schema["required"]
-    
+
     def test_example_config_validates(self, schema, example_config):
         """Verify example naming-patterns.yaml validates against schema"""
         validate(instance=example_config, schema=schema)
-    
+
     def test_valid_minimal_config(self, schema):
         """Test minimal valid configuration with all required patterns"""
         config = {
@@ -286,7 +286,7 @@ class TestNamingPatternsSchema:
             }
         }
         validate(instance=config, schema=schema)
-    
+
     def test_missing_required_pattern(self, schema):
         """Test that missing required pattern is rejected"""
         config = {
@@ -298,7 +298,7 @@ class TestNamingPatternsSchema:
         }
         with pytest.raises(ValidationError):
             validate(instance=config, schema=schema)
-    
+
     def test_invalid_pattern_no_placeholder(self, schema):
         """Test that pattern without placeholder is rejected"""
         config = {
@@ -316,7 +316,7 @@ class TestNamingPatternsSchema:
         }
         with pytest.raises(ValidationError):
             validate(instance=config, schema=schema)
-    
+
     def test_valid_pattern_formats(self, schema):
         """Test various valid pattern formats"""
         valid_patterns = [
@@ -341,7 +341,7 @@ class TestNamingPatternsSchema:
                 }
             }
             validate(instance=config, schema=schema)
-    
+
     def test_valid_transformations_section(self, schema):
         """Test valid transformations configuration"""
         config = {
@@ -369,7 +369,7 @@ class TestNamingPatternsSchema:
             }
         }
         validate(instance=config, schema=schema)
-    
+
     def test_invalid_region_mapping_format(self, schema):
         """Test that invalid region mapping format is rejected"""
         config = {
@@ -392,7 +392,7 @@ class TestNamingPatternsSchema:
         }
         with pytest.raises(ValidationError):
             validate(instance=config, schema=schema)
-    
+
     def test_valid_validation_section(self, schema):
         """Test valid validation rules configuration"""
         config = {
@@ -423,7 +423,7 @@ class TestNamingPatternsSchema:
             }
         }
         validate(instance=config, schema=schema)
-    
+
     def test_invalid_max_length_zero(self, schema):
         """Test that zero max_length is rejected"""
         config = {
@@ -446,7 +446,7 @@ class TestNamingPatternsSchema:
         }
         with pytest.raises(ValidationError):
             validate(instance=config, schema=schema)
-    
+
     def test_additional_pattern_not_allowed(self, schema):
         """Test that additional (unlisted) patterns are rejected"""
         config = {
@@ -469,14 +469,14 @@ class TestNamingPatternsSchema:
 
 class TestSchemaIntegration:
     """Integration tests for both schemas together"""
-    
+
     def test_example_files_exist(self):
         """Verify all example files exist"""
         assert (PROJECT_ROOT / "schemas" / "naming-values-schema.json").exists()
         assert (PROJECT_ROOT / "schemas" / "naming-patterns-schema.json").exists()
         assert (PROJECT_ROOT / "examples" / "configs" / "naming-values.yaml").exists()
         assert (PROJECT_ROOT / "examples" / "configs" / "naming-patterns.yaml").exists()
-    
+
     def test_schemas_directory_structure(self):
         """Verify schemas directory has expected structure"""
         schemas_dir = PROJECT_ROOT / "schemas"
@@ -484,53 +484,53 @@ class TestSchemaIntegration:
         assert (schemas_dir / "README.md").exists()
         assert (schemas_dir / "naming-values-schema.json").exists()
         assert (schemas_dir / "naming-patterns-schema.json").exists()
-    
+
     def test_examples_directory_structure(self):
         """Verify examples directory has expected structure"""
         examples_dir = PROJECT_ROOT / "examples" / "configs"
         assert examples_dir.exists()
         assert (examples_dir / "naming-values.yaml").exists()
         assert (examples_dir / "naming-patterns.yaml").exists()
-    
+
     def test_both_examples_validate(self):
         """Verify both example files validate against their schemas"""
         # Load schemas
         with open(PROJECT_ROOT / "schemas" / "naming-values-schema.json") as f:
             values_schema = json.load(f)
-        
+
         with open(PROJECT_ROOT / "schemas" / "naming-patterns-schema.json") as f:
             patterns_schema = json.load(f)
-        
+
         # Load examples
         with open(PROJECT_ROOT / "examples" / "configs" / "naming-values.yaml") as f:
             values_config = yaml.safe_load(f)
-        
+
         with open(PROJECT_ROOT / "examples" / "configs" / "naming-patterns.yaml") as f:
             patterns_config = yaml.safe_load(f)
-        
+
         # Validate
         validate(instance=values_config, schema=values_schema)
         validate(instance=patterns_config, schema=patterns_schema)
-    
+
     def test_schema_version_consistency(self):
         """Verify both schemas use same JSON Schema version"""
         with open(PROJECT_ROOT / "schemas" / "naming-values-schema.json") as f:
             values_schema = json.load(f)
-        
+
         with open(PROJECT_ROOT / "schemas" / "naming-patterns-schema.json") as f:
             patterns_schema = json.load(f)
-        
+
         assert values_schema["$schema"] == patterns_schema["$schema"]
         assert values_schema["$schema"] == "http://json-schema.org/draft-07/schema#"
-    
+
     def test_example_version_consistency(self):
         """Verify both example files use same version"""
         with open(PROJECT_ROOT / "examples" / "configs" / "naming-values.yaml") as f:
             values_config = yaml.safe_load(f)
-        
+
         with open(PROJECT_ROOT / "examples" / "configs" / "naming-patterns.yaml") as f:
             patterns_config = yaml.safe_load(f)
-        
+
         assert values_config["version"] == patterns_config["version"]
         assert values_config["version"] == "1.0"
 

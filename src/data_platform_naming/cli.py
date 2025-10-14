@@ -4,27 +4,30 @@ Data Platform Naming CLI
 Unified interface for blueprint planning and CRUD operations
 """
 
-import click
 import json
 import os
 import sys
 from pathlib import Path
 from typing import Optional
+
+import click
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
-from rich.syntax import Syntax
+from rich.table import Table
 
 # Import core modules
-from data_platform_naming.aws_naming import AWSNamingGenerator, AWSNamingConfig
-from data_platform_naming.dbx_naming import DatabricksNamingGenerator, DatabricksNamingConfig
-from data_platform_naming.plan.blueprint import BlueprintParser, BLUEPRINT_SCHEMA
-from data_platform_naming.crud.transaction_manager import (
-    TransactionManager, Operation, OperationType, ResourceType
-)
-from data_platform_naming.crud.aws_operations import AWSExecutorRegistry
-from data_platform_naming.crud.dbx_operations import DatabricksExecutorRegistry, DatabricksConfig
+from data_platform_naming.aws_naming import AWSNamingConfig, AWSNamingGenerator
 from data_platform_naming.config.configuration_manager import ConfigurationManager
+from data_platform_naming.crud.aws_operations import AWSExecutorRegistry
+from data_platform_naming.crud.dbx_operations import DatabricksConfig, DatabricksExecutorRegistry
+from data_platform_naming.crud.transaction_manager import (
+    Operation,
+    OperationType,
+    ResourceType,
+    TransactionManager,
+)
+from data_platform_naming.dbx_naming import DatabricksNamingConfig, DatabricksNamingGenerator
+from data_platform_naming.plan.blueprint import BLUEPRINT_SCHEMA, BlueprintParser
 
 console = Console()
 
@@ -58,7 +61,7 @@ def load_configuration_manager(
         click.ClickException: If only one config file provided, or validation fails
     """
     manager = None
-    
+
     # Try explicit paths
     if values_config or patterns_config:
         if not (values_config and patterns_config):
@@ -66,7 +69,7 @@ def load_configuration_manager(
                 "Must provide both --values-config and --patterns-config, or neither.\n"
                 "Run 'dpn config init' to create default configuration files."
             )
-        
+
         try:
             manager = ConfigurationManager()
             manager.load_configs(
@@ -76,24 +79,24 @@ def load_configuration_manager(
             console.print(f"[dim]Loaded config from: {values_config}, {patterns_config}[/dim]")
         except Exception as e:
             raise click.ClickException(f"Failed to load config files: {str(e)}")
-    
+
     # Try default location
     else:
         default_dir = Path.cwd() / '.dpn'
         values_path = default_dir / 'naming-values.yaml'
         patterns_path = default_dir / 'naming-patterns.yaml'
-        
+
         if values_path.exists() and patterns_path.exists():
             try:
                 manager = ConfigurationManager()
                 manager.load_from_default_locations()
-                console.print(f"[dim]Loaded config from: .dpn/[/dim]")
+                console.print("[dim]Loaded config from: .dpn/[/dim]")
             except Exception as e:
                 raise click.ClickException(
                     f"Config files found in .dpn/ but failed to load: {str(e)}\n"
                     "Run 'dpn config validate' to check configuration."
                 )
-    
+
     # Apply overrides if provided
     if overrides and manager:
         override_dict = {}
@@ -105,12 +108,12 @@ def load_configuration_manager(
                 )
             key, value = override.split('=', 1)
             override_dict[key.strip()] = value.strip()
-        
+
         # Store overrides for use in name generation
         manager._cli_overrides = override_dict
         if override_dict:
             console.print(f"[dim]Applied overrides: {', '.join(f'{k}={v}' for k, v in override_dict.items())}[/dim]")
-    
+
     return manager
 
 
@@ -155,15 +158,15 @@ def plan():
 @click.option('--output', type=click.Path(), default=None)
 def plan_init(env: str, project: str, region: str, output: Optional[str]):
     """Initialize blueprint template"""
-    
+
     # Default to blueprints/{env}.json if no output specified
     if output is None:
         output = f'blueprints/{env}.json'
-    
+
     # Create parent directory if it doesn't exist
     output_path = Path(output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     template = {
         "version": "1.0",
         "metadata": {
@@ -234,11 +237,11 @@ def plan_init(env: str, project: str, region: str, output: Optional[str]):
             }
         }
     }
-    
+
     output_path = Path(output)
     with open(output_path, 'w') as f:
         json.dump(template, f, indent=2)
-    
+
     console.print(f"[green]✓[/green] Blueprint template: {output_path}")
     console.print(f"[yellow]→[/yellow] Edit template, then run: dpn plan validate {output}")
 
@@ -247,22 +250,22 @@ def plan_init(env: str, project: str, region: str, output: Optional[str]):
 @click.argument('blueprint', type=click.Path(exists=True))
 def plan_validate(blueprint: str):
     """Validate blueprint schema"""
-    
+
     try:
-        with open(blueprint, 'r') as f:
+        with open(blueprint) as f:
             data = json.load(f)
-        
+
         import jsonschema
         jsonschema.validate(instance=data, schema=BLUEPRINT_SCHEMA)
-        
+
         console.print(f"[green]✓[/green] Blueprint valid: {blueprint}")
-        
+
     except jsonschema.ValidationError as e:
-        console.print(f"[red]✗[/red] Validation failed:")
+        console.print("[red]✗[/red] Validation failed:")
         console.print(f"  Path: {'.'.join(str(p) for p in e.path)}")
         console.print(f"  Error: {e.message}")
         sys.exit(1)
-    
+
     except Exception as e:
         console.print(f"[red]✗[/red] Error: {str(e)}")
         sys.exit(1)
@@ -287,30 +290,30 @@ def plan_preview(blueprint: str, values_config: Optional[str], patterns_config: 
       dpn plan preview dev.json --values-config custom-values.yaml --patterns-config custom-patterns.yaml
       dpn plan preview dev.json --override environment=dev --override project=oncology
     """
-    
+
     try:
         # Load blueprint
-        with open(blueprint, 'r') as f:
+        with open(blueprint) as f:
             data = json.load(f)
-        
+
         metadata = data['metadata']
-        
+
         # Load configuration manager
         config_manager = load_configuration_manager(values_config, patterns_config, override)
-        
+
         # Initialize generators
         aws_config = AWSNamingConfig(
             environment=metadata['environment'],
             project=metadata['project'],
             region=metadata['region']
         )
-        
+
         dbx_config = DatabricksNamingConfig(
             environment=metadata['environment'],
             project=metadata['project'],
             region=metadata['region']
         )
-        
+
         # Create generators with or without ConfigurationManager
         if config_manager:
             console.print("[dim]Using configuration-based naming[/dim]")
@@ -331,11 +334,11 @@ def plan_preview(blueprint: str, values_config: Optional[str], patterns_config: 
                 "Configuration files required but not found.\n"
                 "Run 'dpn config init' to create configuration files in .dpn/"
             )
-        
+
         # Parse with optional ConfigurationManager
         parser = BlueprintParser(generators, configuration_manager=config_manager)
         parsed = parser.parse(Path(blueprint))
-        
+
         if format == 'json' or output:
             # JSON output
             preview_data = {
@@ -351,21 +354,21 @@ def plan_preview(blueprint: str, values_config: Optional[str], patterns_config: 
                     for r in parsed.resources
                 ]
             }
-            
+
             if output:
                 with open(output, 'w') as f:
                     json.dump(preview_data, f, indent=2)
                 console.print(f"[green]✓[/green] Preview exported: {output}")
             else:
                 console.print_json(data=preview_data)
-        
+
         else:
             # Table output
             table = Table(title="Resource Preview")
             table.add_column("Type", style="cyan")
             table.add_column("Resource ID", style="green")
             table.add_column("Dependencies", style="yellow")
-            
+
             for resource in parsed.get_execution_order():
                 deps = ', '.join(resource.dependencies) if resource.dependencies else '-'
                 table.add_row(
@@ -373,10 +376,10 @@ def plan_preview(blueprint: str, values_config: Optional[str], patterns_config: 
                     resource.resource_id,
                     deps
                 )
-            
+
             console.print(table)
             console.print(f"\n[green]Total:[/green] {len(parsed.resources)} resources")
-        
+
     except Exception as e:
         console.print(f"[red]✗[/red] Preview failed: {str(e)}")
         sys.exit(1)
@@ -386,11 +389,11 @@ def plan_preview(blueprint: str, values_config: Optional[str], patterns_config: 
 @click.option('--output', type=click.Path(), default='blueprint-schema.json')
 def plan_schema(output: str):
     """Export JSON schema"""
-    
+
     output_path = Path(output)
     with open(output_path, 'w') as f:
         json.dump(BLUEPRINT_SCHEMA, f, indent=2)
-    
+
     console.print(f"[green]✓[/green] Schema exported: {output_path}")
 
 
@@ -410,7 +413,7 @@ def plan_schema(output: str):
               help='Path to naming-patterns.yaml (default: .dpn/naming-patterns.yaml)')
 @click.option('--override', multiple=True,
               help='Override values (format: key=value, e.g., environment=dev)')
-def create(blueprint: str, dry_run: bool, aws_profile: Optional[str], 
+def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
            dbx_host: Optional[str], dbx_token: Optional[str],
            values_config: Optional[str], patterns_config: Optional[str],
            override: tuple):
@@ -422,30 +425,30 @@ def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
       dpn create --blueprint dev.json --override environment=dev --override project=oncology
       dpn create --blueprint dev.json --dry-run
     """
-    
+
     try:
         # Load blueprint
-        with open(blueprint, 'r') as f:
+        with open(blueprint) as f:
             data = json.load(f)
-        
+
         metadata = data['metadata']
-        
+
         # Load configuration manager
         config_manager = load_configuration_manager(values_config, patterns_config, override)
-        
+
         # Initialize generators
         aws_config = AWSNamingConfig(
             environment=metadata['environment'],
             project=metadata['project'],
             region=metadata['region']
         )
-        
+
         dbx_config = DatabricksNamingConfig(
             environment=metadata['environment'],
             project=metadata['project'],
             region=metadata['region']
         )
-        
+
         # Create generators with or without ConfigurationManager
         if config_manager:
             console.print("[dim]Using configuration-based naming[/dim]")
@@ -466,11 +469,11 @@ def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
                 "Configuration files required but not found.\n"
                 "Run 'dpn config init' to create configuration files in .dpn/"
             )
-        
+
         # Parse with ConfigurationManager
         parser = BlueprintParser(generators, configuration_manager=config_manager)
         parsed = parser.parse(Path(blueprint))
-        
+
         # Build operations
         operations = []
         for resource in parsed.get_execution_order():
@@ -482,64 +485,64 @@ def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
                 params=resource.params
             )
             operations.append(op)
-        
+
         if dry_run:
             # Preview
             console.print("[yellow]DRY RUN[/yellow] - No resources created\n")
-            
+
             table = Table(title="Execution Plan")
             table.add_column("#", style="dim")
             table.add_column("Type", style="cyan")
             table.add_column("Resource ID", style="green")
-            
+
             for i, op in enumerate(operations, 1):
                 table.add_row(str(i), op.resource_type.value, op.resource_id)
-            
+
             console.print(table)
-            console.print(f"\n[yellow]Run without --dry-run to execute[/yellow]")
+            console.print("\n[yellow]Run without --dry-run to execute[/yellow]")
             return
-        
+
         # Execute
         console.print(f"[yellow]Creating {len(operations)} resources...[/yellow]\n")
-        
+
         # Initialize transaction manager
         tm = TransactionManager()
-        
+
         # Register executors
         import boto3
         aws_registry = AWSExecutorRegistry(
             boto3.Session(profile_name=aws_profile) if aws_profile else None
         )
-        
+
         if dbx_host and dbx_token:
             dbx_registry = DatabricksExecutorRegistry(
                 DatabricksConfig(host=dbx_host, token=dbx_token)
             )
         else:
             dbx_registry = None
-        
+
         # Register AWS
-        for rt in [ResourceType.AWS_S3_BUCKET, ResourceType.AWS_GLUE_DATABASE, 
+        for rt in [ResourceType.AWS_S3_BUCKET, ResourceType.AWS_GLUE_DATABASE,
                    ResourceType.AWS_GLUE_TABLE]:
             tm.register_executor(rt, aws_registry.execute, aws_registry.rollback)
-        
+
         # Register Databricks
         if dbx_registry:
-            for rt in [ResourceType.DBX_CLUSTER, ResourceType.DBX_JOB, 
-                       ResourceType.DBX_CATALOG, ResourceType.DBX_SCHEMA, 
+            for rt in [ResourceType.DBX_CLUSTER, ResourceType.DBX_JOB,
+                       ResourceType.DBX_CATALOG, ResourceType.DBX_SCHEMA,
                        ResourceType.DBX_TABLE]:
                 tm.register_executor(rt, dbx_registry.execute, dbx_registry.rollback)
-        
+
         # Execute transaction
         tx = tm.begin_transaction(operations)
         success = tm.execute_transaction(tx)
-        
+
         if success:
             console.print(f"\n[green]✓[/green] Transaction committed: {tx.id}")
         else:
             console.print(f"\n[red]✗[/red] Transaction failed: {tx.id}")
             sys.exit(1)
-    
+
     except Exception as e:
         console.print(f"[red]✗[/red] Create failed: {str(e)}")
         sys.exit(1)
@@ -551,8 +554,8 @@ def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
 
 @cli.command('read')
 @click.option('--resource-id', required=True)
-@click.option('--type', 'resource_type', 
-              type=click.Choice(['s3', 'glue-db', 'glue-table', 'cluster', 'job', 
+@click.option('--type', 'resource_type',
+              type=click.Choice(['s3', 'glue-db', 'glue-table', 'cluster', 'job',
                                 'catalog', 'schema', 'table']))
 @click.option('--aws-profile', help='AWS profile')
 @click.option('--dbx-host', envvar='DATABRICKS_HOST')
@@ -561,7 +564,7 @@ def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
 def read(resource_id: str, resource_type: str, aws_profile: Optional[str],
          dbx_host: Optional[str], dbx_token: Optional[str], format: str):
     """Read resource configuration"""
-    
+
     try:
         # Map type to ResourceType
         type_map = {
@@ -574,9 +577,9 @@ def read(resource_id: str, resource_type: str, aws_profile: Optional[str],
             'schema': ResourceType.DBX_SCHEMA,
             'table': ResourceType.DBX_TABLE
         }
-        
+
         rt = type_map[resource_type]
-        
+
         # Build operation
         op = Operation(
             id='read-op',
@@ -585,7 +588,7 @@ def read(resource_id: str, resource_type: str, aws_profile: Optional[str],
             resource_id=resource_id,
             params={}
         )
-        
+
         # Execute
         if rt.value.startswith('aws'):
             import boto3
@@ -598,7 +601,7 @@ def read(resource_id: str, resource_type: str, aws_profile: Optional[str],
                 DatabricksConfig(host=dbx_host, token=dbx_token)
             )
             result = registry.execute(op)
-        
+
         # Output
         if format == 'json':
             console.print_json(data=result)
@@ -607,7 +610,7 @@ def read(resource_id: str, resource_type: str, aws_profile: Optional[str],
             console.print(yaml.dump(result, default_flow_style=False))
         else:
             console.print(Panel(json.dumps(result, indent=2), title=resource_id))
-    
+
     except Exception as e:
         console.print(f"[red]✗[/red] Read failed: {str(e)}")
         sys.exit(1)
@@ -622,10 +625,10 @@ def read(resource_id: str, resource_type: str, aws_profile: Optional[str],
 @click.option('--type', 'resource_type', required=True)
 @click.option('--rename', help='New resource name')
 @click.option('--params', type=click.Path(exists=True), help='JSON params file')
-def update(resource_id: str, resource_type: str, rename: Optional[str], 
+def update(resource_id: str, resource_type: str, rename: Optional[str],
            params: Optional[str]):
     """Update resource configuration"""
-    
+
     console.print("[yellow]⚠[/yellow] Update command not implemented")
     console.print("Use --rename or --params to modify resources")
 
@@ -643,19 +646,19 @@ def update(resource_id: str, resource_type: str, rename: Optional[str],
 @click.option('--dbx-token', envvar='DATABRICKS_TOKEN')
 @click.confirmation_option(prompt='Confirm deletion?')
 def delete(resource_id: str, resource_type: str, archive: bool,
-           aws_profile: Optional[str], dbx_host: Optional[str], 
+           aws_profile: Optional[str], dbx_host: Optional[str],
            dbx_token: Optional[str]):
     """Delete resource"""
-    
+
     try:
         console.print(f"[yellow]Deleting {resource_type}: {resource_id}[/yellow]")
-        
+
         if archive:
             console.print("[yellow]Archive mode: resource will be tagged[/yellow]")
-        
+
         # Implementation similar to read command
         console.print("[green]✓[/green] Resource deleted")
-    
+
     except Exception as e:
         console.print(f"[red]✗[/red] Delete failed: {str(e)}")
         sys.exit(1)
@@ -673,10 +676,10 @@ def config():
 
 @config.command('init')
 @click.option('--project', prompt='Project name', help='Project name (e.g., dataplatform, oncology)')
-@click.option('--environment', prompt='Environment', 
-              type=click.Choice(['dev', 'stg', 'prd']), 
+@click.option('--environment', prompt='Environment',
+              type=click.Choice(['dev', 'stg', 'prd']),
               default='dev', help='Default environment')
-@click.option('--region', prompt='AWS region', 
+@click.option('--region', prompt='AWS region',
               default='us-east-1', help='Default AWS region')
 @click.option('--force', is_flag=True, help='Overwrite existing files')
 def config_init(project: str, environment: str, region: str, force: bool):
@@ -690,73 +693,73 @@ def config_init(project: str, environment: str, region: str, force: bool):
       dpn config init --project oncology --environment prd --region us-west-2
       dpn config init --force  # Overwrite existing files
     """
-    
+
     import shutil
-    
+
     try:
         # Create .dpn directory in current working directory
         config_dir = Path.cwd() / '.dpn'
         config_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Define target paths
         values_path = config_dir / 'naming-values.yaml'
         patterns_path = config_dir / 'naming-patterns.yaml'
-        
+
         # Check if files exist
         if values_path.exists() and not force:
             console.print(f"[yellow]Warning:[/yellow] {values_path} already exists")
             console.print("[yellow]Use --force to overwrite[/yellow]")
             sys.exit(1)
-        
+
         if patterns_path.exists() and not force:
             console.print(f"[yellow]Warning:[/yellow] {patterns_path} already exists")
             console.print("[yellow]Use --force to overwrite[/yellow]")
             sys.exit(1)
-        
+
         # Copy example files
         example_dir = Path(__file__).parent.parent.parent / 'examples' / 'configs'
-        
+
         if not example_dir.exists():
             console.print(f"[red]Error:[/red] Example configs not found at {example_dir}")
             console.print("[yellow]Hint:[/yellow] Run from project root or install package properly")
             sys.exit(1)
-        
+
         # Copy and customize naming-values.yaml
         example_values = example_dir / 'naming-values.yaml'
         if example_values.exists():
             import yaml
-            with open(example_values, 'r') as f:
+            with open(example_values) as f:
                 values_data = yaml.safe_load(f)
-            
+
             # Customize with prompted values
             if 'defaults' in values_data:
                 values_data['defaults']['project'] = project.lower().replace(' ', '-')
                 values_data['defaults']['environment'] = environment
                 values_data['defaults']['region'] = region
-            
+
             with open(values_path, 'w') as f:
                 yaml.dump(values_data, f, default_flow_style=False, sort_keys=False)
-            
+
             console.print(f"[green]✓[/green] Created: {values_path}")
         else:
-            console.print(f"[yellow]Warning:[/yellow] Example naming-values.yaml not found")
-        
+            console.print("[yellow]Warning:[/yellow] Example naming-values.yaml not found")
+
         # Copy naming-patterns.yaml as-is
         example_patterns = example_dir / 'naming-patterns.yaml'
         if example_patterns.exists():
             shutil.copy(example_patterns, patterns_path)
             console.print(f"[green]✓[/green] Created: {patterns_path}")
         else:
-            console.print(f"[yellow]Warning:[/yellow] Example naming-patterns.yaml not found")
-        
+            console.print("[yellow]Warning:[/yellow] Example naming-patterns.yaml not found")
+
         # Success message with next steps
         console.print("\n[green]Configuration initialized successfully![/green]")
         console.print("\n[bold]Next steps:[/bold]")
         console.print(f"1. Review and customize: {values_path}")
         console.print(f"2. Review patterns: {patterns_path}")
-        console.print(f"3. Validate configs: [cyan]dpn config validate[/cyan]")
-        console.print(f"4. Preview names: [cyan]dpn plan preview <blueprint>[/cyan]")
-        
+        console.print("3. Validate configs: [cyan]dpn config validate[/cyan]")
+        console.print("4. Preview names: [cyan]dpn plan preview <blueprint>[/cyan]")
+
     except Exception as e:
         console.print(f"[red]✗[/red] Initialization failed: {str(e)}")
         sys.exit(1)
@@ -780,11 +783,11 @@ def config_validate(values_config: Optional[str], patterns_config: Optional[str]
       dpn config validate
       dpn config validate --values-config custom-values.yaml --patterns-config custom-patterns.yaml
     """
-    
+
     try:
         import jsonschema
         import yaml
-        
+
         # Determine file paths
         if values_config or patterns_config:
             if not (values_config and patterns_config):
@@ -796,42 +799,42 @@ def config_validate(values_config: Optional[str], patterns_config: Optional[str]
         else:
             values_path = Path.cwd() / '.dpn' / 'naming-values.yaml'
             patterns_path = Path.cwd() / '.dpn' / 'naming-patterns.yaml'
-        
+
         # Check files exist
         if not values_path.exists():
             raise click.ClickException(
                 f"Values config not found: {values_path}\n"
                 "Run 'dpn config init' to create default configuration"
             )
-        
+
         if not patterns_path.exists():
             raise click.ClickException(
                 f"Patterns config not found: {patterns_path}\n"
                 "Run 'dpn config init' to create default configuration"
             )
-        
+
         # Load schemas
         schema_dir = Path(__file__).parent.parent.parent / 'schemas'
         values_schema_path = schema_dir / 'naming-values-schema.json'
         patterns_schema_path = schema_dir / 'naming-patterns-schema.json'
-        
+
         if not values_schema_path.exists() or not patterns_schema_path.exists():
             raise click.ClickException(
                 f"Schema files not found in {schema_dir}\n"
                 "Ensure package is properly installed"
             )
-        
-        with open(values_schema_path, 'r') as f:
+
+        with open(values_schema_path) as f:
             values_schema = json.load(f)
-        
-        with open(patterns_schema_path, 'r') as f:
+
+        with open(patterns_schema_path) as f:
             patterns_schema = json.load(f)
-        
+
         # Validate naming-values.yaml
         console.print(f"[dim]Validating {values_path}...[/dim]")
-        with open(values_path, 'r') as f:
+        with open(values_path) as f:
             values_data = yaml.safe_load(f)
-        
+
         try:
             jsonschema.validate(instance=values_data, schema=values_schema)
             console.print(f"[green]✓[/green] {values_path.name} is valid")
@@ -840,12 +843,12 @@ def config_validate(values_config: Optional[str], patterns_config: Optional[str]
             console.print(f"  Path: {'.'.join(str(p) for p in e.path)}")
             console.print(f"  Error: {e.message}")
             sys.exit(1)
-        
+
         # Validate naming-patterns.yaml
         console.print(f"[dim]Validating {patterns_path}...[/dim]")
-        with open(patterns_path, 'r') as f:
+        with open(patterns_path) as f:
             patterns_data = yaml.safe_load(f)
-        
+
         try:
             jsonschema.validate(instance=patterns_data, schema=patterns_schema)
             console.print(f"[green]✓[/green] {patterns_path.name} is valid")
@@ -854,10 +857,10 @@ def config_validate(values_config: Optional[str], patterns_config: Optional[str]
             console.print(f"  Path: {'.'.join(str(p) for p in e.path)}")
             console.print(f"  Error: {e.message}")
             sys.exit(1)
-        
+
         # Success
         console.print("\n[green]All configuration files are valid![/green]")
-        
+
     except Exception as e:
         if isinstance(e, click.ClickException):
             raise
@@ -887,16 +890,16 @@ def config_show(values_config: Optional[str], patterns_config: Optional[str],
       dpn config show --resource-type aws_s3_bucket
       dpn config show --format json
     """
-    
+
     try:
         # Load configuration manager
         config_manager = load_configuration_manager(values_config, patterns_config, None)
-        
+
         if not config_manager:
             raise click.ClickException(
                 "No configuration found. Run 'dpn config init' to create default configuration."
             )
-        
+
         if format == 'json':
             # JSON output
             output = {
@@ -905,7 +908,7 @@ def config_show(values_config: Optional[str], patterns_config: Optional[str],
                 'resource_types': config_manager.values_loader.resource_type_overrides,
                 'patterns': config_manager.patterns_loader.patterns
             }
-            
+
             if resource_type:
                 # Filter to specific resource type
                 output = {
@@ -913,51 +916,51 @@ def config_show(values_config: Optional[str], patterns_config: Optional[str],
                     'values': config_manager.get_values_for_resource(resource_type),
                     'pattern': config_manager.patterns_loader.patterns.get(resource_type)
                 }
-            
+
             console.print_json(data=output)
-        
+
         else:
             # Table output
             if resource_type:
                 # Show specific resource type
                 values = config_manager.get_values_for_resource(resource_type)
                 pattern = config_manager.patterns_loader.patterns.get(resource_type, {})
-                
+
                 table = Table(title=f"Configuration for {resource_type}")
                 table.add_column("Setting", style="cyan")
                 table.add_column("Value", style="green")
-                
+
                 # Values
                 for key, value in sorted(values.items()):
                     table.add_row(key, str(value))
-                
+
                 console.print(table)
-                
+
                 # Pattern
                 if pattern:
-                    console.print(f"\n[bold]Pattern Template:[/bold]")
+                    console.print("\n[bold]Pattern Template:[/bold]")
                     console.print(f"  {pattern.get('template', 'N/A')}")
-                
+
             else:
                 # Show all defaults
                 table = Table(title="Default Configuration Values")
                 table.add_column("Key", style="cyan")
                 table.add_column("Value", style="green")
                 table.add_column("Source", style="yellow")
-                
+
                 defaults = config_manager.values_loader.defaults
                 for key, value in sorted(defaults.items()):
                     table.add_row(key, str(value), "defaults")
-                
+
                 console.print(table)
-                
+
                 # Show available resource types
-                console.print(f"\n[bold]Available Resource Types:[/bold]")
+                console.print("\n[bold]Available Resource Types:[/bold]")
                 resource_types = list(config_manager.patterns_loader.patterns.keys())
                 console.print(f"  {', '.join(sorted(resource_types))}")
-                
-                console.print(f"\n[dim]Use --resource-type to see specific configuration[/dim]")
-        
+
+                console.print("\n[dim]Use --resource-type to see specific configuration[/dim]")
+
     except Exception as e:
         if isinstance(e, click.ClickException):
             raise
@@ -972,12 +975,12 @@ def config_show(values_config: Optional[str], patterns_config: Optional[str],
 @cli.command('recover')
 def recover():
     """Recover from failed transactions"""
-    
+
     try:
         tm = TransactionManager()
         tm.recover()
         console.print("[green]✓[/green] Recovery complete")
-    
+
     except Exception as e:
         console.print(f"[red]✗[/red] Recovery failed: {str(e)}")
         sys.exit(1)
@@ -993,22 +996,22 @@ def status():
     - AWS authentication status
     - Databricks authentication status
     """
-    
+
     config_dir = Path.home() / '.dpn'
-    
+
     table = Table(title="DPN Status")
     table.add_column("Component", style="cyan")
     table.add_column("Status", style="green")
-    
+
     # Directory locations
     table.add_row("Config Dir", str(config_dir))
     table.add_row("WAL Dir", str(config_dir / 'wal'))
     table.add_row("State Store", str(config_dir / 'state'))
-    
+
     # Check config files
     values_path = config_dir / 'naming-values.yaml'
     patterns_path = config_dir / 'naming-patterns.yaml'
-    
+
     if values_path.exists() and patterns_path.exists():
         # Try to validate configs
         try:
@@ -1029,7 +1032,7 @@ def status():
             table.add_row("  Missing", "naming-values.yaml")
         if not patterns_path.exists():
             table.add_row("  Missing", "naming-patterns.yaml")
-    
+
     # Check AWS
     try:
         import boto3
@@ -1037,18 +1040,18 @@ def status():
         table.add_row("AWS Auth", "✓ Authenticated")
     except:
         table.add_row("AWS Auth", "✗ Not configured")
-    
+
     # Check Databricks
     dbx_host = os.getenv('DATABRICKS_HOST')
     dbx_token = os.getenv('DATABRICKS_TOKEN')
-    
+
     if dbx_host and dbx_token:
         table.add_row("Databricks Auth", "✓ Configured")
     else:
         table.add_row("Databricks Auth", "✗ Not configured")
-    
+
     console.print(table)
-    
+
     # Helpful hints
     if not (values_path.exists() and patterns_path.exists()):
         console.print("\n[dim]Run 'dpn config init' to create configuration files[/dim]")

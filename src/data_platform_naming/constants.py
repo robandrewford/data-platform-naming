@@ -4,7 +4,6 @@ constants.py
 Global constants for AWS and Databricks naming conventions
 """
 
-from typing import Dict, List
 
 
 # =============================================================================
@@ -30,14 +29,14 @@ AWS_REGION_CODES = {
     'us-east-2': 'use2',
     'us-west-1': 'usw1',
     'us-west-2': 'usw2',
-    
+
     # EU Regions
     'eu-west-1': 'euw1',
     'eu-west-2': 'euw2',
     'eu-west-3': 'euw3',
     'eu-central-1': 'euc1',
     'eu-north-1': 'eun1',
-    
+
     # Asia Pacific
     'ap-south-1': 'aps1',
     'ap-southeast-1': 'apse1',
@@ -45,10 +44,10 @@ AWS_REGION_CODES = {
     'ap-northeast-1': 'apne1',
     'ap-northeast-2': 'apne2',
     'ap-northeast-3': 'apne3',
-    
+
     # Canada
     'ca-central-1': 'cac1',
-    
+
     # South America
     'sa-east-1': 'sae1',
 }
@@ -218,17 +217,17 @@ AWS_NODE_TYPES = {
     'c5.xlarge': {'vcpu': 4, 'memory': 8},
     'c5.2xlarge': {'vcpu': 8, 'memory': 16},
     'c5.4xlarge': {'vcpu': 16, 'memory': 32},
-    
+
     # Memory Optimized
     'r5.xlarge': {'vcpu': 4, 'memory': 32},
     'r5.2xlarge': {'vcpu': 8, 'memory': 64},
     'r5.4xlarge': {'vcpu': 16, 'memory': 128},
-    
+
     # Storage Optimized
     'i3.xlarge': {'vcpu': 4, 'memory': 30.5},
     'i3.2xlarge': {'vcpu': 8, 'memory': 61},
     'i3.4xlarge': {'vcpu': 16, 'memory': 122},
-    
+
     # GPU
     'g4dn.xlarge': {'vcpu': 4, 'memory': 16, 'gpu': 1},
     'g4dn.2xlarge': {'vcpu': 8, 'memory': 32, 'gpu': 1},
@@ -246,14 +245,14 @@ PATTERNS = {
     'glue_table': r'^[a-z0-9_]+$',
     'lambda_function': r'^[a-zA-Z0-9-_]+$',
     'iam_role': r'^[\w+=,.@-]+$',
-    
+
     # Databricks
     'dbx_cluster': r'^[a-zA-Z0-9_-]+$',
     'dbx_job': r'^[a-zA-Z0-9_-]+$',
     'uc_catalog': r'^[a-zA-Z0-9_]+$',
     'uc_schema': r'^[a-zA-Z0-9_]+$',
     'uc_table': r'^[a-zA-Z0-9_]+$',
-    
+
     # Convention
     'environment': r'^(dev|stg|prd)$',
     'project': r'^[a-z0-9-]+$',
@@ -342,20 +341,20 @@ ERROR_CODES = {
     # Length errors
     'LENGTH_MIN': 'Length below minimum',
     'LENGTH_MAX': 'Length exceeds maximum',
-    
+
     # Pattern errors
     'PATTERN_INVALID': 'Does not match required pattern',
     'CHARS_INVALID': 'Contains invalid characters',
-    
+
     # AWS specific
     'S3_RESERVED': 'Uses reserved prefix',
     'S3_IP_FORMAT': 'Resembles IP address',
-    
+
     # Convention errors
     'ENV_INVALID': 'Invalid environment code',
     'REGION_INVALID': 'Invalid region code',
     'PROJECT_INVALID': 'Invalid project name',
-    
+
     # Dependency errors
     'DEPENDENCY_MISSING': 'Missing required dependency',
     'DEPENDENCY_CYCLE': 'Circular dependency detected',
@@ -432,52 +431,52 @@ __all__ = [
     # Environments
     'ENVIRONMENTS',
     'ENVIRONMENT_CODES',
-    
+
     # Regions
     'AWS_REGION_CODES',
-    
+
     # Constraints
     'AWS_MAX_LENGTHS',
     'AWS_MIN_LENGTHS',
     'DATABRICKS_MAX_LENGTHS',
-    
+
     # Layers
     'DATA_LAYERS',
     'DATA_LAYER_CODES',
     'S3_LAYERS',
     'S3_LAYER_CODES',
-    
+
     # Domains
     'COMMON_DOMAINS',
-    
+
     # Types
     'TABLE_TYPES',
     'TABLE_TYPE_CODES',
     'WORKLOAD_TYPES',
     'CLUSTER_TYPES',
-    
+
     # Patterns
     'PATTERNS',
-    
+
     # Tags
     'STANDARD_TAGS',
     'TAG_MAX_LENGTH',
     'DATA_CLASSIFICATIONS',
-    
+
     # Config
     'RETRY_CONFIG',
     'TIMEOUTS',
     'RATE_LIMITS',
-    
+
     # Paths
     'DEFAULT_BASE_DIR',
     'WAL_DIR',
     'STATE_DIR',
-    
+
     # Version
     'VERSION',
     'API_VERSION',
-    
+
     # Functions
     'get_region_code',
     'get_max_length',

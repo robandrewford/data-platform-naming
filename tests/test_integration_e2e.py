@@ -4,21 +4,20 @@ End-to-end integration tests for configuration-based naming system.
 Tests the complete workflow: Load configs → Create generators → Generate names.
 """
 
+
 import pytest
-import tempfile
-from pathlib import Path
 import yaml
 
-from data_platform_naming.config.naming_values_loader import NamingValuesLoader
-from data_platform_naming.config.naming_patterns_loader import NamingPatternsLoader
+from data_platform_naming.aws_naming import AWSNamingConfig, AWSNamingGenerator
 from data_platform_naming.config.configuration_manager import ConfigurationManager
-from data_platform_naming.aws_naming import AWSNamingGenerator, AWSNamingConfig
-from data_platform_naming.dbx_naming import DatabricksNamingGenerator, DatabricksNamingConfig
+from data_platform_naming.config.naming_patterns_loader import NamingPatternsLoader
+from data_platform_naming.config.naming_values_loader import NamingValuesLoader
+from data_platform_naming.dbx_naming import DatabricksNamingConfig, DatabricksNamingGenerator
 
 
 class TestEndToEndAWS:
     """End-to-end tests for AWS naming with configuration system"""
-    
+
     @pytest.fixture
     def config_files(self, tmp_path):
         """Create temporary config files"""
@@ -31,11 +30,11 @@ class TestEndToEndAWS:
                 "region": "us-east-1"
             }
         }
-        
+
         values_path = tmp_path / "naming-values.yaml"
         with open(values_path, 'w') as f:
             yaml.dump(values_config, f)
-        
+
         # naming-patterns.yaml with all 27 resource types
         patterns_config = {
             "version": "1.0",
@@ -77,127 +76,127 @@ class TestEndToEndAWS:
                 }
             }
         }
-        
+
         patterns_path = tmp_path / "naming-patterns.yaml"
         with open(patterns_path, 'w') as f:
             yaml.dump(patterns_config, f)
-        
+
         return values_path, patterns_path
-    
+
     def test_e2e_aws_s3_bucket(self, config_files):
         """Test end-to-end: Config → Generator → S3 bucket name"""
         values_path, patterns_path = config_files
-        
+
         # Load configurations
         values_loader = NamingValuesLoader()
         values_loader.load_from_file(values_path)
-        
+
         patterns_loader = NamingPatternsLoader()
         patterns_loader.load_from_file(patterns_path)
-        
+
         # Create ConfigurationManager
         config_manager = ConfigurationManager(
             values_loader=values_loader,
             patterns_loader=patterns_loader
         )
-        
+
         # Create generator with config
         aws_config = AWSNamingConfig(
             environment="prd",
             project="dataplatform",
             region="us-east-1"
         )
-        
+
         aws_gen = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
             use_config=True
         )
-        
+
         # Generate name
         bucket_name = aws_gen.generate_s3_bucket_name(
             purpose="raw",
             layer="raw"
         )
-        
+
         # Verify
         assert bucket_name == "dataplatform-raw-raw-prd-use1"
-    
+
     def test_e2e_aws_glue_database(self, config_files):
         """Test end-to-end: Config → Generator → Glue database name"""
         values_path, patterns_path = config_files
-        
+
         values_loader = NamingValuesLoader()
         values_loader.load_from_file(values_path)
-        
+
         patterns_loader = NamingPatternsLoader()
         patterns_loader.load_from_file(patterns_path)
-        
+
         config_manager = ConfigurationManager(
             values_loader=values_loader,
             patterns_loader=patterns_loader
         )
-        
+
         aws_config = AWSNamingConfig(
             environment="prd",
             project="dataplatform",
             region="us-east-1"
         )
-        
+
         aws_gen = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
             use_config=True
         )
-        
+
         db_name = aws_gen.generate_glue_database_name(
             domain="finance",
             layer="gold"
         )
-        
+
         assert db_name == "dataplatform_finance_gold_prd"
-    
+
     def test_e2e_aws_with_metadata_override(self, config_files):
         """Test metadata override in end-to-end workflow"""
         values_path, patterns_path = config_files
-        
+
         values_loader = NamingValuesLoader()
         values_loader.load_from_file(values_path)
-        
+
         patterns_loader = NamingPatternsLoader()
         patterns_loader.load_from_file(patterns_path)
-        
+
         config_manager = ConfigurationManager(
             values_loader=values_loader,
             patterns_loader=patterns_loader
         )
-        
+
         aws_config = AWSNamingConfig(
             environment="prd",
             project="dataplatform",
             region="us-east-1"
         )
-        
+
         aws_gen = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
             use_config=True
         )
-        
+
         # Override environment in metadata
         bucket_name = aws_gen.generate_s3_bucket_name(
             purpose="raw",
             layer="raw",
             metadata={"environment": "dev"}
         )
-        
+
         # Should use dev instead of prd
         assert bucket_name == "dataplatform-raw-raw-dev-use1"
 
 
 class TestEndToEndDatabricks:
     """End-to-end tests for Databricks naming with configuration system"""
-    
+
     @pytest.fixture
     def config_files(self, tmp_path):
         """Create temporary config files"""
@@ -209,11 +208,11 @@ class TestEndToEndDatabricks:
                 "region": "us-east-1"
             }
         }
-        
+
         values_path = tmp_path / "naming-values.yaml"
         with open(values_path, 'w') as f:
             yaml.dump(values_config, f)
-        
+
         patterns_config = {
             "version": "1.0",
             "patterns": {
@@ -247,86 +246,86 @@ class TestEndToEndDatabricks:
                 "dbx_policy": "{project}-{target}-{environment}"
             }
         }
-        
+
         patterns_path = tmp_path / "naming-patterns.yaml"
         with open(patterns_path, 'w') as f:
             yaml.dump(patterns_config, f)
-        
+
         return values_path, patterns_path
-    
+
     def test_e2e_dbx_cluster(self, config_files):
         """Test end-to-end: Config → Generator → Cluster name"""
         values_path, patterns_path = config_files
-        
+
         values_loader = NamingValuesLoader()
         values_loader.load_from_file(values_path)
-        
+
         patterns_loader = NamingPatternsLoader()
         patterns_loader.load_from_file(patterns_path)
-        
+
         config_manager = ConfigurationManager(
             values_loader=values_loader,
             patterns_loader=patterns_loader
         )
-        
+
         dbx_config = DatabricksNamingConfig(
             environment="prd",
             project="dataplatform",
             region="us-east-1"
         )
-        
+
         dbx_gen = DatabricksNamingGenerator(
             config=dbx_config,
             configuration_manager=config_manager,
             use_config=True
         )
-        
+
         cluster_name = dbx_gen.generate_cluster_name(
             workload="etl",
             cluster_type="shared"
         )
-        
+
         assert cluster_name == "dataplatform-etl-shared-prd"
-    
+
     def test_e2e_dbx_unity_catalog(self, config_files):
         """Test end-to-end: Config → Generator → Unity Catalog 3-tier"""
         values_path, patterns_path = config_files
-        
+
         values_loader = NamingValuesLoader()
         values_loader.load_from_file(values_path)
-        
+
         patterns_loader = NamingPatternsLoader()
         patterns_loader.load_from_file(patterns_path)
-        
+
         config_manager = ConfigurationManager(
             values_loader=values_loader,
             patterns_loader=patterns_loader
         )
-        
+
         dbx_config = DatabricksNamingConfig(
             environment="prd",
             project="dataplatform",
             region="us-east-1"
         )
-        
+
         dbx_gen = DatabricksNamingGenerator(
             config=dbx_config,
             configuration_manager=config_manager,
             use_config=True
         )
-        
+
         # Generate catalog
         catalog_name = dbx_gen.generate_catalog_name(catalog_type="main")
         assert catalog_name == "dataplatform_main_prd"
-        
+
         # Generate schema
         schema_name = dbx_gen.generate_schema_name(domain="finance", layer="gold")
         assert schema_name == "finance_gold"
-        
+
         # Generate table
         table_name = dbx_gen.generate_table_name(entity="customers", table_type="dim")
         assert table_name == "dim_customers"
-        
+
         # Generate full reference
         full_name = dbx_gen.generate_full_table_reference(
             catalog_type="main",
@@ -340,7 +339,7 @@ class TestEndToEndDatabricks:
 
 class TestEndToEndBackwardCompatibility:
     """Test that legacy generators still work without ConfigurationManager"""
-    
+
     def test_legacy_aws_generator_still_works(self):
         """Verify AWS generator works without ConfigurationManager"""
         # Create generator without config (legacy mode)
@@ -349,17 +348,17 @@ class TestEndToEndBackwardCompatibility:
             project="dataplatform",
             region="us-east-1"
         )
-        
+
         aws_gen = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=None,
             use_config=False
         )
-        
+
         # Should raise NotImplementedError for config-only methods
         with pytest.raises(NotImplementedError):
             aws_gen.generate_s3_bucket_name(purpose="raw", layer="raw")
-    
+
     def test_legacy_dbx_generator_still_works(self):
         """Verify Databricks generator works without ConfigurationManager"""
         dbx_config = DatabricksNamingConfig(
@@ -367,13 +366,13 @@ class TestEndToEndBackwardCompatibility:
             project="dataplatform",
             region="us-east-1"
         )
-        
+
         dbx_gen = DatabricksNamingGenerator(
             config=dbx_config,
             configuration_manager=None,
             use_config=False
         )
-        
+
         # Should raise NotImplementedError for config-only methods
         with pytest.raises(NotImplementedError):
             dbx_gen.generate_cluster_name(workload="etl", cluster_type="shared")
@@ -381,7 +380,7 @@ class TestEndToEndBackwardCompatibility:
 
 class TestEndToEndFullWorkflow:
     """Test complete workflow from config files to multiple resource types"""
-    
+
     @pytest.fixture
     def full_config_files(self, tmp_path):
         """Create complete config files with all settings"""
@@ -403,11 +402,11 @@ class TestEndToEndFullWorkflow:
                 }
             }
         }
-        
+
         values_path = tmp_path / "naming-values.yaml"
         with open(values_path, 'w') as f:
             yaml.dump(values_config, f)
-        
+
         patterns_config = {
             "version": "1.0",
             "patterns": {
@@ -448,29 +447,29 @@ class TestEndToEndFullWorkflow:
                 "lowercase": ["project", "environment"]
             }
         }
-        
+
         patterns_path = tmp_path / "naming-patterns.yaml"
         with open(patterns_path, 'w') as f:
             yaml.dump(patterns_config, f)
-        
+
         return values_path, patterns_path
-    
+
     def test_generate_all_aws_resources(self, full_config_files):
         """Test generating all 13 AWS resource types"""
         values_path, patterns_path = full_config_files
-        
+
         # Setup
         values_loader = NamingValuesLoader()
         values_loader.load_from_file(values_path)
-        
+
         patterns_loader = NamingPatternsLoader()
         patterns_loader.load_from_file(patterns_path)
-        
+
         config_manager = ConfigurationManager(
             values_loader=values_loader,
             patterns_loader=patterns_loader
         )
-        
+
         aws_config = AWSNamingConfig(
             environment="prd",
             project="dataplatform",
@@ -478,52 +477,52 @@ class TestEndToEndFullWorkflow:
             team="data-engineering",
             cost_center="CC-1234"
         )
-        
+
         aws_gen = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
             use_config=True
         )
-        
+
         # Generate all AWS resource types
         names = {
             "s3_bucket": aws_gen.generate_s3_bucket_name(purpose="raw", layer="raw"),
             "glue_database": aws_gen.generate_glue_database_name(domain="finance", layer="gold"),
             "glue_table": aws_gen.generate_glue_table_name(entity="customers"),
         }
-        
+
         # Verify all generated correctly
         assert "dataplatform" in names["s3_bucket"]
         assert "dataplatform_finance_gold_prd" == names["glue_database"]
         assert "fact_customers" == names["glue_table"]
-    
+
     def test_generate_all_databricks_resources(self, full_config_files):
         """Test generating all 14 Databricks resource types"""
         values_path, patterns_path = full_config_files
-        
+
         values_loader = NamingValuesLoader()
         values_loader.load_from_file(values_path)
-        
+
         patterns_loader = NamingPatternsLoader()
         patterns_loader.load_from_file(patterns_path)
-        
+
         config_manager = ConfigurationManager(
             values_loader=values_loader,
             patterns_loader=patterns_loader
         )
-        
+
         dbx_config = DatabricksNamingConfig(
             environment="prd",
             project="dataplatform",
             region="us-east-1"
         )
-        
+
         dbx_gen = DatabricksNamingGenerator(
             config=dbx_config,
             configuration_manager=config_manager,
             use_config=True
         )
-        
+
         # Generate various Databricks resource types
         names = {
             "cluster": dbx_gen.generate_cluster_name(workload="etl", cluster_type="shared"),
@@ -532,7 +531,7 @@ class TestEndToEndFullWorkflow:
             "schema": dbx_gen.generate_schema_name(domain="finance", layer="gold"),
             "table": dbx_gen.generate_table_name(entity="customers", table_type="dim"),
         }
-        
+
         # Verify all generated correctly
         assert names["cluster"] == "dataplatform-etl-shared-prd"
         assert names["job"] == "dataplatform-batch-transformation-prd"

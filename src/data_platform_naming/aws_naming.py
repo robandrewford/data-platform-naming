@@ -5,9 +5,9 @@ Battle-tested enterprise naming conventions for AWS resources
 """
 
 import re
-from typing import Dict, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Dict, Optional
 
 
 class AWSResourceType(Enum):
@@ -39,7 +39,7 @@ class AWSNamingConfig:
 
 class AWSNamingGenerator:
     """Generate standardized names for AWS resources"""
-    
+
     # Maximum lengths per resource type
     MAX_LENGTHS = {
         AWSResourceType.S3_BUCKET: 63,
@@ -56,7 +56,7 @@ class AWSNamingGenerator:
         AWSResourceType.SQS_QUEUE: 80,
         AWSResourceType.STEP_FUNCTION: 80,
     }
-    
+
     # Region code mappings
     REGION_CODES = {
         'us-east-1': 'use1',
@@ -70,7 +70,7 @@ class AWSNamingGenerator:
         'ap-southeast-2': 'aps2',
         'ap-northeast-1': 'apne1',
     }
-    
+
     def __init__(
         self,
         config: AWSNamingConfig,
@@ -93,9 +93,9 @@ class AWSNamingGenerator:
         self.config = config
         self.config_manager = configuration_manager
         self.use_config = use_config
-        
+
         self._validate_config()
-        
+
         # If using config mode, validate patterns at initialization
         if self.use_config:
             if not self.config_manager:
@@ -103,15 +103,15 @@ class AWSNamingGenerator:
                     "use_config=True requires configuration_manager parameter"
                 )
             self._validate_patterns_at_init()
-    
+
     def _validate_config(self):
         """Validate configuration parameters"""
         if self.config.environment not in ['dev', 'stg', 'prd']:
             raise ValueError(f"Invalid environment: {self.config.environment}")
-        
+
         if not re.match(r'^[a-z0-9-]+$', self.config.project):
             raise ValueError(f"Invalid project name: {self.config.project}")
-    
+
     def _validate_patterns_at_init(self) -> None:
         """
         Validate that all AWS resource patterns are available in ConfigurationManager.
@@ -135,10 +135,10 @@ class AWSNamingGenerator:
             "aws_sqs_queue",
             "aws_step_function",
         ]
-        
+
         missing_patterns = []
         invalid_patterns = []
-        
+
         for resource_type in required_resource_types:
             try:
                 pattern = self.config_manager.patterns_loader.get_pattern(resource_type)
@@ -150,18 +150,18 @@ class AWSNamingGenerator:
                     )
             except Exception as e:
                 missing_patterns.append(f"{resource_type}: {str(e)}")
-        
+
         errors = []
         if missing_patterns:
             errors.append("Missing patterns:\n  " + "\n  ".join(missing_patterns))
         if invalid_patterns:
             errors.append("Invalid patterns:\n  " + "\n  ".join(invalid_patterns))
-        
+
         if errors:
             raise ValueError(
                 "Pattern validation failed:\n" + "\n".join(errors)
             )
-    
+
     def _generate_with_config(
         self,
         resource_type: str,
@@ -189,26 +189,26 @@ class AWSNamingGenerator:
                 "Legacy mode has been removed. "
                 "Please provide a ConfigurationManager and set use_config=True."
             )
-        
+
         # Start with config values (lowest precedence)
         merged_values = {
             "project": self.config.project,
             "region": self.config.region,
         }
-        
+
         # Add environment only if not in metadata (metadata has higher precedence)
         if not metadata or "environment" not in metadata:
             merged_values["environment"] = self.config.environment
-        
+
         # Add optional config values if present
         if self.config.team:
             merged_values["team"] = self.config.team
         if self.config.cost_center:
             merged_values["cost_center"] = self.config.cost_center
-        
+
         # Add provided values (medium precedence)
         merged_values.update(values)
-        
+
         # Generate using ConfigurationManager
         # metadata will have highest precedence in ConfigurationManager
         result = self.config_manager.generate_name(
@@ -217,20 +217,20 @@ class AWSNamingGenerator:
             blueprint_metadata=metadata,
             value_overrides=merged_values
         )
-        
+
         # Validate the generated name
         if not result.is_valid:
             raise ValueError(
                 f"Name validation failed for {resource_type}: "
                 f"{', '.join(result.validation_errors)}"
             )
-        
+
         return result.name
-    
+
     def _get_region_code(self) -> str:
         """Convert AWS region to short code"""
         return self.REGION_CODES.get(self.config.region, 'use1')
-    
+
     def _sanitize_name(self, name: str, resource_type: AWSResourceType) -> str:
         """Sanitize name based on resource type constraints"""
         if resource_type == AWSResourceType.S3_BUCKET:
@@ -244,32 +244,32 @@ class AWSNamingGenerator:
         else:
             # Default: alphanumeric, dash, underscore
             name = re.sub(r'[^a-zA-Z0-9_-]', '-', name)
-        
+
         # Remove consecutive special characters
         name = re.sub(r'[-_]+', lambda m: m.group()[0], name)
         name = name.strip('-_')
-        
+
         return name
-    
+
     def _truncate_name(self, name: str, resource_type: AWSResourceType) -> str:
         """Truncate name to maximum allowed length"""
         max_length = self.MAX_LENGTHS[resource_type]
         if len(name) <= max_length:
             return name
-        
+
         # Intelligent truncation preserving suffix
         suffix_parts = name.split('-')[-2:]
         suffix = '-'.join(suffix_parts)
         prefix_length = max_length - len(suffix) - 1
-        
+
         if prefix_length < 10:
             return name[:max_length]
-        
+
         prefix = name[:prefix_length]
         return f"{prefix}-{suffix}"
-    
+
     def generate_s3_bucket_name(
-        self, 
+        self,
         purpose: str,
         layer: str = "raw",
         include_hash: bool = True,
@@ -303,7 +303,7 @@ class AWSNamingGenerator:
             },
             metadata=metadata
         )
-    
+
     def generate_glue_database_name(
         self,
         domain: str,
@@ -336,7 +336,7 @@ class AWSNamingGenerator:
             },
             metadata=metadata
         )
-    
+
     def generate_glue_table_name(
         self,
         entity: str,
@@ -369,7 +369,7 @@ class AWSNamingGenerator:
             },
             metadata=metadata
         )
-    
+
     def generate_glue_crawler_name(
         self,
         database: str,
@@ -402,7 +402,7 @@ class AWSNamingGenerator:
             },
             metadata=metadata
         )
-    
+
     def generate_lambda_function_name(
         self,
         domain: str,
@@ -438,7 +438,7 @@ class AWSNamingGenerator:
             },
             metadata=metadata
         )
-    
+
     def generate_iam_role_name(
         self,
         service: str,
@@ -471,7 +471,7 @@ class AWSNamingGenerator:
             },
             metadata=metadata
         )
-    
+
     def generate_iam_policy_name(
         self,
         service: str,
@@ -504,7 +504,7 @@ class AWSNamingGenerator:
             },
             metadata=metadata
         )
-    
+
     def generate_kinesis_stream_name(
         self,
         domain: str,
@@ -537,7 +537,7 @@ class AWSNamingGenerator:
             },
             metadata=metadata
         )
-    
+
     def generate_kinesis_firehose_name(
         self,
         domain: str,
@@ -570,7 +570,7 @@ class AWSNamingGenerator:
             },
             metadata=metadata
         )
-    
+
     def generate_dynamodb_table_name(
         self,
         entity: str,
@@ -603,7 +603,7 @@ class AWSNamingGenerator:
             },
             metadata=metadata
         )
-    
+
     def generate_sns_topic_name(
         self,
         event_type: str,
@@ -636,7 +636,7 @@ class AWSNamingGenerator:
             },
             metadata=metadata
         )
-    
+
     def generate_sqs_queue_name(
         self,
         purpose: str,
@@ -669,7 +669,7 @@ class AWSNamingGenerator:
             },
             metadata=metadata
         )
-    
+
     def generate_step_function_name(
         self,
         workflow: str,
@@ -702,7 +702,7 @@ class AWSNamingGenerator:
             },
             metadata=metadata
         )
-    
+
     def generate_standard_tags(self,
                               resource_type: AWSResourceType,
                               additional_tags: Optional[Dict[str, str]] = None) -> Dict[str, str]:
@@ -713,16 +713,16 @@ class AWSNamingGenerator:
             "ManagedBy": "terraform",
             "ResourceType": resource_type.value,
         }
-        
+
         if self.config.team:
             tags["Team"] = self.config.team
-        
+
         if self.config.cost_center:
             tags["CostCenter"] = self.config.cost_center
-        
+
         if additional_tags:
             tags.update(additional_tags)
-        
+
         return tags
 
 
@@ -734,36 +734,36 @@ if __name__ == "__main__":
         region="us-east-1",
         team="data-engineering"
     )
-    
+
     generator = AWSNamingGenerator(config)
-    
+
     # S3 Buckets
     print("\n=== S3 Buckets ===")
     print(generator.generate_s3_bucket_name("sales-data", "raw"))
     print(generator.generate_s3_bucket_name("customer-records", "curated"))
-    
+
     # Glue Resources
     print("\n=== Glue Resources ===")
     print(generator.generate_glue_database_name("finance", "gold"))
     print(generator.generate_glue_table_name("customers", "dim"))
     print(generator.generate_glue_table_name("sales", "fact"))
     print(generator.generate_glue_crawler_name("sales", "s3"))
-    
+
     # Lambda Functions
     print("\n=== Lambda Functions ===")
     print(generator.generate_lambda_function_name("sales", "s3", "process"))
     print(generator.generate_lambda_function_name("customer", "api", "transform"))
-    
+
     # IAM Resources
     print("\n=== IAM Resources ===")
     print(generator.generate_iam_role_name("lambda", "execution"))
     print(generator.generate_iam_policy_name("s3", "read-write"))
-    
+
     # Streaming
     print("\n=== Streaming ===")
     print(generator.generate_kinesis_stream_name("events", "api"))
     print(generator.generate_kinesis_firehose_name("logs", "s3"))
-    
+
     # Other Services
     print("\n=== Other Services ===")
     print(generator.generate_dynamodb_table_name("customer", "profile"))

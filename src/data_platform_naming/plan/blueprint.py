@@ -5,12 +5,11 @@ Transforms declarative blueprints into executable operations
 """
 
 import json
-import jsonschema
-from pathlib import Path
-from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
-from enum import Enum
+from pathlib import Path
+from typing import Any, Optional
 
+import jsonschema
 
 # JSON Schema Definition
 BLUEPRINT_SCHEMA = {
@@ -214,49 +213,49 @@ class ParsedResource:
     resource_type: str
     resource_id: str
     display_name: str
-    params: Dict[str, Any]
-    dependencies: List[str] = field(default_factory=list)
+    params: dict[str, Any]
+    dependencies: list[str] = field(default_factory=list)
 
 
 @dataclass
 class ParsedBlueprint:
     """Complete parsed blueprint"""
-    metadata: Dict[str, Any]
-    resources: List[ParsedResource]
-    dependency_graph: Dict[str, List[str]]
-    scope_config: Optional[Dict[str, Any]] = None
-    
-    def get_execution_order(self) -> List[ParsedResource]:
+    metadata: dict[str, Any]
+    resources: list[ParsedResource]
+    dependency_graph: dict[str, list[str]]
+    scope_config: Optional[dict[str, Any]] = None
+
+    def get_execution_order(self) -> list[ParsedResource]:
         """Topological sort for dependency resolution"""
         visited = set()
         result = []
-        
+
         def dfs(resource_id: str):
             if resource_id in visited:
                 return
             visited.add(resource_id)
-            
+
             for dep in self.dependency_graph.get(resource_id, []):
                 dfs(dep)
-            
+
             # Find resource by ID
             for resource in self.resources:
                 if resource.resource_id == resource_id:
                     result.append(resource)
                     break
-        
+
         for resource in self.resources:
             dfs(resource.resource_id)
-        
+
         return result
 
 
 class BlueprintParser:
     """Parse and validate blueprints"""
-    
+
     def __init__(
-        self, 
-        naming_generators: Dict[str, Any],
+        self,
+        naming_generators: dict[str, Any],
         configuration_manager: Optional[Any] = None
     ):
         """
@@ -267,21 +266,21 @@ class BlueprintParser:
         self.naming_generators = naming_generators
         self.configuration_manager = configuration_manager
         self.schema = BLUEPRINT_SCHEMA
-    
+
     def parse(self, blueprint_path: Path) -> ParsedBlueprint:
         """Parse blueprint file"""
         # Load
-        with open(blueprint_path, 'r') as f:
+        with open(blueprint_path) as f:
             blueprint = json.load(f)
-        
+
         # Validate
         self._validate(blueprint)
-        
+
         # Parse
         metadata = blueprint['metadata']
         resources = []
         dependency_graph = {}
-        
+
         # AWS Resources
         if 'aws' in blueprint['resources']:
             aws_resources = self._parse_aws(
@@ -289,7 +288,7 @@ class BlueprintParser:
                 metadata
             )
             resources.extend(aws_resources)
-        
+
         # Databricks Resources
         if 'databricks' in blueprint['resources']:
             dbx_resources = self._parse_databricks(
@@ -297,65 +296,65 @@ class BlueprintParser:
                 metadata
             )
             resources.extend(dbx_resources)
-        
+
         # Apply scope filter if configured
         scope_config = blueprint.get('scope')
         if scope_config:
             resources = self._apply_scope_filter(resources, scope_config)
-        
+
         # Build dependency graph
         for resource in resources:
             dependency_graph[resource.resource_id] = resource.dependencies
-        
+
         return ParsedBlueprint(
             metadata=metadata,
             resources=resources,
             dependency_graph=dependency_graph,
             scope_config=scope_config
         )
-    
-    def _validate(self, blueprint: Dict) -> None:
+
+    def _validate(self, blueprint: dict) -> None:
         """Validate against schema"""
         try:
             jsonschema.validate(instance=blueprint, schema=self.schema)
         except jsonschema.ValidationError as e:
-            raise ValueError(f"Blueprint validation failed: {e.message}")
-    
+            raise ValueError(f"Blueprint validation failed: {e.message}") from e
+
     def _apply_scope_filter(
-        self, 
-        resources: List[ParsedResource], 
-        scope_config: Dict[str, Any]
-    ) -> List[ParsedResource]:
+        self,
+        resources: list[ParsedResource],
+        scope_config: dict[str, Any]
+    ) -> list[ParsedResource]:
         """
         Apply scope filtering to resources based on configuration.
-        
+
         Args:
             resources: List of parsed resources
             scope_config: Scope configuration with 'mode' and 'patterns'
-            
+
         Returns:
             Filtered list of resources
         """
         # Import here to avoid circular dependency
-        from ..config.scope_filter import ScopeFilter, FilterMode
-        
+        from ..config.scope_filter import FilterMode, ScopeFilter
+
         # Create filter
         mode = FilterMode.INCLUDE if scope_config['mode'] == 'include' else FilterMode.EXCLUDE
         scope_filter = ScopeFilter(mode=mode, patterns=scope_config['patterns'])
-        
+
         # Filter resources
         filtered_resources = [
             resource for resource in resources
             if scope_filter.should_process(resource.resource_type)
         ]
-        
+
         return filtered_resources
-    
-    def _parse_aws(self, aws_config: Dict, metadata: Dict) -> List[ParsedResource]:
+
+    def _parse_aws(self, aws_config: dict, metadata: dict) -> list[ParsedResource]:
         """Parse AWS resources"""
         resources = []
         aws_gen = self.naming_generators['aws']
-        
+
         # S3 Buckets
         for bucket_spec in aws_config.get('s3_buckets', []):
             try:
@@ -364,13 +363,13 @@ class BlueprintParser:
                     layer=bucket_spec['layer'],
                     metadata=metadata
                 )
-            except (NotImplementedError, TypeError) as e:
+            except (NotImplementedError, TypeError):
                 # Legacy generator without ConfigurationManager support
                 bucket_name = aws_gen.generate_s3_bucket_name(
                     purpose=bucket_spec['purpose'],
                     layer=bucket_spec['layer']
                 )
-            
+
             resources.append(ParsedResource(
                 resource_type='aws_s3_bucket',
                 resource_id=bucket_name,
@@ -384,7 +383,7 @@ class BlueprintParser:
                     'tags': self._build_tags(metadata)
                 }
             ))
-        
+
         # Glue Databases
         db_refs = {}
         for db_spec in aws_config.get('glue_databases', []):
@@ -399,10 +398,10 @@ class BlueprintParser:
                     domain=db_spec['domain'],
                     layer=db_spec['layer']
                 )
-            
+
             db_ref = f"{db_spec['domain']}-{db_spec['layer']}"
             db_refs[db_ref] = db_name
-            
+
             resources.append(ParsedResource(
                 resource_type='aws_glue_database',
                 resource_id=db_name,
@@ -411,13 +410,13 @@ class BlueprintParser:
                     'description': db_spec.get('description', '')
                 }
             ))
-        
+
         # Glue Tables
         for table_spec in aws_config.get('glue_tables', []):
             db_name = db_refs.get(table_spec['database_ref'])
             if not db_name:
                 raise ValueError(f"Database ref not found: {table_spec['database_ref']}")
-            
+
             try:
                 table_name = aws_gen.generate_glue_table_name(
                     entity=table_spec['entity'],
@@ -429,7 +428,7 @@ class BlueprintParser:
                     entity=table_spec['entity'],
                     table_type=table_spec.get('table_type', 'fact')
                 )
-            
+
             resources.append(ParsedResource(
                 resource_type='aws_glue_table',
                 resource_id=table_name,
@@ -441,14 +440,14 @@ class BlueprintParser:
                 },
                 dependencies=[db_name]
             ))
-        
+
         return resources
-    
-    def _parse_databricks(self, dbx_config: Dict, metadata: Dict) -> List[ParsedResource]:
+
+    def _parse_databricks(self, dbx_config: dict, metadata: dict) -> list[ParsedResource]:
         """Parse Databricks resources"""
         resources = []
         dbx_gen = self.naming_generators['databricks']
-        
+
         # Clusters
         cluster_refs = {}
         for cluster_spec in dbx_config.get('clusters', []):
@@ -463,9 +462,9 @@ class BlueprintParser:
                     workload=cluster_spec['workload'],
                     cluster_type=cluster_spec['cluster_type']
                 )
-            
+
             cluster_refs[cluster_spec['workload']] = cluster_name
-            
+
             resources.append(ParsedResource(
                 resource_type='dbx_cluster',
                 resource_id=cluster_name,
@@ -477,7 +476,7 @@ class BlueprintParser:
                     'tags': self._build_tags(metadata)
                 }
             ))
-        
+
         # Jobs
         for job_spec in dbx_config.get('jobs', []):
             try:
@@ -493,12 +492,12 @@ class BlueprintParser:
                     purpose=job_spec['purpose'],
                     schedule=job_spec.get('schedule')
                 )
-            
+
             cluster_ref = job_spec.get('cluster_ref')
             dependencies = []
             if cluster_ref and cluster_ref in cluster_refs:
                 dependencies.append(cluster_refs[cluster_ref])
-            
+
             resources.append(ParsedResource(
                 resource_type='dbx_job',
                 resource_id=job_name,
@@ -510,7 +509,7 @@ class BlueprintParser:
                 },
                 dependencies=dependencies
             ))
-        
+
         # Unity Catalog
         if 'unity_catalog' in dbx_config:
             uc_resources = self._parse_unity_catalog(
@@ -518,14 +517,14 @@ class BlueprintParser:
                 metadata
             )
             resources.extend(uc_resources)
-        
+
         return resources
-    
-    def _parse_unity_catalog(self, uc_config: Dict, metadata: Dict) -> List[ParsedResource]:
+
+    def _parse_unity_catalog(self, uc_config: dict, metadata: dict) -> list[ParsedResource]:
         """Parse Unity Catalog hierarchy"""
         resources = []
         dbx_gen = self.naming_generators['databricks']
-        
+
         for catalog_spec in uc_config.get('catalogs', []):
             # Catalog
             try:
@@ -537,7 +536,7 @@ class BlueprintParser:
                 catalog_name = dbx_gen.generate_catalog_name(
                     catalog_type=catalog_spec['catalog_type']
                 )
-            
+
             resources.append(ParsedResource(
                 resource_type='dbx_catalog',
                 resource_id=catalog_name,
@@ -546,7 +545,7 @@ class BlueprintParser:
                     'storage_root': catalog_spec.get('storage_root')
                 }
             ))
-            
+
             # Schemas
             for schema_spec in catalog_spec.get('schemas', []):
                 try:
@@ -560,9 +559,9 @@ class BlueprintParser:
                         domain=schema_spec['domain'],
                         layer=schema_spec['layer']
                     )
-                
+
                 full_schema_name = f"{catalog_name}.{schema_name}"
-                
+
                 resources.append(ParsedResource(
                     resource_type='dbx_schema',
                     resource_id=schema_name,
@@ -572,7 +571,7 @@ class BlueprintParser:
                     },
                     dependencies=[catalog_name]
                 ))
-                
+
                 # Tables
                 for table_spec in schema_spec.get('tables', []):
                     try:
@@ -586,9 +585,9 @@ class BlueprintParser:
                             entity=table_spec['entity'],
                             table_type=table_spec.get('table_type', 'fact')
                         )
-                    
+
                     full_table_name = f"{catalog_name}.{schema_name}.{table_name}"
-                    
+
                     resources.append(ParsedResource(
                         resource_type='dbx_table',
                         resource_id=table_name,
@@ -600,26 +599,26 @@ class BlueprintParser:
                         },
                         dependencies=[full_schema_name]
                     ))
-        
+
         return resources
-    
-    def _build_tags(self, metadata: Dict) -> Dict[str, str]:
+
+    def _build_tags(self, metadata: dict) -> dict[str, str]:
         """Build standard tags"""
         tags = {
             'Environment': metadata['environment'],
             'Project': metadata['project'],
             'ManagedBy': 'dpn-cli'
         }
-        
+
         if 'team' in metadata:
             tags['Team'] = metadata['team']
-        
+
         if 'cost_center' in metadata:
             tags['CostCenter'] = metadata['cost_center']
-        
+
         return tags
-    
-    def _build_lifecycle_rules(self, transition_days: int) -> List[Dict]:
+
+    def _build_lifecycle_rules(self, transition_days: int) -> list[dict]:
         """Build S3 lifecycle rules"""
         return [{
             'Status': 'Enabled',
@@ -630,7 +629,7 @@ class BlueprintParser:
                 }
             ]
         }]
-    
+
     def export_preview(self, parsed: ParsedBlueprint, output_path: Path) -> None:
         """Export resource names preview"""
         preview = {
@@ -641,59 +640,59 @@ class BlueprintParser:
                 'execution_order': []
             }
         }
-        
+
         # Count by type
         for resource in parsed.resources:
             resource_type = resource.resource_type
             if resource_type not in preview['resources']['by_type']:
                 preview['resources']['by_type'][resource_type] = []
-            
+
             preview['resources']['by_type'][resource_type].append({
                 'resource_id': resource.resource_id,
                 'display_name': resource.display_name,
                 'dependencies': resource.dependencies
             })
-        
+
         # Execution order
         for resource in parsed.get_execution_order():
             preview['resources']['execution_order'].append({
                 'resource_id': resource.resource_id,
                 'resource_type': resource.resource_type
             })
-        
+
         with open(output_path, 'w') as f:
             json.dump(preview, f, indent=2)
 
 
 # Example usage
 if __name__ == "__main__":
-    from aws_naming import AWSNamingGenerator, AWSNamingConfig
-    from databricks_naming import DatabricksNamingGenerator, DatabricksNamingConfig
-    
+    from aws_naming import AWSNamingConfig, AWSNamingGenerator
+    from databricks_naming import DatabricksNamingConfig, DatabricksNamingGenerator
+
     # Setup generators
     aws_config = AWSNamingConfig(
         environment='prd',
         project='dataplatform',
         region='us-east-1'
     )
-    
+
     dbx_config = DatabricksNamingConfig(
         environment='prd',
         project='dataplatform',
         region='us-east-1'
     )
-    
+
     generators = {
         'aws': AWSNamingGenerator(aws_config),
         'databricks': DatabricksNamingGenerator(dbx_config)
     }
-    
+
     # Parse blueprint
     parser = BlueprintParser(generators)
     parsed = parser.parse(Path('blueprint.json'))
-    
+
     # Export preview
     parser.export_preview(parsed, Path('preview.json'))
-    
+
     print(f"Parsed {len(parsed.resources)} resources")
     print(f"Execution order: {len(parsed.get_execution_order())} steps")

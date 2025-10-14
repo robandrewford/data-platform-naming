@@ -7,9 +7,9 @@ supporting include/exclude modes with wildcard matching (e.g., 'aws_*', 'dbx_*')
 """
 
 import re
-from typing import List, Set, Optional
-from enum import Enum
 from dataclasses import dataclass
+from enum import Enum
+from typing import List, Optional
 
 
 class FilterMode(Enum):
@@ -23,12 +23,12 @@ class ScopeConfig:
     """Configuration for scope filtering"""
     mode: FilterMode
     patterns: List[str]
-    
+
     def __post_init__(self):
         """Validate patterns"""
         if not self.patterns:
             raise ValueError("At least one pattern must be provided")
-        
+
         # Validate each pattern
         for pattern in self.patterns:
             if not isinstance(pattern, str) or not pattern.strip():
@@ -62,7 +62,7 @@ class ScopeFilter:
         >>> filter.should_process("aws_s3_bucket")  # True
         >>> filter.should_process("dbx_cluster")    # False
     """
-    
+
     def __init__(
         self,
         mode: FilterMode = FilterMode.INCLUDE,
@@ -77,13 +77,13 @@ class ScopeFilter:
         """
         self.mode = mode
         self.patterns = patterns or ["*"]  # Default: match all
-        
+
         # Compile patterns to regex for efficient matching
         self._compiled_patterns = [
             self._wildcard_to_regex(pattern)
             for pattern in self.patterns
         ]
-    
+
     @staticmethod
     def _wildcard_to_regex(pattern: str) -> re.Pattern:
         """
@@ -101,7 +101,7 @@ class ScopeFilter:
         """
         # Escape special regex characters except * and ?
         escaped = re.escape(pattern)
-        
+
         # Replace escaped wildcards with regex equivalents
         # \* becomes .* (zero or more of any character)
         # \? becomes . (exactly one of any character)
@@ -110,12 +110,12 @@ class ScopeFilter:
             .replace(r'\*', '.*')
             .replace(r'\?', '.')
         )
-        
+
         # Anchor to match full string
         regex_pattern = f'^{regex_pattern}$'
-        
+
         return re.compile(regex_pattern)
-    
+
     def matches_any_pattern(self, resource_type: str) -> bool:
         """
         Check if resource type matches any of the patterns.
@@ -130,7 +130,7 @@ class ScopeFilter:
             pattern.match(resource_type)
             for pattern in self._compiled_patterns
         )
-    
+
     def should_process(self, resource_type: str) -> bool:
         """
         Determine if resource should be processed based on filter.
@@ -142,14 +142,14 @@ class ScopeFilter:
             True if resource should be processed, False otherwise
         """
         matches = self.matches_any_pattern(resource_type)
-        
+
         if self.mode == FilterMode.INCLUDE:
             # In INCLUDE mode, process only if it matches
             return matches
         else:
             # In EXCLUDE mode, process only if it doesn't match
             return not matches
-    
+
     def filter_resources(
         self,
         resources: List[dict]
@@ -168,7 +168,7 @@ class ScopeFilter:
             for resource in resources
             if self.should_process(resource.get("type", ""))
         ]
-    
+
     def get_matching_types(
         self,
         resource_types: List[str]
@@ -187,7 +187,7 @@ class ScopeFilter:
             for resource_type in resource_types
             if self.should_process(resource_type)
         ]
-    
+
     @classmethod
     def from_config(cls, config: ScopeConfig) -> "ScopeFilter":
         """
@@ -200,7 +200,7 @@ class ScopeFilter:
             ScopeFilter instance
         """
         return cls(mode=config.mode, patterns=config.patterns)
-    
+
     @classmethod
     def include(cls, patterns: List[str]) -> "ScopeFilter":
         """
@@ -213,7 +213,7 @@ class ScopeFilter:
             ScopeFilter in INCLUDE mode
         """
         return cls(mode=FilterMode.INCLUDE, patterns=patterns)
-    
+
     @classmethod
     def exclude(cls, patterns: List[str]) -> "ScopeFilter":
         """
@@ -226,7 +226,7 @@ class ScopeFilter:
             ScopeFilter in EXCLUDE mode
         """
         return cls(mode=FilterMode.EXCLUDE, patterns=patterns)
-    
+
     @classmethod
     def allow_all(cls) -> "ScopeFilter":
         """
@@ -236,7 +236,7 @@ class ScopeFilter:
             ScopeFilter that matches everything
         """
         return cls(mode=FilterMode.INCLUDE, patterns=["*"])
-    
+
     @classmethod
     def deny_all(cls) -> "ScopeFilter":
         """
@@ -246,7 +246,7 @@ class ScopeFilter:
             ScopeFilter that matches nothing
         """
         return cls(mode=FilterMode.EXCLUDE, patterns=["*"])
-    
+
     def __repr__(self) -> str:
         """String representation of filter"""
         patterns_str = ", ".join(f"'{p}'" for p in self.patterns)
@@ -263,7 +263,7 @@ if __name__ == "__main__":
     print(f"aws_glue_database: {aws_filter.should_process('aws_glue_database')}")
     print(f"dbx_cluster: {aws_filter.should_process('dbx_cluster')}")
     print()
-    
+
     # Example 2: Exclude Databricks resources
     print("Example 2: Exclude Databricks resources")
     no_dbx_filter = ScopeFilter.exclude(["dbx_*"])
@@ -271,7 +271,7 @@ if __name__ == "__main__":
     print(f"aws_s3_bucket: {no_dbx_filter.should_process('aws_s3_bucket')}")
     print(f"dbx_cluster: {no_dbx_filter.should_process('dbx_cluster')}")
     print()
-    
+
     # Example 3: Multiple patterns
     print("Example 3: Include S3 and Glue resources")
     multi_filter = ScopeFilter.include(["aws_s3_*", "aws_glue_*"])
@@ -280,7 +280,7 @@ if __name__ == "__main__":
     print(f"aws_glue_database: {multi_filter.should_process('aws_glue_database')}")
     print(f"dbx_cluster: {multi_filter.should_process('dbx_cluster')}")
     print()
-    
+
     # Example 4: Filter a list of resources
     print("Example 4: Filter resource list")
     resources = [
@@ -289,7 +289,7 @@ if __name__ == "__main__":
         {"type": "dbx_cluster", "id": "cluster1"},
         {"type": "dbx_job", "id": "job1"},
     ]
-    
+
     aws_only = ScopeFilter.include(["aws_*"])
     filtered = aws_only.filter_resources(resources)
     print(f"Original: {len(resources)} resources")
