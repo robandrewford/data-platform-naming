@@ -5,6 +5,193 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+## Complete Workflow
+
+### Overview
+
+This guide shows how to use the three key parts of the system together:
+
+- **`.dpn/*.yaml`** - Configuration files (naming values and patterns)
+- **`blueprints/*.json`** - Resource definitions (what to create)
+- **`schemas/*.json`** - Validation schemas (ensures correctness)
+
+### Step 1: Initialize Configuration (.dpn/*.yaml)
+
+Set up your project's naming configuration:
+
+```bash
+# Interactive prompts
+uv run dpn config init
+
+# Or specify values directly
+uv run dpn config init --project myproject --environment dev --region us-east-1
+```
+
+This creates two configuration files in `.dpn/`:
+
+- **`.dpn/naming-values.yaml`** - Variable values (project, environment, region, etc.)
+- **`.dpn/naming-patterns.yaml`** - Name templates with placeholders
+
+Customize if needed:
+
+```bash
+# Edit values
+vim .dpn/naming-values.yaml
+
+# Edit patterns (optional - defaults usually work)
+vim .dpn/naming-patterns.yaml
+
+# Validate your changes
+uv run dpn config validate
+
+# View current configuration
+uv run dpn config show
+```
+
+### Step 2: Create Blueprint (blueprints/*.json)
+
+Generate a blueprint that defines what resources to create:
+
+```bash
+# Creates blueprints/dev.json
+uv run dpn plan init --env dev --project myproject
+
+# Creates blueprints/prd.json
+uv run dpn plan init --env prd --project myproject
+```
+
+Edit the blueprint to customize your resources:
+
+```bash
+vim blueprints/dev.json
+```
+
+The blueprint specifies:
+- Environment metadata (env, project, region, team, cost center)
+- AWS resources (S3 buckets, Glue databases/tables)
+- Databricks resources (clusters, jobs, Unity Catalog)
+
+### Step 3: Validate Blueprint (schemas/*.json)
+
+Validate blueprint structure and configuration:
+
+```bash
+# Validate blueprint against schema
+uv run dpn plan validate blueprints/dev.json
+
+# Validate configuration files
+uv run dpn config validate
+```
+
+Validation uses schemas in `schemas/`:
+- `naming-values-schema.json` - Validates configuration values
+- `naming-patterns-schema.json` - Validates naming patterns
+- Blueprint schema (internal) - Validates blueprint structure
+
+### Step 4: Preview Generated Names
+
+See what names will be created before executing:
+
+```bash
+# Table format (default)
+uv run dpn plan preview blueprints/dev.json
+
+# JSON format for automation
+uv run dpn plan preview blueprints/dev.json --format json --output preview.json
+
+# With runtime overrides
+uv run dpn plan preview blueprints/dev.json --override environment=prd
+```
+
+### Step 5: Create Resources
+
+Deploy your infrastructure:
+
+```bash
+# Dry run first (recommended)
+uv run dpn create --blueprint blueprints/dev.json --dry-run
+
+# Execute creation
+uv run dpn create --blueprint blueprints/dev.json
+```
+
+### File Relationships Diagram
+
+```
+.dpn/
+├── naming-values.yaml      → Variable values (project, environment, etc.)
+└── naming-patterns.yaml    → Name templates with {placeholders}
+          ↓
+  (combine values + patterns)
+          ↓
+    Generated Names
+          ↓
+blueprints/
+└── dev.json                → Resource definitions
+          ↓
+  (validated against)
+          ↓
+schemas/
+├── naming-values-schema.json
+├── naming-patterns-schema.json
+└── (internal blueprint schema)
+          ↓
+   (creates resources)
+          ↓
+AWS & Databricks Resources
+```
+
+### Quick Example
+
+Complete workflow in 5 commands:
+
+```bash
+# 1. Set up configuration
+uv run dpn config init --project dataplatform --environment dev
+
+# 2. Create blueprint
+uv run dpn plan init --env dev --project dataplatform
+
+# 3. Preview names
+uv run dpn plan preview blueprints/dev.json
+
+# 4. Dry run
+uv run dpn create --blueprint blueprints/dev.json --dry-run
+
+# 5. Create resources
+uv run dpn create --blueprint blueprints/dev.json
+```
+
+### Configuration Details
+
+**Values (.dpn/naming-values.yaml):**
+```yaml
+defaults:
+  project: dataplatform
+  environment: dev
+  region: us-east-1
+```
+
+**Patterns (.dpn/naming-patterns.yaml):**
+```yaml
+patterns:
+  aws_s3_bucket:
+    template: "{project}-{purpose}-{layer}-{environment}-{region_code}"
+```
+
+**Blueprint (blueprints/dev.json):**
+```json
+{
+  "version": "1.0",
+  "metadata": {"environment": "dev", "project": "dataplatform"},
+  "resources": {
+    "aws": {"s3_buckets": [{"purpose": "raw", "layer": "raw"}]}
+  }
+}
+```
+
+**Result:** S3 bucket named `dataplatform-raw-raw-dev-use1`
+
 ## Quick Start
 
 ```bash
@@ -86,19 +273,19 @@ The configuration system allows you to customize naming patterns and values with
 
 ```bash
 # 1. Initialize configuration
-dpn config init
+uv run dpn config init
 # Prompts for: project, environment, region
 
 # 2. Validate configuration
-dpn config validate
+uv run dpn config validate
 
 # 3. View configuration
-dpn config show
-dpn config show --resource-type aws_s3_bucket
+uv run dpn config show
+uv run dpn config show --resource-type aws_s3_bucket
 
-# 4. Use in commands (automatic with ~/.dpn/ configs)
-dpn plan preview dev.json
-dpn create --blueprint dev.json
+# 4. Use in commands (automatic with .dpn/ configs)
+uv run dpn plan preview dev.json
+uv run dpn create --blueprint dev.json
 ```
 
 ### Configuration Files
@@ -147,13 +334,13 @@ validation:
 
 ### Configuration Locations
 
-**Default location:** `~/.dpn/`
-- `~/.dpn/naming-values.yaml`
-- `~/.dpn/naming-patterns.yaml`
+**Default location:** `.dpn/` (project directory)
+- `.dpn/naming-values.yaml`
+- `.dpn/naming-patterns.yaml`
 
 **Custom paths:** Use flags with any command
 ```bash
-dpn plan preview dev.json \
+uv run dpn plan preview dev.json \
   --values-config custom-values.yaml \
   --patterns-config custom-patterns.yaml
 ```
@@ -164,16 +351,16 @@ Override any value at runtime without modifying config files:
 
 ```bash
 # Single override
-dpn plan preview dev.json --override environment=prd
+uv run dpn plan preview dev.json --override environment=prd
 
 # Multiple overrides
-dpn plan preview dev.json \
+uv run dpn plan preview dev.json \
   --override environment=prd \
   --override project=oncology \
   --override region=us-west-2
 
 # Works with all commands
-dpn create --blueprint dev.json \
+uv run dpn create --blueprint dev.json \
   --override environment=prd \
   --dry-run
 ```
@@ -190,25 +377,25 @@ dpn create --blueprint dev.json \
 
 ```bash
 # Initialize (one-time setup)
-dpn config init --project myproject --environment dev --region us-east-1
+uv run dpn config init --project myproject --environment dev --region us-east-1
 
 # Customize values
-vim ~/.dpn/naming-values.yaml
+vim .dpn/naming-values.yaml
 
 # Customize patterns (optional)
-vim ~/.dpn/naming-patterns.yaml
+vim .dpn/naming-patterns.yaml
 
 # Validate changes
-dpn config validate
+uv run dpn config validate
 
 # View effective configuration
-dpn config show
+uv run dpn config show
 
 # Test with preview
-dpn plan preview my-blueprint.json
+uv run dpn plan preview my-blueprint.json
 
 # Create resources
-dpn create --blueprint my-blueprint.json
+uv run dpn create --blueprint my-blueprint.json
 ```
 
 ### Backward Compatibility
@@ -216,13 +403,13 @@ dpn create --blueprint my-blueprint.json
 Commands work without configuration files (legacy mode):
 ```bash
 # Without config - uses hardcoded patterns
-dpn plan preview dev.json
+uv run dpn plan preview dev.json
 # ⚠ No configuration files found, using legacy mode
-# Run 'dpn config init' to create configuration files
+# Run 'uv run dpn config init' to create configuration files
 
 # With config - uses customizable patterns
-dpn config init
-dpn plan preview dev.json
+uv run dpn config init
+uv run dpn plan preview dev.json
 # ✓ Using configuration-based naming
 ```
 
@@ -236,28 +423,30 @@ For detailed migration instructions, see [Configuration Migration Guide](docs/co
 
 #### Initialize Blueprint
 
-dpn plan init --env prd --project dataplatform --output prod.json
+```bash
+uv run dpn plan init --env prd --project dataplatform --output prod.json
+```
 
 #### Validate Schema
 
 ```bash
-dpn plan validate prod.json
+uv run dpn plan validate prod.json
 ```
 
 #### Preview Names
 
 ```bash
 # Table format
-dpn plan preview prod.json
+uv run dpn plan preview prod.json
 
 # JSON export
-dpn plan preview prod.json --format json --output preview.json
+uv run dpn plan preview prod.json --format json --output preview.json
 ```
 
 #### Export Schema
 
 ```bash
-dpn plan schema --output blueprint-schema.json
+uv run dpn plan schema --output blueprint-schema.json
 ```
 
 ### 2. CRUD Operations
@@ -266,16 +455,16 @@ dpn plan schema --output blueprint-schema.json
 
 ```bash
 # Dry run
-dpn create --blueprint prod.json --dry-run
+uv run dpn create --blueprint prod.json --dry-run
 
 # Execute
-dpn create --blueprint prod.json
+uv run dpn create --blueprint prod.json
 
 # With AWS profile
-dpn create --blueprint prod.json --aws-profile production
+uv run dpn create --blueprint prod.json --aws-profile production
 
 # With Databricks
-dpn create --blueprint prod.json \
+uv run dpn create --blueprint prod.json \
   --dbx-host https://workspace.cloud.databricks.com \
   --dbx-token dapi123...
 ```
@@ -284,33 +473,33 @@ dpn create --blueprint prod.json \
 
 ```bash
 # JSON format
-dpn read --resource-id cluster-name --type cluster --format json
+uv run dpn read --resource-id cluster-name --type cluster --format json
 
 # YAML format
-dpn read --resource-id bucket-name --type s3 --format yaml
+uv run dpn read --resource-id bucket-name --type s3 --format yaml
 
 # Table format
-dpn read --resource-id db-name --type glue-db --format table
+uv run dpn read --resource-id db-name --type glue-db --format table
 ```
 
 #### Update Resources
 
 ```bash
 # Rename
-dpn update --resource-id old-name --rename new-name
+uv run dpn update --resource-id old-name --rename new-name
 
 # Update params
-dpn update --resource-id cluster-name --params updates.json
+uv run dpn update --resource-id cluster-name --params updates.json
 ```
 
 #### Delete Resources
 
 ```bash
 # Permanent delete (with confirmation)
-dpn delete --resource-id cluster-name --type cluster
+uv run dpn delete --resource-id cluster-name --type cluster
 
 # Archive (soft delete)
-dpn delete --resource-id cluster-name --type cluster --archive
+uv run dpn delete --resource-id cluster-name --type cluster --archive
 ```
 
 ### 3. Utility Commands
@@ -318,13 +507,13 @@ dpn delete --resource-id cluster-name --type cluster --archive
 #### Recover from Failures
 
 ```bash
-dpn recover
+uv run dpn recover
 ```
 
 #### Check Status
 
 ```bash
-dpn status
+uv run dpn status
 ```
 
 ## Blueprint Structure
@@ -567,7 +756,7 @@ export DATABRICKS_TOKEN=dapi123...
 ### State Directory
 
 ```md
-~/.dpn/
+.dpn/
 ├── wal/              # Write-ahead log
 │   ├── {tx-id}.wal
 │   ├── {tx-id}.committed
@@ -582,36 +771,36 @@ export DATABRICKS_TOKEN=dapi123...
 
 ```bash
 # Development
-dpn create --blueprint dev.json --aws-profile dev
+uv run dpn create --blueprint dev.json --aws-profile dev
 
 # Staging
-dpn create --blueprint stg.json --aws-profile staging
+uv run dpn create --blueprint stg.json --aws-profile staging
 
 # Production
-dpn create --blueprint prd.json --aws-profile production
+uv run dpn create --blueprint prd.json --aws-profile production
 ```
 
 ### Resource Inspection
 
 ```bash
 # List all S3 buckets
-dpn read --type s3 --resource-id "dataplatform-*"
+uv run dpn read --type s3 --resource-id "dataplatform-*"
 
 # Cluster details
-dpn read --type cluster --resource-id etl-cluster --format json
+uv run dpn read --type cluster --resource-id etl-cluster --format json
 ```
 
 ### Disaster Recovery
 
 ```bash
 # Recover failed transactions
-dpn recover
+uv run dpn recover
 
 # Archive resources
-dpn delete --resource-id old-cluster --type cluster --archive
+uv run dpn delete --resource-id old-cluster --type cluster --archive
 
 # Check system status
-dpn status
+uv run dpn status
 ```
 
 ## Development

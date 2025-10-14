@@ -79,7 +79,7 @@ def load_configuration_manager(
     
     # Try default location
     else:
-        default_dir = Path.home() / '.dpn'
+        default_dir = Path.cwd() / '.dpn'
         values_path = default_dir / 'naming-values.yaml'
         patterns_path = default_dir / 'naming-patterns.yaml'
         
@@ -87,10 +87,10 @@ def load_configuration_manager(
             try:
                 manager = ConfigurationManager()
                 manager.load_from_default_locations()
-                console.print(f"[dim]Loaded config from: ~/.dpn/[/dim]")
+                console.print(f"[dim]Loaded config from: .dpn/[/dim]")
             except Exception as e:
                 raise click.ClickException(
-                    f"Config files found in ~/.dpn/ but failed to load: {str(e)}\n"
+                    f"Config files found in .dpn/ but failed to load: {str(e)}\n"
                     "Run 'dpn config validate' to check configuration."
                 )
     
@@ -271,9 +271,9 @@ def plan_validate(blueprint: str):
 @plan.command('preview')
 @click.argument('blueprint', type=click.Path(exists=True))
 @click.option('--values-config', type=click.Path(exists=True),
-              help='Path to naming-values.yaml (default: ~/.dpn/naming-values.yaml)')
+              help='Path to naming-values.yaml (default: .dpn/naming-values.yaml)')
 @click.option('--patterns-config', type=click.Path(exists=True),
-              help='Path to naming-patterns.yaml (default: ~/.dpn/naming-patterns.yaml)')
+              help='Path to naming-patterns.yaml (default: .dpn/naming-patterns.yaml)')
 @click.option('--override', multiple=True,
               help='Override values (format: key=value, e.g., environment=dev)')
 @click.option('--output', type=click.Path(), help='Export to JSON')
@@ -327,12 +327,10 @@ def plan_preview(blueprint: str, values_config: Optional[str], patterns_config: 
                 )
             }
         else:
-            console.print("[yellow]No configuration files found, using legacy mode[/yellow]")
-            console.print("[yellow]Run 'dpn config init' to create configuration files[/yellow]\n")
-            generators = {
-                'aws': AWSNamingGenerator(aws_config),
-                'databricks': DatabricksNamingGenerator(dbx_config)
-            }
+            raise click.ClickException(
+                "Configuration files required but not found.\n"
+                "Run 'dpn config init' to create configuration files in .dpn/"
+            )
         
         # Parse with optional ConfigurationManager
         parser = BlueprintParser(generators, configuration_manager=config_manager)
@@ -407,9 +405,9 @@ def plan_schema(output: str):
 @click.option('--dbx-host', envvar='DATABRICKS_HOST', help='Databricks host')
 @click.option('--dbx-token', envvar='DATABRICKS_TOKEN', help='Databricks token')
 @click.option('--values-config', type=click.Path(exists=True),
-              help='Path to naming-values.yaml (default: ~/.dpn/naming-values.yaml)')
+              help='Path to naming-values.yaml (default: .dpn/naming-values.yaml)')
 @click.option('--patterns-config', type=click.Path(exists=True),
-              help='Path to naming-patterns.yaml (default: ~/.dpn/naming-patterns.yaml)')
+              help='Path to naming-patterns.yaml (default: .dpn/naming-patterns.yaml)')
 @click.option('--override', multiple=True,
               help='Override values (format: key=value, e.g., environment=dev)')
 def create(blueprint: str, dry_run: bool, aws_profile: Optional[str], 
@@ -464,14 +462,12 @@ def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
                 )
             }
         else:
-            console.print("[yellow]No configuration files found, using legacy mode[/yellow]")
-            console.print("[yellow]Run 'dpn config init' to create configuration files[/yellow]\n")
-            generators = {
-                'aws': AWSNamingGenerator(aws_config),
-                'databricks': DatabricksNamingGenerator(dbx_config)
-            }
+            raise click.ClickException(
+                "Configuration files required but not found.\n"
+                "Run 'dpn config init' to create configuration files in .dpn/"
+            )
         
-        # Parse with optional ConfigurationManager
+        # Parse with ConfigurationManager
         parser = BlueprintParser(generators, configuration_manager=config_manager)
         parsed = parser.parse(Path(blueprint))
         
@@ -684,7 +680,7 @@ def config():
               default='us-east-1', help='Default AWS region')
 @click.option('--force', is_flag=True, help='Overwrite existing files')
 def config_init(project: str, environment: str, region: str, force: bool):
-    """Initialize default configuration files in ~/.dpn/
+    """Initialize default configuration files in .dpn/
     
     Creates naming-values.yaml and naming-patterns.yaml with sensible defaults.
     Prompts for basic values (project, environment, region) to customize the templates.
@@ -698,8 +694,8 @@ def config_init(project: str, environment: str, region: str, force: bool):
     import shutil
     
     try:
-        # Create ~/.dpn directory
-        config_dir = Path.home() / '.dpn'
+        # Create .dpn directory in current working directory
+        config_dir = Path.cwd() / '.dpn'
         config_dir.mkdir(parents=True, exist_ok=True)
         
         # Define target paths
@@ -768,9 +764,9 @@ def config_init(project: str, environment: str, region: str, force: bool):
 
 @config.command('validate')
 @click.option('--values-config', type=click.Path(exists=True),
-              help='Path to naming-values.yaml (default: ~/.dpn/naming-values.yaml)')
+              help='Path to naming-values.yaml (default: .dpn/naming-values.yaml)')
 @click.option('--patterns-config', type=click.Path(exists=True),
-              help='Path to naming-patterns.yaml (default: ~/.dpn/naming-patterns.yaml)')
+              help='Path to naming-patterns.yaml (default: .dpn/naming-patterns.yaml)')
 def config_validate(values_config: Optional[str], patterns_config: Optional[str]):
     """Validate configuration files against JSON schemas
     
@@ -798,8 +794,8 @@ def config_validate(values_config: Optional[str], patterns_config: Optional[str]
             values_path = Path(values_config)
             patterns_path = Path(patterns_config)
         else:
-            values_path = Path.home() / '.dpn' / 'naming-values.yaml'
-            patterns_path = Path.home() / '.dpn' / 'naming-patterns.yaml'
+            values_path = Path.cwd() / '.dpn' / 'naming-values.yaml'
+            patterns_path = Path.cwd() / '.dpn' / 'naming-patterns.yaml'
         
         # Check files exist
         if not values_path.exists():
@@ -871,9 +867,9 @@ def config_validate(values_config: Optional[str], patterns_config: Optional[str]
 
 @config.command('show')
 @click.option('--values-config', type=click.Path(exists=True),
-              help='Path to naming-values.yaml (default: ~/.dpn/naming-values.yaml)')
+              help='Path to naming-values.yaml (default: .dpn/naming-values.yaml)')
 @click.option('--patterns-config', type=click.Path(exists=True),
-              help='Path to naming-patterns.yaml (default: ~/.dpn/naming-patterns.yaml)')
+              help='Path to naming-patterns.yaml (default: .dpn/naming-patterns.yaml)')
 @click.option('--resource-type', help='Filter by resource type (e.g., aws_s3_bucket)')
 @click.option('--format', type=click.Choice(['table', 'json']), default='table',
               help='Output format')

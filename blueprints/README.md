@@ -18,35 +18,35 @@ The CLI automatically saves blueprints here by default:
 
 ```bash
 # Creates blueprints/prd.json
-dpn plan init --env prd --project myproject
+uv run dpn plan init --env prd --project myproject
 
 # Creates blueprints/dev.json
-dpn plan init --env dev --project myproject
+uv run dpn plan init --env dev --project myproject
 
 # Custom location (if needed)
-dpn plan init --env stg --project myproject --output custom/path/stg.json
+uv run dpn plan init --env stg --project myproject --output custom/path/stg.json
 ```
 
 ### Validate a Blueprint
 
 ```bash
-dpn plan validate blueprints/prd.json
+uv run dpn plan validate blueprints/prd.json
 ```
 
 ### Preview Generated Names
 
 ```bash
-dpn plan preview blueprints/prd.json
+uv run dpn plan preview blueprints/prd.json
 ```
 
 ### Create Resources
 
 ```bash
 # Dry run first
-dpn create --blueprint blueprints/prd.json --dry-run
+uv run dpn create --blueprint blueprints/prd.json --dry-run
 
 # Execute
-dpn create --blueprint blueprints/prd.json
+uv run dpn create --blueprint blueprints/prd.json
 ```
 
 ## Scope Filtering

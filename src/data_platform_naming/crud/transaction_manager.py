@@ -335,7 +335,7 @@ class ProgressTracker:
 class TransactionManager:
     """ACID transaction manager for resource operations"""
     
-    def __init__(self, base_dir: Path = Path.home() / ".dpn"):
+    def __init__(self, base_dir: Path = Path.cwd() / ".dpn"):
         self.base_dir = base_dir
         self.base_dir.mkdir(parents=True, exist_ok=True)
         

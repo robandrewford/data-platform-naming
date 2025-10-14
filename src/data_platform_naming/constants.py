@@ -319,7 +319,7 @@ TIMEOUTS = {
 # STATE STORE PATHS
 # =============================================================================
 
-DEFAULT_BASE_DIR = '~/.dpn'
+DEFAULT_BASE_DIR = '.dpn'
 WAL_DIR = 'wal'
 STATE_DIR = 'state'
 CACHE_DIR = 'cache'

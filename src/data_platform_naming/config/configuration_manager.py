@@ -104,10 +104,8 @@ class ConfigurationManager:
         # Load values
         if values_path:
             self.values_loader.load_from_file(values_path)
-            self._values_loaded = True
         elif values_dict:
             self.values_loader.load_from_dict(values_dict)
-            self._values_loaded = True
         else:
             raise ConfigurationError(
                 "Must provide either values_path or values_dict"
@@ -116,25 +114,27 @@ class ConfigurationManager:
         # Load patterns
         if patterns_path:
             self.patterns_loader.load_from_file(patterns_path)
-            self._patterns_loaded = True
         elif patterns_dict:
             self.patterns_loader.load_from_dict(patterns_dict)
-            self._patterns_loaded = True
         else:
             raise ConfigurationError(
                 "Must provide either patterns_path or patterns_dict"
             )
+        
+        # Update flags after successful loading
+        self._values_loaded = self._check_values_loader_has_data()
+        self._patterns_loaded = self._check_patterns_loader_has_data()
     
     def load_from_default_locations(self, base_dir: Optional[Path] = None) -> bool:
         """
         Load configurations from default locations.
         
         Default locations:
-        - ~/.dpn/naming-values.yaml
-        - ~/.dpn/naming-patterns.yaml
+        - .dpn/naming-values.yaml
+        - .dpn/naming-patterns.yaml
         
         Args:
-            base_dir: Optional base directory (defaults to ~/.dpn/)
+            base_dir: Optional base directory (defaults to .dpn/)
             
         Returns:
             True if configs were loaded, False if default files don't exist
@@ -143,7 +143,7 @@ class ConfigurationManager:
             SchemaValidationError: If configurations don't validate
         """
         if base_dir is None:
-            base_dir = Path.home() / ".dpn"
+            base_dir = Path.cwd() / ".dpn"
         
         values_path = base_dir / "naming-values.yaml"
         patterns_path = base_dir / "naming-patterns.yaml"
@@ -391,7 +391,7 @@ class ConfigurationManager:
             # Try to get defaults - will fail if no data loaded
             defaults = self.values_loader.get_defaults()
             return bool(defaults)
-        except (ConfigurationError, AttributeError):
+        except (ConfigurationError, AttributeError, Exception):
             return False
     
     def _check_patterns_loader_has_data(self) -> bool:
@@ -400,7 +400,7 @@ class ConfigurationManager:
             # Try to get version - will exist if data loaded
             version = self.patterns_loader.get_version()
             return version is not None
-        except (PatternError, AttributeError):
+        except (PatternError, ConfigurationError, AttributeError):
             return False
     
     def _check_loaded(self) -> None:

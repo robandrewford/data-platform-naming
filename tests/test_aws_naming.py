@@ -142,7 +142,16 @@ def patterns_config():
             "dbx_job": "{project}-{job_type}-{purpose}-{schedule}-{environment}",
             "dbx_catalog": "{project}_{catalog_type}_{environment}",
             "dbx_schema": "{domain}_{layer}",
-            "dbx_table": "{table_type}_{entity}"
+            "dbx_table": "{table_type}_{entity}",
+            "dbx_workspace": "dbx-{project}-{purpose}-{environment}-{region_short}",
+            "dbx_notebook_path": "/{project}/{domain}/{purpose}/{environment}/{notebook_name}",
+            "dbx_repo": "{project}-{repo_purpose}-{environment}",
+            "dbx_pipeline": "{project}-{pipeline_type}-{source}-{target}-{environment}",
+            "dbx_sql_warehouse": "{project}-sql-{purpose}-{size}-{environment}",
+            "dbx_volume": "{data_type}_{purpose}",
+            "dbx_secret_scope": "{project}-{purpose}-{environment}",
+            "dbx_instance_pool": "{project}-pool-{node_type}-{purpose}-{environment}",
+            "dbx_policy": "{project}-{target}-{policy_type}-{environment}"
         },
         "transformations": {
             "region_mapping": {

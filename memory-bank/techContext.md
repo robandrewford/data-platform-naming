@@ -457,7 +457,7 @@ uv build
 ```md
 data-platform-naming/
 ├── src/
-│   └── data-platform-naming/
+│   └── data_platform_naming/
 │       ├── __init__.py
 │       ├── cli.py              # Entry point
 │       ├── aws_naming.py
