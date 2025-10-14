@@ -357,18 +357,11 @@ class BlueprintParser:
 
         # S3 Buckets
         for bucket_spec in aws_config.get('s3_buckets', []):
-            try:
-                bucket_name = aws_gen.generate_s3_bucket_name(
-                    purpose=bucket_spec['purpose'],
-                    layer=bucket_spec['layer'],
-                    metadata=metadata
-                )
-            except (NotImplementedError, TypeError):
-                # Legacy generator without ConfigurationManager support
-                bucket_name = aws_gen.generate_s3_bucket_name(
-                    purpose=bucket_spec['purpose'],
-                    layer=bucket_spec['layer']
-                )
+            bucket_name = aws_gen.generate_s3_bucket_name(
+                purpose=bucket_spec['purpose'],
+                layer=bucket_spec['layer'],
+                metadata=metadata
+            )
 
             resources.append(ParsedResource(
                 resource_type='aws_s3_bucket',
@@ -387,17 +380,11 @@ class BlueprintParser:
         # Glue Databases
         db_refs = {}
         for db_spec in aws_config.get('glue_databases', []):
-            try:
-                db_name = aws_gen.generate_glue_database_name(
-                    domain=db_spec['domain'],
-                    layer=db_spec['layer'],
-                    metadata=metadata
-                )
-            except (NotImplementedError, TypeError):
-                db_name = aws_gen.generate_glue_database_name(
-                    domain=db_spec['domain'],
-                    layer=db_spec['layer']
-                )
+            db_name = aws_gen.generate_glue_database_name(
+                domain=db_spec['domain'],
+                layer=db_spec['layer'],
+                metadata=metadata
+            )
 
             db_ref = f"{db_spec['domain']}-{db_spec['layer']}"
             db_refs[db_ref] = db_name
@@ -417,17 +404,11 @@ class BlueprintParser:
             if not db_name:
                 raise ValueError(f"Database ref not found: {table_spec['database_ref']}")
 
-            try:
-                table_name = aws_gen.generate_glue_table_name(
-                    entity=table_spec['entity'],
-                    table_type=table_spec.get('table_type', 'fact'),
-                    metadata=metadata
-                )
-            except (NotImplementedError, TypeError):
-                table_name = aws_gen.generate_glue_table_name(
-                    entity=table_spec['entity'],
-                    table_type=table_spec.get('table_type', 'fact')
-                )
+            table_name = aws_gen.generate_glue_table_name(
+                entity=table_spec['entity'],
+                table_type=table_spec.get('table_type', 'fact'),
+                metadata=metadata
+            )
 
             resources.append(ParsedResource(
                 resource_type='aws_glue_table',
@@ -451,17 +432,11 @@ class BlueprintParser:
         # Clusters
         cluster_refs = {}
         for cluster_spec in dbx_config.get('clusters', []):
-            try:
-                cluster_name = dbx_gen.generate_cluster_name(
-                    workload=cluster_spec['workload'],
-                    cluster_type=cluster_spec['cluster_type'],
-                    metadata=metadata
-                )
-            except (NotImplementedError, TypeError):
-                cluster_name = dbx_gen.generate_cluster_name(
-                    workload=cluster_spec['workload'],
-                    cluster_type=cluster_spec['cluster_type']
-                )
+            cluster_name = dbx_gen.generate_cluster_name(
+                workload=cluster_spec['workload'],
+                cluster_type=cluster_spec['cluster_type'],
+                metadata=metadata
+            )
 
             cluster_refs[cluster_spec['workload']] = cluster_name
 
@@ -479,19 +454,12 @@ class BlueprintParser:
 
         # Jobs
         for job_spec in dbx_config.get('jobs', []):
-            try:
-                job_name = dbx_gen.generate_job_name(
-                    job_type=job_spec['job_type'],
-                    purpose=job_spec['purpose'],
-                    schedule=job_spec.get('schedule'),
-                    metadata=metadata
-                )
-            except (NotImplementedError, TypeError):
-                job_name = dbx_gen.generate_job_name(
-                    job_type=job_spec['job_type'],
-                    purpose=job_spec['purpose'],
-                    schedule=job_spec.get('schedule')
-                )
+            job_name = dbx_gen.generate_job_name(
+                job_type=job_spec['job_type'],
+                purpose=job_spec['purpose'],
+                schedule=job_spec.get('schedule'),
+                metadata=metadata
+            )
 
             cluster_ref = job_spec.get('cluster_ref')
             dependencies = []
@@ -527,15 +495,10 @@ class BlueprintParser:
 
         for catalog_spec in uc_config.get('catalogs', []):
             # Catalog
-            try:
-                catalog_name = dbx_gen.generate_catalog_name(
-                    catalog_type=catalog_spec['catalog_type'],
-                    metadata=metadata
-                )
-            except (NotImplementedError, TypeError):
-                catalog_name = dbx_gen.generate_catalog_name(
-                    catalog_type=catalog_spec['catalog_type']
-                )
+            catalog_name = dbx_gen.generate_catalog_name(
+                catalog_type=catalog_spec['catalog_type'],
+                metadata=metadata
+            )
 
             resources.append(ParsedResource(
                 resource_type='dbx_catalog',
@@ -548,17 +511,11 @@ class BlueprintParser:
 
             # Schemas
             for schema_spec in catalog_spec.get('schemas', []):
-                try:
-                    schema_name = dbx_gen.generate_schema_name(
-                        domain=schema_spec['domain'],
-                        layer=schema_spec['layer'],
-                        metadata=metadata
-                    )
-                except (NotImplementedError, TypeError):
-                    schema_name = dbx_gen.generate_schema_name(
-                        domain=schema_spec['domain'],
-                        layer=schema_spec['layer']
-                    )
+                schema_name = dbx_gen.generate_schema_name(
+                    domain=schema_spec['domain'],
+                    layer=schema_spec['layer'],
+                    metadata=metadata
+                )
 
                 full_schema_name = f"{catalog_name}.{schema_name}"
 
@@ -574,17 +531,11 @@ class BlueprintParser:
 
                 # Tables
                 for table_spec in schema_spec.get('tables', []):
-                    try:
-                        table_name = dbx_gen.generate_table_name(
-                            entity=table_spec['entity'],
-                            table_type=table_spec.get('table_type', 'fact'),
-                            metadata=metadata
-                        )
-                    except (NotImplementedError, TypeError):
-                        table_name = dbx_gen.generate_table_name(
-                            entity=table_spec['entity'],
-                            table_type=table_spec.get('table_type', 'fact')
-                        )
+                    table_name = dbx_gen.generate_table_name(
+                        entity=table_spec['entity'],
+                        table_type=table_spec.get('table_type', 'fact'),
+                        metadata=metadata
+                    )
 
                     full_table_name = f"{catalog_name}.{schema_name}.{table_name}"
 
