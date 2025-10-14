@@ -314,19 +314,17 @@ def plan_preview(blueprint: str, values_config: Optional[str], patterns_config: 
             region=metadata['region']
         )
 
-        # Create generators with or without ConfigurationManager
+        # Create generators with ConfigurationManager
         if config_manager:
             console.print("[dim]Using configuration-based naming[/dim]")
             generators = {
                 'aws': AWSNamingGenerator(
                     config=aws_config,
-                    configuration_manager=config_manager,
-                    use_config=True
+                    configuration_manager=config_manager
                 ),
                 'databricks': DatabricksNamingGenerator(
                     config=dbx_config,
-                    configuration_manager=config_manager,
-                    use_config=True
+                    configuration_manager=config_manager
                 )
             }
         else:
@@ -449,19 +447,17 @@ def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
             region=metadata['region']
         )
 
-        # Create generators with or without ConfigurationManager
+        # Create generators with ConfigurationManager
         if config_manager:
             console.print("[dim]Using configuration-based naming[/dim]")
             generators = {
                 'aws': AWSNamingGenerator(
                     config=aws_config,
-                    configuration_manager=config_manager,
-                    use_config=True
+                    configuration_manager=config_manager
                 ),
                 'databricks': DatabricksNamingGenerator(
                     config=dbx_config,
-                    configuration_manager=config_manager,
-                    use_config=True
+                    configuration_manager=config_manager
                 )
             }
         else:
