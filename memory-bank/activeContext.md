@@ -17,30 +17,177 @@ The data-platform-naming project is in a **Beta state (v0.1.0)** with core funct
 - ✅ **Databricks Generator refactored to use ConfigurationManager** (Phase 3B complete!)
 - ✅ **Pattern transformations externalized to YAML** (Phase 3C complete!)
 - ✅ **Blueprint parser integrated with ConfigurationManager** (Phase 3D complete!)
-- ✅ **End-to-end integration & documentation complete** (Phase 3E 100% complete - 9/9 tests passing!)
+- ✅ **End-to-end integration & documentation complete** (Phase 3E 100% complete!)
 - ✅ **Configuration-based naming system 100% COMPLETE!** (All 5 phases done)
+- ✅ **Sprint 1: Critical Fixes COMPLETE** (Legacy mode removed from codebase!)
+- ⚠️ **Sprint 1: Test updates REQUIRED** (Tests still reference old `use_config` parameter)
 - ⚠️ Databricks SDK integration in progress (currently using requests library)
 - ⚠️ Update command declared but not fully implemented
-- ⚠️ No integration tests with real cloud accounts yet
 
 ### Active Areas
 
-**Current Status**: Phase 4 Complete - CLI Integration Finished! 🎊🎉
+**Current Status**: Sprint 1 Code Refactoring Complete - Test Updates Needed! 🔧
 
-**Development Phase**: Beta (v0.1.0 → v0.2.0) - CLI integration with configuration system COMPLETE!
+**Development Phase**: Beta (v0.1.0 → v0.2.0) - Code quality improvements in progress
 
-**Active Development**: Configuration-Based Naming System 100% COMPLETE! 🚀
-- ✅ Phase 3: Configuration-based naming system (100% COMPLETE)
-- ✅ Phase 4: CLI Integration (ALL 5 DAYS COMPLETE!)
-  - ✅ Day 1: Config loading helper & plan preview integration (COMPLETE)
-  - ✅ Day 2: Create command integration & generator updates (COMPLETE)
-  - ✅ Day 3: Config command group (init, validate, show) (COMPLETE)
-  - ✅ Day 4: Help text & status command updates (COMPLETE)
-  - ✅ Day 5: Integration tests & documentation (COMPLETE)
+**Active Development**: Sprint 1: Critical Fixes & Technical Debt
+- ✅ **Issue #1: Remove Legacy Mode Architecture** (100% COMPLETE)
+  - Refactored 4 core files (~162 lines removed)
+  - Made ConfigurationManager required (not optional)
+  - Removed dual-mode complexity
+  - Clean, maintainable codebase
+- ⚠️ **Test Suite Updates** (IN PROGRESS)
+  - Need to update ~20 tests in test_aws_naming.py
+  - Similar updates for test_dbx_naming.py
+  - Remove legacy mode test cases
+- ❌ **Issue #2: Fix Type Hints** (NOT STARTED)
+- ❌ **Issue #3: Add Missing Validation** (NOT STARTED)
 
-**Next Steps**: Ready for production use! Configuration system fully integrated and tested.
+**Next Steps**: 
+1. Update test files to remove `use_config` parameter references
+2. Fix mypy type errors (jsonschema stubs, click stubs)
+3. Add missing validation patterns
 
 ## Recent Changes
+
+### Sprint 1: Critical Fixes - Issue #1 (COMPLETE) ✅
+
+**Date**: 2025-10-13/14
+
+**Branch**: `refactor/sprint1-critical-fixes`
+
+**Goal**: Remove legacy mode architecture from codebase to improve maintainability and reduce complexity.
+
+**Problem Statement**: 
+The codebase had dual-mode support (`use_config=True/False`) that created:
+- 27 try/except fallback blocks in blueprint.py
+- Confusing API with optional ConfigurationManager
+- Extra complexity in test maintenance
+- Unclear migration path for users
+
+**Solution Implemented**:
+Removed legacy mode entirely, making ConfigurationManager required for all name generation.
+
+#### Commits & Changes:
+
+1. **Pre-refactor Baseline** (commit d73f163)
+   - Documented test baseline: 287 passing, 41 failing
+   - Created comprehensive code review findings document
+   - Identified 3 critical issues to fix
+
+2. **aws_naming.py + dbx_naming.py Refactored** (commit 266ff3d)
+   - **Files Modified**: 
+     - `src/data_platform_naming/aws_naming.py`
+     - `src/data_platform_naming/dbx_naming.py`
+   - **Changes**:
+     - Removed `use_config` parameter from both generators
+     - Made `ConfigurationManager` required (changed from Optional)
+     - Removed legacy mode checks and NotImplementedError fallbacks
+     - Updated all method docstrings (13 AWS + 14 Databricks methods)
+   - **Impact**: -63 lines of unnecessary dual-mode code
+
+3. **blueprint.py Refactored** (commit 32b8f63)
+   - **File Modified**: `src/data_platform_naming/plan/blueprint.py`
+   - **Changes**:
+     - Removed all 27 try/except fallback blocks
+     - Direct method calls with metadata parameter
+     - Simplified error handling (no legacy fallbacks)
+   - **Impact**: -89 lines of try/except code
+
+4. **cli.py Refactored** (commit 3776a22)
+   - **File Modified**: `src/data_platform_naming/cli.py`
+   - **Changes**:
+     - Removed `use_config=True` parameter from generator instantiation
+     - Simplified generator creation logic (2 locations updated)
+     - Cleaner code without mode switching
+   - **Impact**: -10 lines of parameter passing
+
+#### Summary of Changes:
+
+**Files Refactored**: 4 core files
+- `src/data_platform_naming/aws_naming.py`
+- `src/data_platform_naming/dbx_naming.py`
+- `src/data_platform_naming/plan/blueprint.py`
+- `src/data_platform_naming/cli.py`
+
+**Lines Removed**: ~162 lines of unnecessary code
+- aws_naming.py + dbx_naming.py: -63 lines
+- blueprint.py: -89 lines
+- cli.py: -10 lines
+
+**Breaking Changes Introduced**:
+- `AWSNamingGenerator` now requires `configuration_manager` parameter
+- `DatabricksNamingGenerator` now requires `configuration_manager` parameter
+- `use_config` parameter completely removed
+- Legacy mode (without ConfigurationManager) no longer supported
+- Tests using old API will fail and need updating
+
+#### Architecture Benefits:
+
+✅ **Simplified Codebase**:
+- No more dual-mode complexity
+- Single, clear path for name generation
+- Easier to understand and maintain
+
+✅ **Improved Type Safety**:
+- ConfigurationManager no longer Optional
+- Clearer function signatures
+- Better IDE support and autocomplete
+
+✅ **Reduced Error Surface**:
+- Eliminated 27 try/except blocks
+- No confusing fallback logic
+- Fail-fast approach with clear errors
+
+✅ **Better User Experience**:
+- Configuration is required (encourages best practices)
+- Clear error messages when config missing
+- Consistent behavior across all commands
+
+#### Current Status:
+
+✅ **Code Refactoring**: 100% COMPLETE
+- All 4 core files refactored
+- Clean, maintainable code
+- No legacy mode remnants
+
+⚠️ **Test Updates**: REQUIRED
+- Tests still reference old `use_config` parameter
+- Approximately 20-40 tests need updates
+- Test files affected:
+  - `tests/test_aws_naming.py` (~20 tests)
+  - `tests/test_dbx_naming.py` (~15 tests)
+  - `tests/test_integration_e2e.py` (minor updates)
+  - `tests/test_cli_integration.py` (minor updates)
+
+#### Next Steps:
+
+1. **Update Test Files** (Immediate Priority)
+   - Remove tests for legacy mode (5 tests to delete)
+   - Update generator instantiation (remove `use_config` parameter)
+   - Fix assertions that check `generator.use_config`
+   - Update docstrings referencing old API
+
+2. **Verify Test Suite**
+   - Run full test suite
+   - Ensure 100% pass rate
+   - Verify no regressions
+
+3. **Move to Issue #2**: Fix Type Hints
+   - Install missing type stubs (jsonschema, click, yaml, rich)
+   - Fix mypy errors
+   - Improve type coverage
+
+**Documentation Created**:
+- `memory-bank/code-review-findings.md`: Comprehensive analysis of 3 issues
+
+**Test Baseline**:
+- Pre-refactor: 287 passing, 41 failing
+- Post-refactor: Tests need updates (expected)
+
+**Implementation Time**: ~4 hours (as estimated in code review)
+
+---
 
 ### Phase 4: CLI Integration - Day 5 (COMPLETE) 🎉
 
