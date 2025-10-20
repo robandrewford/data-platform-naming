@@ -109,8 +109,7 @@ class TestEndToEndAWS:
 
         aws_gen = AWSNamingGenerator(
             config=aws_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         # Generate name
@@ -145,8 +144,7 @@ class TestEndToEndAWS:
 
         aws_gen = AWSNamingGenerator(
             config=aws_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         db_name = aws_gen.generate_glue_database_name(
@@ -179,8 +177,7 @@ class TestEndToEndAWS:
 
         aws_gen = AWSNamingGenerator(
             config=aws_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         # Override environment in metadata
@@ -276,8 +273,7 @@ class TestEndToEndDatabricks:
 
         dbx_gen = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         cluster_name = dbx_gen.generate_cluster_name(
@@ -310,8 +306,7 @@ class TestEndToEndDatabricks:
 
         dbx_gen = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         # Generate catalog
@@ -349,15 +344,13 @@ class TestEndToEndBackwardCompatibility:
             region="us-east-1"
         )
 
-        aws_gen = AWSNamingGenerator(
-            config=aws_config,
-            configuration_manager=None,
-            use_config=False
-        )
-
-        # Should raise NotImplementedError for config-only methods
-        with pytest.raises(NotImplementedError):
-            aws_gen.generate_s3_bucket_name(purpose="raw", layer="raw")
+        # ConfigurationManager is now required - cannot create generator without it
+        # This test validates that legacy mode (use_config=False) is no longer supported
+        with pytest.raises((TypeError, ValueError)):
+            aws_gen = AWSNamingGenerator(
+                config=aws_config,
+                configuration_manager=None
+            )
 
     def test_legacy_dbx_generator_still_works(self):
         """Verify Databricks generator works without ConfigurationManager"""
@@ -367,15 +360,13 @@ class TestEndToEndBackwardCompatibility:
             region="us-east-1"
         )
 
-        dbx_gen = DatabricksNamingGenerator(
-            config=dbx_config,
-            configuration_manager=None,
-            use_config=False
-        )
-
-        # Should raise NotImplementedError for config-only methods
-        with pytest.raises(NotImplementedError):
-            dbx_gen.generate_cluster_name(workload="etl", cluster_type="shared")
+        # ConfigurationManager is now required - cannot create generator without it
+        # This test validates that legacy mode (use_config=False) is no longer supported
+        with pytest.raises((TypeError, ValueError)):
+            dbx_gen = DatabricksNamingGenerator(
+                config=dbx_config,
+                configuration_manager=None
+            )
 
 
 class TestEndToEndFullWorkflow:
@@ -480,8 +471,7 @@ class TestEndToEndFullWorkflow:
 
         aws_gen = AWSNamingGenerator(
             config=aws_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         # Generate all AWS resource types
@@ -519,8 +509,7 @@ class TestEndToEndFullWorkflow:
 
         dbx_gen = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         # Generate various Databricks resource types

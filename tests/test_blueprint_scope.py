@@ -17,6 +17,69 @@ from data_platform_naming.plan.blueprint import BlueprintParser
 @pytest.fixture
 def naming_generators():
     """Create naming generators for testing"""
+    from data_platform_naming.config.configuration_manager import ConfigurationManager
+    from data_platform_naming.config.naming_patterns_loader import NamingPatternsLoader
+    from data_platform_naming.config.naming_values_loader import NamingValuesLoader
+
+    # Create minimal configuration for generators
+    values_config = {
+        "version": "1.0",
+        "defaults": {
+            "project": "testproject",
+            "environment": "dev",
+            "region": "us-east-1"
+        }
+    }
+
+    patterns_config = {
+        "version": "1.0",
+        "patterns": {
+            # AWS patterns (13)
+            "aws_s3_bucket": "{project}-{purpose}-{layer}-{environment}",
+            "aws_glue_database": "{project}_{domain}_{layer}_{environment}",
+            "aws_glue_table": "{table_type}_{entity}",
+            "aws_glue_crawler": "{project}-{environment}-crawler",
+            "aws_lambda_function": "{project}-{environment}-{domain}",
+            "aws_iam_role": "{project}-{environment}-role",
+            "aws_iam_policy": "{project}-{environment}-policy",
+            "aws_kinesis_stream": "{project}-{environment}-stream",
+            "aws_kinesis_firehose": "{project}-{environment}-firehose",
+            "aws_dynamodb_table": "{project}-{environment}-{entity}",
+            "aws_sns_topic": "{project}-{environment}-topic",
+            "aws_sqs_queue": "{project}-{environment}-queue",
+            "aws_step_function": "{project}-{environment}-workflow",
+            # Databricks patterns (14)
+            "dbx_workspace": "dbx-{project}-{environment}",
+            "dbx_cluster": "{project}-{workload}-{cluster_type}-{environment}",
+            "dbx_job": "{project}-{job_type}-{purpose}-{environment}",
+            "dbx_notebook_path": "/{project}/{environment}",
+            "dbx_repo": "{project}-{environment}",
+            "dbx_pipeline": "{project}-{environment}",
+            "dbx_sql_warehouse": "{project}-{environment}",
+            "dbx_catalog": "{project}_{environment}",
+            "dbx_schema": "{domain}_{layer}",
+            "dbx_table": "{table_type}_{entity}",
+            "dbx_volume": "{data_type}_{purpose}",
+            "dbx_secret_scope": "{project}-{environment}",
+            "dbx_instance_pool": "{project}-{environment}",
+            "dbx_policy": "{project}-{environment}"
+        }
+    }
+
+    # Load configurations
+    values_loader = NamingValuesLoader()
+    values_loader.load_from_dict(values_config)
+
+    patterns_loader = NamingPatternsLoader()
+    patterns_loader.load_from_dict(patterns_config)
+
+    # Create configuration manager
+    config_manager = ConfigurationManager(
+        values_loader=values_loader,
+        patterns_loader=patterns_loader
+    )
+
+    # Create configs
     aws_config = AWSNamingConfig(
         environment='dev',
         project='testproject',
@@ -30,8 +93,8 @@ def naming_generators():
     )
 
     return {
-        'aws': AWSNamingGenerator(aws_config),
-        'databricks': DatabricksNamingGenerator(dbx_config)
+        'aws': AWSNamingGenerator(aws_config, configuration_manager=config_manager),
+        'databricks': DatabricksNamingGenerator(dbx_config, configuration_manager=config_manager)
     }
 
 

@@ -77,18 +77,39 @@ class TestConfigurationManager:
 
     @pytest.fixture
     def patterns_config(self):
-        """Valid patterns configuration"""
+        """Valid patterns configuration with all 27 resource types"""
         return {
             "version": "1.0",
             "patterns": {
+                # AWS (13)
                 "aws_s3_bucket": "{project}-{purpose}-{layer}-{environment}-{region_short}",
                 "aws_glue_database": "{project}_{environment}",
                 "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}-{environment}-crawler",
+                "aws_lambda_function": "{project}-{environment}-{domain}",
+                "aws_iam_role": "{project}-{environment}-role",
+                "aws_iam_policy": "{project}-{environment}-policy",
+                "aws_kinesis_stream": "{project}-{environment}-stream",
+                "aws_kinesis_firehose": "{project}-{environment}-firehose",
+                "aws_dynamodb_table": "{project}-{environment}-{entity}",
+                "aws_sns_topic": "{project}-{environment}-topic",
+                "aws_sqs_queue": "{project}-{environment}-queue",
+                "aws_step_function": "{project}-{environment}-workflow",
+                # Databricks (14)
+                "dbx_workspace": "dbx-{project}-{environment}",
                 "dbx_cluster": "{project}-{environment}",
                 "dbx_job": "{project}-{environment}",
+                "dbx_notebook_path": "/{project}/{environment}",
+                "dbx_repo": "{project}-{environment}",
+                "dbx_pipeline": "{project}-{environment}",
+                "dbx_sql_warehouse": "{project}-{environment}",
                 "dbx_catalog": "{project}_{environment}",
                 "dbx_schema": "{domain}",
-                "dbx_table": "{entity}"
+                "dbx_table": "{entity}",
+                "dbx_volume": "{purpose}",
+                "dbx_secret_scope": "{project}-{environment}",
+                "dbx_instance_pool": "{project}-{environment}",
+                "dbx_policy": "{project}-{environment}"
             },
             "transformations": {
                 "region_mapping": {
