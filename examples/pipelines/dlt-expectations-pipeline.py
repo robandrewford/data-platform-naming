@@ -140,3 +140,4 @@ def gold_charges_by_day():
     s = dlt.read("silver_encounters").filter(~F.col("dq_any_issue"))
     return (s.groupBy(F.to_date("visit_dt_utc").alias("visit_date"))
               .agg(F.sum("charge_amt").alias("charges")))
+              
