@@ -11,7 +11,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, cast
 
 import jsonschema
 import yaml
@@ -120,7 +120,7 @@ class NamingPatternsLoader:
 
         try:
             with open(schema_path) as f:
-                return json.load(f)
+                return cast(Dict[str, Any], json.load(f))
         except FileNotFoundError:
             raise ConfigurationError(
                 f"Schema file not found: {schema_path}"
@@ -347,7 +347,7 @@ class NamingPatternsLoader:
 
         validation = self.config.get("validation", {})
         max_lengths = validation.get("max_length", {})
-        return max_lengths.get(resource_type)
+        return cast(Optional[int], max_lengths.get(resource_type))
 
     def get_allowed_chars_pattern(self, resource_type: str) -> Optional[str]:
         """
@@ -364,7 +364,7 @@ class NamingPatternsLoader:
 
         validation = self.config.get("validation", {})
         allowed_chars = validation.get("allowed_chars", {})
-        return allowed_chars.get(resource_type)
+        return cast(Optional[str], allowed_chars.get(resource_type))
 
     def get_required_variables(self, resource_type: str) -> List[str]:
         """
@@ -381,7 +381,7 @@ class NamingPatternsLoader:
 
         validation = self.config.get("validation", {})
         required_vars = validation.get("required_variables", {})
-        return required_vars.get(resource_type, [])
+        return cast(List[str], required_vars.get(resource_type, []))
 
     def validate_name(self, resource_type: str, name: str) -> List[str]:
         """
@@ -434,7 +434,7 @@ class NamingPatternsLoader:
         if self.config is None:
             raise ConfigurationError("No configuration loaded")
 
-        return self.config.get("version", "unknown")
+        return cast(str, self.config.get("version", "unknown"))
 
     def __repr__(self) -> str:
         """String representation of loader"""
@@ -467,7 +467,7 @@ class NamingPatternsLoader:
 if __name__ == "__main__":
     # Load configuration
     loader = NamingPatternsLoader()
-    loader.load_from_file("examples/configs/naming-patterns.yaml")
+    loader.load_from_file(Path("examples/configs/naming-patterns.yaml"))
 
     print(f"Loaded: {loader}")
     print(f"Resource types: {loader.list_resource_types()}")

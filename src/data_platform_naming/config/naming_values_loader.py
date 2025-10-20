@@ -9,7 +9,7 @@ validate them against JSON Schema, and merge values according to precedence rule
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 import jsonschema
 import yaml
@@ -101,7 +101,7 @@ class NamingValuesLoader:
 
         try:
             with open(schema_path) as f:
-                return json.load(f)
+                return cast(Dict[str, Any], json.load(f))
         except FileNotFoundError:
             raise ConfigurationError(
                 f"Schema file not found: {schema_path}"
@@ -312,7 +312,7 @@ class NamingValuesLoader:
         if self.config is None:
             raise ConfigurationError("No configuration loaded")
 
-        return self.config.get("version", "unknown")
+        return cast(str, self.config.get("version", "unknown"))
 
     def __repr__(self) -> str:
         """String representation of loader"""
@@ -340,7 +340,7 @@ class NamingValuesLoader:
 if __name__ == "__main__":
     # Load configuration
     loader = NamingValuesLoader()
-    loader.load_from_file("examples/configs/naming-values.yaml")
+    loader.load_from_file(Path("examples/configs/naming-values.yaml"))
 
     print(f"Loaded: {loader}")
     print(f"Environments: {loader.list_environments()}")

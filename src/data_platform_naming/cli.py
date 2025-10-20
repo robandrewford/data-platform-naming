@@ -8,7 +8,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional, Union
 
 import click
 from rich.console import Console
@@ -18,6 +18,7 @@ from rich.table import Table
 # Import core modules
 from data_platform_naming.aws_naming import AWSNamingConfig, AWSNamingGenerator
 from data_platform_naming.config.configuration_manager import ConfigurationManager
+from data_platform_naming.config.naming_patterns_loader import PatternError
 from data_platform_naming.crud.aws_operations import AWSExecutorRegistry
 from data_platform_naming.crud.dbx_operations import DatabricksConfig, DatabricksExecutorRegistry
 from data_platform_naming.crud.transaction_manager import (
@@ -109,8 +110,8 @@ def load_configuration_manager(
             key, value = override.split('=', 1)
             override_dict[key.strip()] = value.strip()
 
-        # Store overrides for use in name generation
-        manager._cli_overrides = override_dict
+        # Store overrides for use in name generation (dynamic attribute)
+        setattr(manager, '_cli_overrides', override_dict)
         if override_dict:
             console.print(f"[dim]Applied overrides: {', '.join(f'{k}={v}' for k, v in override_dict.items())}[/dim]")
 
@@ -471,7 +472,7 @@ def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
         parsed = parser.parse(Path(blueprint))
 
         # Build operations
-        operations = []
+        operations: List[Operation] = []
         for resource in parsed.get_execution_order():
             op = Operation(
                 id=f"op-{len(operations)}",
@@ -510,12 +511,11 @@ def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
             boto3.Session(profile_name=aws_profile) if aws_profile else None
         )
 
+        dbx_registry: Any = None
         if dbx_host and dbx_token:
             dbx_registry = DatabricksExecutorRegistry(
                 DatabricksConfig(host=dbx_host, token=dbx_token)
             )
-        else:
-            dbx_registry = None
 
         # Register AWS
         for rt in [ResourceType.AWS_S3_BUCKET, ResourceType.AWS_GLUE_DATABASE,
@@ -588,15 +588,15 @@ def read(resource_id: str, resource_type: str, aws_profile: Optional[str],
         # Execute
         if rt.value.startswith('aws'):
             import boto3
-            registry = AWSExecutorRegistry(
+            aws_reg = AWSExecutorRegistry(
                 boto3.Session(profile_name=aws_profile) if aws_profile else None
             )
-            result = registry.execute(op)
+            result = aws_reg.execute(op)
         else:
-            registry = DatabricksExecutorRegistry(
+            dbx_reg = DatabricksExecutorRegistry(
                 DatabricksConfig(host=dbx_host, token=dbx_token)
             )
-            result = registry.execute(op)
+            result = dbx_reg.execute(op)
 
         # Output
         if format == 'json':
@@ -898,19 +898,23 @@ def config_show(values_config: Optional[str], patterns_config: Optional[str],
 
         if format == 'json':
             # JSON output
-            output = {
-                'defaults': config_manager.values_loader.defaults,
-                'environments': config_manager.values_loader.environments,
-                'resource_types': config_manager.values_loader.resource_type_overrides,
-                'patterns': config_manager.patterns_loader.patterns
+            output: Dict[str, Any] = {
+                'defaults': config_manager.values_loader.get_defaults(),
+                'environments': {env: config_manager.values_loader.get_environment_values(env) 
+                                for env in config_manager.values_loader.list_environments()},
+                'resource_types': {rt: config_manager.values_loader.get_resource_type_values(rt)
+                                  for rt in config_manager.values_loader.list_resource_types()},
+                'patterns': {rt: p.pattern for rt, p in config_manager.patterns_loader.get_all_patterns().items()}
             }
 
             if resource_type:
                 # Filter to specific resource type
+                values_result = config_manager.values_loader.get_values_for_resource(resource_type)
+                pattern = config_manager.patterns_loader.get_pattern(resource_type)
                 output = {
                     'resource_type': resource_type,
-                    'values': config_manager.get_values_for_resource(resource_type),
-                    'pattern': config_manager.patterns_loader.patterns.get(resource_type)
+                    'values': values_result.values,
+                    'pattern': pattern.pattern
                 }
 
             console.print_json(data=output)
@@ -919,8 +923,14 @@ def config_show(values_config: Optional[str], patterns_config: Optional[str],
             # Table output
             if resource_type:
                 # Show specific resource type
-                values = config_manager.get_values_for_resource(resource_type)
-                pattern = config_manager.patterns_loader.patterns.get(resource_type, {})
+                values_result = config_manager.values_loader.get_values_for_resource(resource_type)
+                values = values_result.values
+                pattern_template: Optional[str] = None
+                try:
+                    pattern_obj = config_manager.patterns_loader.get_pattern(resource_type)
+                    pattern_template = pattern_obj.pattern
+                except PatternError:
+                    pass
 
                 table = Table(title=f"Configuration for {resource_type}")
                 table.add_column("Setting", style="cyan")
@@ -933,9 +943,9 @@ def config_show(values_config: Optional[str], patterns_config: Optional[str],
                 console.print(table)
 
                 # Pattern
-                if pattern:
+                if pattern_template:
                     console.print("\n[bold]Pattern Template:[/bold]")
-                    console.print(f"  {pattern.get('template', 'N/A')}")
+                    console.print(f"  {pattern_template}")
 
             else:
                 # Show all defaults
@@ -944,7 +954,7 @@ def config_show(values_config: Optional[str], patterns_config: Optional[str],
                 table.add_column("Value", style="green")
                 table.add_column("Source", style="yellow")
 
-                defaults = config_manager.values_loader.defaults
+                defaults = config_manager.values_loader.get_defaults()
                 for key, value in sorted(defaults.items()):
                     table.add_row(key, str(value), "defaults")
 
@@ -952,7 +962,7 @@ def config_show(values_config: Optional[str], patterns_config: Optional[str],
 
                 # Show available resource types
                 console.print("\n[bold]Available Resource Types:[/bold]")
-                resource_types = list(config_manager.patterns_loader.patterns.keys())
+                resource_types = config_manager.patterns_loader.list_resource_types()
                 console.print(f"  {', '.join(sorted(resource_types))}")
 
                 console.print("\n[dim]Use --resource-type to see specific configuration[/dim]")

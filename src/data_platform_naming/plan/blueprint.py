@@ -617,8 +617,9 @@ class BlueprintParser:
 
 # Example usage
 if __name__ == "__main__":
-    from aws_naming import AWSNamingConfig, AWSNamingGenerator
-    from databricks_naming import DatabricksNamingConfig, DatabricksNamingGenerator
+    from ..aws_naming import AWSNamingConfig, AWSNamingGenerator
+    from ..config.configuration_manager import ConfigurationManager
+    from ..dbx_naming import DatabricksNamingConfig, DatabricksNamingGenerator
 
     # Setup generators
     aws_config = AWSNamingConfig(
@@ -633,9 +634,16 @@ if __name__ == "__main__":
         region='us-east-1'
     )
 
+    # Load configuration manager
+    config_mgr = ConfigurationManager()
+    config_mgr.load_configs(
+        values_path=Path('examples/configs/naming-values.yaml'),
+        patterns_path=Path('examples/configs/naming-patterns.yaml')
+    )
+
     generators = {
-        'aws': AWSNamingGenerator(aws_config),
-        'databricks': DatabricksNamingGenerator(dbx_config)
+        'aws': AWSNamingGenerator(aws_config, config_mgr),
+        'databricks': DatabricksNamingGenerator(dbx_config, config_mgr)
     }
 
     # Parse blueprint

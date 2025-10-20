@@ -740,12 +740,13 @@ class DatabricksNamingCLI:
     """CLI interface for Databricks naming generator"""
 
     def __init__(self):
-        self.generator = None
+        self.generator: Optional[DatabricksNamingGenerator] = None
 
     def configure(self,
                  environment: str,
                  project: str,
                  region: str,
+                 configuration_manager: ConfigurationManager,
                  team: Optional[str] = None,
                  cost_center: Optional[str] = None) -> None:
         """Configure the naming generator"""
@@ -756,13 +757,14 @@ class DatabricksNamingCLI:
             team=team,
             cost_center=cost_center
         )
-        self.generator = DatabricksNamingGenerator(config)
+        self.generator = DatabricksNamingGenerator(config, configuration_manager)
         print(f"✓ Configured naming generator for {project} in {environment}")
 
     def generate_workspace(self, purpose: str = "data") -> str:
         """Generate workspace name"""
         if not self.generator:
             raise ValueError("Generator not configured. Run configure() first.")
+        assert self.generator is not None  # Type narrowing for mypy
         return self.generator.generate_workspace_name(purpose)
 
     def generate_cluster(self,
@@ -771,6 +773,7 @@ class DatabricksNamingCLI:
         """Generate cluster name"""
         if not self.generator:
             raise ValueError("Generator not configured. Run configure() first.")
+        assert self.generator is not None  # Type narrowing for mypy
         return self.generator.generate_cluster_name(workload, cluster_type)
 
     def generate_job(self,
@@ -780,6 +783,7 @@ class DatabricksNamingCLI:
         """Generate job name"""
         if not self.generator:
             raise ValueError("Generator not configured. Run configure() first.")
+        assert self.generator is not None  # Type narrowing for mypy
         return self.generator.generate_job_name(job_type, purpose, schedule)
 
     def generate_unity_catalog_stack(self,
@@ -836,14 +840,24 @@ class DatabricksNamingCLI:
 
 # Example usage
 if __name__ == "__main__":
+    from pathlib import Path
+    
     # Initialize CLI
     cli = DatabricksNamingCLI()
+
+    # Load configuration manager
+    config_mgr = ConfigurationManager()
+    config_mgr.load_configs(
+        values_path=Path("examples/configs/naming-values.yaml"),
+        patterns_path=Path("examples/configs/naming-patterns.yaml")
+    )
 
     # Configure for production environment
     cli.configure(
         environment="prd",
         project="dataplatform",
         region="us-east-1",
+        configuration_manager=config_mgr,
         team="data-engineering",
         cost_center="IT-1001"
     )

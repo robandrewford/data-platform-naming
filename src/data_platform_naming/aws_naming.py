@@ -698,6 +698,8 @@ class AWSNamingGenerator:
 
 # Example usage
 if __name__ == "__main__":
+    from pathlib import Path
+    
     config = AWSNamingConfig(
         environment="prd",
         project="dataplatform",
@@ -705,7 +707,14 @@ if __name__ == "__main__":
         team="data-engineering"
     )
 
-    generator = AWSNamingGenerator(config)
+    # Load configuration manager
+    config_mgr = ConfigurationManager()
+    config_mgr.load_configs(
+        values_path=Path("examples/configs/naming-values.yaml"),
+        patterns_path=Path("examples/configs/naming-patterns.yaml")
+    )
+
+    generator = AWSNamingGenerator(config, config_mgr)
 
     # S3 Buckets
     print("\n=== S3 Buckets ===")
