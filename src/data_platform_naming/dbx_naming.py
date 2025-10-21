@@ -13,6 +13,7 @@ from typing import Any, Optional
 
 # Import ConfigurationManager for config-based name generation
 from .config.configuration_manager import ConfigurationManager
+from .constants import Environment
 
 
 class DatabricksResourceType(Enum):
@@ -97,7 +98,7 @@ class DatabricksNamingGenerator:
 
     def _validate_config(self):
         """Validate configuration parameters"""
-        if self.config.environment not in ['dev', 'stg', 'prd']:
+        if self.config.environment not in [e.value for e in Environment]:
             raise ValueError(f"Invalid environment: {self.config.environment}")
 
         if not re.match(r'^[a-z0-9-]+$', self.config.project):

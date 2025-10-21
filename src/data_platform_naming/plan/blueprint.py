@@ -11,6 +11,8 @@ from typing import Any, Optional
 
 import jsonschema
 
+from ..constants import Environment
+
 # JSON Schema Definition
 BLUEPRINT_SCHEMA = {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -27,7 +29,7 @@ BLUEPRINT_SCHEMA = {
             "properties": {
                 "environment": {
                     "type": "string",
-                    "enum": ["dev", "stg", "prd"]
+                    "enum": [e.value for e in Environment]
                 },
                 "project": {
                     "type": "string",
@@ -623,13 +625,13 @@ if __name__ == "__main__":
 
     # Setup generators
     aws_config = AWSNamingConfig(
-        environment='prd',
+        environment=Environment.PRD.value,
         project='dataplatform',
         region='us-east-1'
     )
 
     dbx_config = DatabricksNamingConfig(
-        environment='prd',
+        environment=Environment.PRD.value,
         project='dataplatform',
         region='us-east-1'
     )

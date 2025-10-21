@@ -11,6 +11,8 @@ import pytest
 import yaml
 from jsonschema import Draft7Validator, ValidationError, validate
 
+from data_platform_naming.constants import Environment
+
 # Get project root directory
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -58,7 +60,7 @@ class TestNamingValuesSchema:
             "version": "1.0",
             "defaults": {
                 "project": "testproject",
-                "environment": "dev"
+                "environment": Environment.DEV.value
             }
         }
         validate(instance=config, schema=schema)
@@ -69,7 +71,7 @@ class TestNamingValuesSchema:
             "version": "1.0",
             "defaults": {
                 "project": "dataplatform",
-                "environment": "prd",
+                "environment": Environment.PRD.value,
                 "region": "us-east-1",
                 "region_short": "use1",
                 "team": "data-team",
@@ -77,14 +79,14 @@ class TestNamingValuesSchema:
             },
             "environments": {
                 "dev": {
-                    "environment": "dev",
+                    "environment": Environment.DEV.value,
                     "data_classification": "internal"
                 },
                 "stg": {
-                    "environment": "stg"
+                    "environment": Environment.STG.value
                 },
                 "prd": {
-                    "environment": "prd",
+                    "environment": Environment.PRD.value,
                     "data_classification": "confidential"
                 }
             },

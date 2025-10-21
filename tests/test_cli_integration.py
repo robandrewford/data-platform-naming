@@ -18,6 +18,7 @@ import yaml
 from click.testing import CliRunner
 
 from data_platform_naming.cli import cli
+from data_platform_naming.constants import Environment
 
 
 @pytest.fixture
@@ -45,14 +46,14 @@ def example_configs(tmp_path):
     values_content = {
         "defaults": {
             "project": "testproject",
-            "environment": "dev",
+            "environment": Environment.DEV.value,
             "region": "us-east-1",
             "team": "data-platform",
             "cost_center": "engineering"
         },
         "environments": {
-            "dev": {"environment": "dev"},
-            "prd": {"environment": "prd"}
+            "dev": {"environment": Environment.DEV.value},
+            "prd": {"environment": Environment.PRD.value}
         },
         "resource_types": {}
     }
@@ -101,7 +102,7 @@ class TestConfigInit:
         result = runner.invoke(cli, [
             "config", "init",
             "--project", "testproject",
-            "--environment", "dev",
+            "--environment", Environment.DEV.value,
             "--region", "us-east-1"
         ])
 
@@ -123,7 +124,7 @@ class TestConfigInit:
         result = runner.invoke(cli, [
             "config", "init",
             "--project", "oncology",
-            "--environment", "prd",
+            "--environment", Environment.PRD.value,
             "--region", "us-west-2"
         ])
 
@@ -134,7 +135,7 @@ class TestConfigInit:
             values = yaml.safe_load(f)
 
         assert values["defaults"]["project"] == "oncology"
-        assert values["defaults"]["environment"] == "prd"
+        assert values["defaults"]["environment"] == Environment.PRD.value
         assert values["defaults"]["region"] == "us-west-2"
 
     def test_config_init_force_overwrite(self, runner, temp_home, example_configs, monkeypatch):
@@ -148,7 +149,7 @@ class TestConfigInit:
         runner.invoke(cli, [
             "config", "init",
             "--project", "testproject",
-            "--environment", "dev",
+            "--environment", Environment.DEV.value,
             "--region", "us-east-1"
         ])
 
@@ -156,7 +157,7 @@ class TestConfigInit:
         result = runner.invoke(cli, [
             "config", "init",
             "--project", "newproject",
-            "--environment", "prd",
+            "--environment", Environment.PRD.value,
             "--region", "us-west-2"
         ])
 
@@ -167,7 +168,7 @@ class TestConfigInit:
         result = runner.invoke(cli, [
             "config", "init",
             "--project", "newproject",
-            "--environment", "prd",
+            "--environment", Environment.PRD.value,
             "--region", "us-west-2",
             "--force"
         ])
@@ -196,7 +197,7 @@ class TestConfigInit:
         result = runner.invoke(cli, [
             "config", "init",
             "--project", "testproject",
-            "--environment", "dev",
+            "--environment", Environment.DEV.value,
             "--region", "us-east-1"
         ])
 
@@ -217,7 +218,7 @@ class TestConfigValidate:
         values = {
             "defaults": {
                 "project": "test",
-                "environment": "dev",
+                "environment": Environment.DEV.value,
                 "region": "us-east-1"
             }
         }
@@ -305,7 +306,7 @@ class TestConfigShow:
         values = {
             "defaults": {
                 "project": "testproject",
-                "environment": "dev",
+                "environment": Environment.DEV.value,
                 "region": "us-east-1"
             }
         }
@@ -371,7 +372,7 @@ class TestPlanPreviewWithConfig:
         blueprint_data = {
             "version": "1.0",
             "metadata": {
-                "environment": "dev",
+                "environment": Environment.DEV.value,
                 "project": "test",
                 "region": "us-east-1"
             },
@@ -398,7 +399,7 @@ class TestPlanPreviewWithConfig:
         blueprint_data = {
             "version": "1.0",
             "metadata": {
-                "environment": "dev",
+                "environment": Environment.DEV.value,
                 "project": "test",
                 "region": "us-east-1"
             },
@@ -428,7 +429,7 @@ class TestCreateWithConfig:
         blueprint_data = {
             "version": "1.0",
             "metadata": {
-                "environment": "dev",
+                "environment": Environment.DEV.value,
                 "project": "test",
                 "region": "us-east-1"
             },
@@ -468,7 +469,7 @@ class TestFullWorkflow:
         result = runner.invoke(cli, [
             "config", "init",
             "--project", "workflow-test",
-            "--environment", "dev",
+            "--environment", Environment.DEV.value,
             "--region", "us-east-1"
         ])
         assert result.exit_code == 0

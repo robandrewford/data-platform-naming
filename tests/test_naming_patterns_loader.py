@@ -19,6 +19,7 @@ from data_platform_naming.config.naming_values_loader import (
     FileLoadError,
     SchemaValidationError,
 )
+from data_platform_naming.constants import Environment
 
 
 class TestNamingPattern:
@@ -44,7 +45,7 @@ class TestNamingPattern:
             resource_type="test",
             required_variables=[]
         )
-        available = {"project": "test", "environment": "dev", "extra": "value"}
+        available = {"project": "test", "environment": Environment.DEV.value, "extra": "value"}
         missing = pattern.validate_variables(available)
         assert missing == []
 
@@ -68,7 +69,7 @@ class TestNamingPattern:
             resource_type="test",
             required_variables=[]
         )
-        values = {"project": "myproject", "environment": "prd"}
+        values = {"project": "myproject", "environment": Environment.PRD.value}
         result = pattern.format(values)
         assert result == "myproject-prd"
 
@@ -381,7 +382,7 @@ class TestNamingPatternsLoader:
         transformed = loader.apply_transformations(values)
 
         assert transformed["project"] == "data_platform"
-        assert transformed["environment"] == "prd"
+        assert transformed["environment"] == Environment.PRD.value
         assert transformed["region_short"] == "usw2"
         assert transformed["cost_center"] == "CC-123"
 

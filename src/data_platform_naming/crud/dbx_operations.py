@@ -758,6 +758,7 @@ if __name__ == "__main__":
     import os
     import uuid
 
+    from ..constants import Environment
     from .transaction_manager import Operation, OperationType, ResourceType
 
     config = DatabricksConfig(
@@ -781,7 +782,7 @@ if __name__ == "__main__":
                 'max_workers': 8
             },
             'tags': {
-                'Environment': 'prd',
+                'Environment': Environment.PRD.value,
                 'Project': 'dataplatform'
             }
         }

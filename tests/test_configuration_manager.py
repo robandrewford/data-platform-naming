@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from data_platform_naming.constants import Environment
 from data_platform_naming.config.configuration_manager import (
     ConfigurationManager,
     GeneratedName,
@@ -61,10 +62,10 @@ class TestConfigurationManager:
             },
             "environments": {
                 "dev": {
-                    "environment": "dev"
+                    "environment": Environment.DEV.value
                 },
                 "prd": {
-                    "environment": "prd"
+                    "environment": Environment.PRD.value
                 }
             },
             "resource_types": {
@@ -197,7 +198,7 @@ class TestConfigurationManager:
 
         result = manager.generate_name(
             resource_type="aws_s3_bucket",
-            environment="prd"
+            environment=Environment.PRD.value
         )
 
         assert result.is_valid
@@ -215,7 +216,7 @@ class TestConfigurationManager:
 
         result = manager.generate_name(
             resource_type="aws_s3_bucket",
-            environment="prd",
+            environment=Environment.PRD.value,
             value_overrides={"purpose": "processed"}
         )
 
@@ -232,7 +233,7 @@ class TestConfigurationManager:
 
         result = manager.generate_name(
             resource_type="aws_s3_bucket",
-            environment="prd",
+            environment=Environment.PRD.value,
             blueprint_metadata={"layer": "gold"}
         )
 
@@ -279,7 +280,7 @@ class TestConfigurationManager:
 
         results = manager.generate_names_for_blueprint(
             resources=resources,
-            environment="prd"
+            environment=Environment.PRD.value
         )
 
         assert len(results) == 2
@@ -305,7 +306,7 @@ class TestConfigurationManager:
 
         results = manager.generate_names_for_blueprint(
             resources=resources,
-            environment="prd"
+            environment=Environment.PRD.value
         )
 
         assert len(results) == 2
@@ -385,8 +386,8 @@ class TestConfigurationManager:
         )
 
         environments = manager.get_available_environments()
-        assert "dev" in environments
-        assert "prd" in environments
+        assert Environment.DEV.value in environments
+        assert Environment.PRD.value in environments
         assert len(environments) == 2
 
     def test_preview_name(self, patterns_config):
@@ -404,7 +405,7 @@ class TestConfigurationManager:
                 "project": "myproject",
                 "purpose": "raw",
                 "layer": "bronze",
-                "environment": "dev",
+                "environment": Environment.DEV.value,
                 "region": "us-east-1"
             }
         )
@@ -461,7 +462,7 @@ class TestConfigurationManager:
         """Test full integration with transformations applied"""
         # Use valid lowercase values that will be transformed
         values_config["defaults"]["project"] = "data-platform"
-        values_config["defaults"]["environment"] = "prd"
+        values_config["defaults"]["environment"] = Environment.PRD.value
 
         manager = ConfigurationManager()
         manager.load_configs(
@@ -472,13 +473,13 @@ class TestConfigurationManager:
         # Test with value overrides that need transformation
         result = manager.generate_name(
             resource_type="aws_s3_bucket",
-            environment="prd"
+            environment=Environment.PRD.value
         )
 
         # Transformations applied correctly
         assert result.is_valid
         assert result.name.startswith("data-platform")
-        assert "prd" in result.name
+        assert Environment.PRD.value in result.name
 
     def test_validation_errors_in_generated_name(self):
         """Test that validation errors are captured in GeneratedName"""
@@ -488,7 +489,7 @@ class TestConfigurationManager:
                 "project": "a" * 100,  # Way too long
                 "purpose": "raw",
                 "layer": "raw",
-                "environment": "prd",
+                "environment": Environment.PRD.value,
                 "region": "us-east-1",
                 "region_short": "use1"
             }

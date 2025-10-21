@@ -10,6 +10,7 @@ import pytest
 from data_platform_naming.config.configuration_manager import (
     ConfigurationManager,
 )
+from data_platform_naming.constants import Environment
 from data_platform_naming.dbx_naming import (
     DatabricksNamingConfig,
     DatabricksNamingGenerator,
@@ -24,7 +25,7 @@ from data_platform_naming.dbx_naming import (
 def dbx_config():
     """Standard Databricks naming config for tests"""
     return DatabricksNamingConfig(
-        environment="prd",
+        environment=Environment.PRD.value,
         project="testproject",
         region="us-east-1",
         team="data-engineering",
@@ -36,7 +37,7 @@ def dbx_config():
 def dbx_config_minimal():
     """Minimal Databricks naming config without optional fields"""
     return DatabricksNamingConfig(
-        environment="dev",
+        environment=Environment.DEV.value,
         project="testproject",
         region="us-west-2"
     )
@@ -229,7 +230,7 @@ class TestDatabricksNamingGeneratorInit:
     def test_init_validates_project_name(self, config_manager):
         """Test that invalid project name raises ValueError"""
         invalid_config = DatabricksNamingConfig(
-            environment="dev",
+            environment=Environment.DEV.value,
             project="Test_Project!",  # Invalid characters
             region="us-east-1"
         )

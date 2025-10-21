@@ -14,6 +14,7 @@ from data_platform_naming.aws_naming import (
 from data_platform_naming.config.configuration_manager import (
     ConfigurationManager,
 )
+from data_platform_naming.constants import Environment
 
 # ============================================================================
 # Test Fixtures
@@ -23,7 +24,7 @@ from data_platform_naming.config.configuration_manager import (
 def aws_config():
     """Standard AWS naming config for tests"""
     return AWSNamingConfig(
-        environment="prd",
+        environment=Environment.PRD.value,
         project="testproject",
         region="us-east-1",
         team="data-engineering",
@@ -35,7 +36,7 @@ def aws_config():
 def aws_config_minimal():
     """Minimal AWS naming config without optional fields"""
     return AWSNamingConfig(
-        environment="dev",
+        environment=Environment.DEV.value,
         project="testproject",
         region="us-west-2"
     )
@@ -225,7 +226,7 @@ class TestAWSNamingGeneratorInit:
     def test_init_validates_project_name(self, config_manager):
         """Test that invalid project name raises ValueError"""
         invalid_config = AWSNamingConfig(
-            environment="dev",
+            environment=Environment.DEV.value,
             project="Test_Project!",  # Invalid characters
             region="us-east-1"
         )
@@ -358,7 +359,7 @@ class TestAWSNamingGeneratorS3:
 
         # Create config with the long project name to match the values_dict
         long_config = AWSNamingConfig(
-            environment="prd",
+            environment=Environment.PRD.value,
             project="a" * 100,  # Match the values_dict
             region="us-east-1"
         )
@@ -850,7 +851,7 @@ class TestAWSNamingGeneratorIntegration:
 
     def test_different_environments(self, config_manager):
         """Test generating names across different environments"""
-        environments = ["dev", "stg", "prd"]
+        environments = [Environment.DEV.value, Environment.STG.value, Environment.PRD.value]
 
         for env in environments:
             config = AWSNamingConfig(
@@ -918,7 +919,7 @@ class TestAWSNamingGeneratorUtilities:
     def test_get_region_code_unknown_region(self, config_manager):
         """Test region code for unknown region returns default"""
         config = AWSNamingConfig(
-            environment="dev",
+            environment=Environment.DEV.value,
             project="test",
             region="unknown-region"
         )

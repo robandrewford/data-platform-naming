@@ -10,6 +10,7 @@ from tempfile import NamedTemporaryFile
 import pytest
 
 from data_platform_naming.aws_naming import AWSNamingConfig, AWSNamingGenerator
+from data_platform_naming.constants import Environment
 from data_platform_naming.dbx_naming import DatabricksNamingConfig, DatabricksNamingGenerator
 from data_platform_naming.plan.blueprint import BlueprintParser
 
@@ -26,7 +27,7 @@ def naming_generators():
         "version": "1.0",
         "defaults": {
             "project": "testproject",
-            "environment": "dev",
+            "environment": Environment.DEV.value,
             "region": "us-east-1"
         }
     }
@@ -104,7 +105,7 @@ def sample_blueprint():
     return {
         "version": "1.0",
         "metadata": {
-            "environment": "dev",
+            "environment": Environment.DEV.value,
             "project": "testproject",
             "region": "us-east-1"
         },

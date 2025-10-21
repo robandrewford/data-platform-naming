@@ -6,6 +6,7 @@ Unified interface for blueprint planning and CRUD operations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -19,6 +20,7 @@ from rich.table import Table
 from data_platform_naming.aws_naming import AWSNamingConfig, AWSNamingGenerator
 from data_platform_naming.config.configuration_manager import ConfigurationManager
 from data_platform_naming.config.naming_patterns_loader import PatternError
+from data_platform_naming.constants import Environment
 from data_platform_naming.crud.aws_operations import AWSExecutorRegistry
 from data_platform_naming.crud.dbx_operations import DatabricksConfig, DatabricksExecutorRegistry
 from data_platform_naming.crud.transaction_manager import (
@@ -31,6 +33,20 @@ from data_platform_naming.dbx_naming import DatabricksNamingConfig, DatabricksNa
 from data_platform_naming.plan.blueprint import BLUEPRINT_SCHEMA, BlueprintParser
 
 console = Console()
+
+
+# =============================================================================
+# INPUT VALIDATION CONSTANTS
+# =============================================================================
+
+# Allowed override keys for CLI --override parameter
+ALLOWED_OVERRIDE_KEYS = {
+    'environment', 'project', 'region', 'team',
+    'cost_center', 'data_classification'
+}
+
+# Valid environment values
+ENVIRONMENT_VALUES = {e.value for e in Environment}
 
 
 # =============================================================================
@@ -107,8 +123,34 @@ def load_configuration_manager(
                     f"Invalid override format: '{override}'\n"
                     "Use format: key=value (e.g., environment=dev)"
                 )
+            
             key, value = override.split('=', 1)
-            override_dict[key.strip()] = value.strip()
+            key = key.strip()
+            value = value.strip()
+            
+            # Validate key against whitelist
+            if key not in ALLOWED_OVERRIDE_KEYS:
+                raise click.ClickException(
+                    f"Invalid override key: '{key}'\n"
+                    f"Allowed keys: {', '.join(sorted(ALLOWED_OVERRIDE_KEYS))}"
+                )
+            
+            # Validate environment value
+            if key == 'environment' and value not in ENVIRONMENT_VALUES:
+                raise click.ClickException(
+                    f"Invalid environment: '{value}'\n"
+                    f"Allowed values: {', '.join(sorted(ENVIRONMENT_VALUES))}"
+                )
+            
+            # Validate project name format
+            if key == 'project':
+                if not re.match(r'^[a-z0-9-]+$', value):
+                    raise click.ClickException(
+                        f"Invalid project name: '{value}'\n"
+                        "Use lowercase letters, numbers, and hyphens only"
+                    )
+            
+            override_dict[key] = value
 
         # Store overrides for use in name generation (dynamic attribute)
         setattr(manager, '_cli_overrides', override_dict)
@@ -153,7 +195,7 @@ def plan():
 
 
 @plan.command('init')
-@click.option('--env', type=click.Choice(['dev', 'stg', 'prd']), required=True)
+@click.option('--env', type=click.Choice([e.value for e in Environment]), required=True)
 @click.option('--project', required=True)
 @click.option('--region', default='us-east-1')
 @click.option('--output', type=click.Path(), default=None)
@@ -673,7 +715,7 @@ def config():
 @config.command('init')
 @click.option('--project', prompt='Project name', help='Project name (e.g., dataplatform, oncology)')
 @click.option('--environment', prompt='Environment',
-              type=click.Choice(['dev', 'stg', 'prd']),
+              type=click.Choice([e.value for e in Environment]),
               default='dev', help='Default environment')
 @click.option('--region', prompt='AWS region',
               default='us-east-1', help='Default AWS region')

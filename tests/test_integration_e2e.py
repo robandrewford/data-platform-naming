@@ -12,6 +12,7 @@ from data_platform_naming.aws_naming import AWSNamingConfig, AWSNamingGenerator
 from data_platform_naming.config.configuration_manager import ConfigurationManager
 from data_platform_naming.config.naming_patterns_loader import NamingPatternsLoader
 from data_platform_naming.config.naming_values_loader import NamingValuesLoader
+from data_platform_naming.constants import Environment
 from data_platform_naming.dbx_naming import DatabricksNamingConfig, DatabricksNamingGenerator
 
 
@@ -26,7 +27,7 @@ class TestEndToEndAWS:
             "version": "1.0",
             "defaults": {
                 "project": "dataplatform",
-                "environment": "prd",
+                "environment": Environment.PRD.value,
                 "region": "us-east-1"
             }
         }
@@ -102,7 +103,7 @@ class TestEndToEndAWS:
 
         # Create generator with config
         aws_config = AWSNamingConfig(
-            environment="prd",
+            environment=Environment.PRD.value,
             project="dataplatform",
             region="us-east-1"
         )
@@ -137,7 +138,7 @@ class TestEndToEndAWS:
         )
 
         aws_config = AWSNamingConfig(
-            environment="prd",
+            environment=Environment.PRD.value,
             project="dataplatform",
             region="us-east-1"
         )
@@ -170,7 +171,7 @@ class TestEndToEndAWS:
         )
 
         aws_config = AWSNamingConfig(
-            environment="prd",
+            environment=Environment.PRD.value,
             project="dataplatform",
             region="us-east-1"
         )
@@ -184,7 +185,7 @@ class TestEndToEndAWS:
         bucket_name = aws_gen.generate_s3_bucket_name(
             purpose="raw",
             layer="raw",
-            metadata={"environment": "dev"}
+            metadata={"environment": Environment.DEV.value}
         )
 
         # Should use dev instead of prd
@@ -201,7 +202,7 @@ class TestEndToEndDatabricks:
             "version": "1.0",
             "defaults": {
                 "project": "dataplatform",
-                "environment": "prd",
+                "environment": Environment.PRD.value,
                 "region": "us-east-1"
             }
         }
@@ -266,7 +267,7 @@ class TestEndToEndDatabricks:
         )
 
         dbx_config = DatabricksNamingConfig(
-            environment="prd",
+            environment=Environment.PRD.value,
             project="dataplatform",
             region="us-east-1"
         )
@@ -299,7 +300,7 @@ class TestEndToEndDatabricks:
         )
 
         dbx_config = DatabricksNamingConfig(
-            environment="prd",
+            environment=Environment.PRD.value,
             project="dataplatform",
             region="us-east-1"
         )
@@ -339,7 +340,7 @@ class TestEndToEndBackwardCompatibility:
         """Verify AWS generator works without ConfigurationManager"""
         # Create generator without config (legacy mode)
         aws_config = AWSNamingConfig(
-            environment="prd",
+            environment=Environment.PRD.value,
             project="dataplatform",
             region="us-east-1"
         )
@@ -355,7 +356,7 @@ class TestEndToEndBackwardCompatibility:
     def test_legacy_dbx_generator_still_works(self):
         """Verify Databricks generator works without ConfigurationManager"""
         dbx_config = DatabricksNamingConfig(
-            environment="prd",
+            environment=Environment.PRD.value,
             project="dataplatform",
             region="us-east-1"
         )
@@ -379,17 +380,17 @@ class TestEndToEndFullWorkflow:
             "version": "1.0",
             "defaults": {
                 "project": "dataplatform",
-                "environment": "prd",
+                "environment": Environment.PRD.value,
                 "region": "us-east-1",
                 "team": "data-engineering",
                 "cost_center": "CC-1234"
             },
             "environments": {
                 "dev": {
-                    "environment": "dev"
+                    "environment": Environment.DEV.value
                 },
                 "prd": {
-                    "environment": "prd"
+                    "environment": Environment.PRD.value
                 }
             }
         }
@@ -462,7 +463,7 @@ class TestEndToEndFullWorkflow:
         )
 
         aws_config = AWSNamingConfig(
-            environment="prd",
+            environment=Environment.PRD.value,
             project="dataplatform",
             region="us-east-1",
             team="data-engineering",
@@ -502,7 +503,7 @@ class TestEndToEndFullWorkflow:
         )
 
         dbx_config = DatabricksNamingConfig(
-            environment="prd",
+            environment=Environment.PRD.value,
             project="dataplatform",
             region="us-east-1"
         )

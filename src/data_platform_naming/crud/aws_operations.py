@@ -472,6 +472,7 @@ class AWSExecutorRegistry:
 if __name__ == "__main__":
     import uuid
 
+    from ..constants import Environment
     from .transaction_manager import Operation, OperationType, ResourceType
 
     registry = AWSExecutorRegistry()
@@ -487,7 +488,7 @@ if __name__ == "__main__":
             'versioning': True,
             'encryption': True,
             'tags': {
-                'Environment': 'prd',
+                'Environment': Environment.PRD.value,
                 'Project': 'dataplatform'
             }
         }

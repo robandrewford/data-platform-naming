@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
+from .constants import Environment
+
 
 class ValidationResult(Enum):
     """Validation outcome"""
@@ -352,7 +354,7 @@ class ConventionValidator:
     @staticmethod
     def validate_environment(env: str) -> tuple[bool, list[ValidationError]]:
         """Validate environment code"""
-        valid_envs = ['dev', 'stg', 'prd']
+        valid_envs = [e.value for e in Environment]
 
         if env not in valid_envs:
             return False, [ValidationError(
@@ -360,7 +362,7 @@ class ConventionValidator:
                 message=f"Environment must be one of: {', '.join(valid_envs)}",
                 severity=ValidationResult.INVALID,
                 field="environment",
-                suggestion="dev"
+                suggestion=Environment.DEV.value
             )]
 
         return True, []

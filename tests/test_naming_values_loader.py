@@ -16,6 +16,7 @@ from data_platform_naming.config.naming_values_loader import (
     NamingValuesLoader,
     SchemaValidationError,
 )
+from data_platform_naming.constants import Environment
 
 
 class TestNamingValues:
@@ -78,11 +79,11 @@ class TestNamingValuesLoader:
             },
             "environments": {
                 "dev": {
-                    "environment": "dev",
+                    "environment": Environment.DEV.value,
                     "data_classification": "internal"
                 },
                 "prd": {
-                    "environment": "prd",
+                    "environment": Environment.PRD.value,
                     "data_classification": "confidential"
                 }
             },
@@ -211,11 +212,11 @@ class TestNamingValuesLoader:
 
         values = loader.get_values_for_resource(
             resource_type="custom_resource",
-            environment="prd"
+            environment=Environment.PRD.value
         )
 
         assert values.get("project") == "testproject"  # from defaults
-        assert values.get("environment") == "prd"  # from environment
+        assert values.get("environment") == Environment.PRD.value  # from environment
         assert values.get("data_classification") == "confidential"  # from environment
         assert "defaults < environments.prd" in values.source
 
@@ -226,11 +227,11 @@ class TestNamingValuesLoader:
 
         values = loader.get_values_for_resource(
             resource_type="aws_s3_bucket",
-            environment="prd"
+            environment=Environment.PRD.value
         )
 
         assert values.get("project") == "testproject"  # from defaults
-        assert values.get("environment") == "prd"  # from environment
+        assert values.get("environment") == Environment.PRD.value  # from environment
         assert values.get("purpose") == "raw"  # from resource_type
         assert values.get("layer") == "raw"  # from resource_type
         assert "defaults < environments.prd < resource_types.aws_s3_bucket" in values.source
@@ -247,12 +248,12 @@ class TestNamingValuesLoader:
 
         values = loader.get_values_for_resource(
             resource_type="aws_s3_bucket",
-            environment="prd",
+            environment=Environment.PRD.value,
             blueprint_metadata=blueprint_metadata
         )
 
         assert values.get("project") == "override-project"  # overridden
-        assert values.get("environment") == "prd"  # from environment
+        assert values.get("environment") == Environment.PRD.value  # from environment
         assert values.get("purpose") == "raw"  # from resource_type
         assert values.get("custom_field") == "custom-value"  # from blueprint
         assert "blueprint_metadata" in values.source
@@ -279,12 +280,12 @@ class TestNamingValuesLoader:
         loader = NamingValuesLoader()
         loader.load_from_dict(valid_config)
 
-        dev_values = loader.get_environment_values("dev")
-        assert dev_values["environment"] == "dev"
+        dev_values = loader.get_environment_values(Environment.DEV.value)
+        assert dev_values["environment"] == Environment.DEV.value
         assert dev_values["data_classification"] == "internal"
 
-        prd_values = loader.get_environment_values("prd")
-        assert prd_values["environment"] == "prd"
+        prd_values = loader.get_environment_values(Environment.PRD.value)
+        assert prd_values["environment"] == Environment.PRD.value
         assert prd_values["data_classification"] == "confidential"
 
         # Non-existent environment
@@ -371,7 +372,7 @@ class TestNamingValuesLoader:
                 "value": "from_defaults"
             },
             "environments": {
-                "dev": {
+                Environment.DEV.value: {
                     "value": "from_environment"
                 }
             },
@@ -390,17 +391,17 @@ class TestNamingValuesLoader:
         assert values["value"] == "from_defaults"
 
         # Test 2: Environment overrides defaults
-        values = loader.get_values_for_resource("dbx_cluster", environment="dev")
+        values = loader.get_values_for_resource("dbx_cluster", environment=Environment.DEV.value)
         assert values["value"] == "from_environment"
 
         # Test 3: Resource type overrides environment
-        values = loader.get_values_for_resource("aws_s3_bucket", environment="dev")
+        values = loader.get_values_for_resource("aws_s3_bucket", environment=Environment.DEV.value)
         assert values["value"] == "from_resource_type"
 
         # Test 4: Blueprint metadata overrides everything
         values = loader.get_values_for_resource(
             "aws_s3_bucket",
-            environment="dev",
+            environment=Environment.DEV.value,
             blueprint_metadata={"value": "from_blueprint"}
         )
         assert values["value"] == "from_blueprint"
