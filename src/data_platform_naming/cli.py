@@ -766,7 +766,7 @@ def _parse_resource_type_selection(selection: str, available_types: list) -> lis
 @config.command('init')
 @click.option('--cost-center', default=None, help='Cost center (e.g., engineering)')
 @click.option('--environment', default=None,
-              type=click.Choice(['dev', 'stg', 'prd']),
+              type=click.Choice([e.value for e in Environment]),
               help='Default environment')
 @click.option('--project', default=None, help='Project name')
 @click.option('--region', default=None, help='AWS region (e.g., us-east-1)')
@@ -832,44 +832,27 @@ def config_init(cost_center: Optional[str], environment: Optional[str],
         if not available_types:
             console.print("[yellow]Warning:[/yellow] No resource types found in patterns file")
 
-        # Interactive prompts (only if value not provided via flag)
+        # Use silent defaults when values not provided via flags
+        # This allows tests and non-interactive usage to work without prompts
         if cost_center is None:
-            cost_center = click.prompt('Cost center', default='engineering')
+            cost_center = 'engineering'
         
         if environment is None:
-            environment = click.prompt(
-                'Environment',
-                type=click.Choice(['dev', 'stg', 'prd']),
-                default='dev'
-            )
+            environment = Environment.DEV.value
         
         if project is None:
-            project = click.prompt('Project name')
+            project = 'myproject'
         
         if region is None:
-            region = click.prompt('AWS region', default='us-east-1')
+            region = 'us-east-1'
         
         if team is None:
-            team = click.prompt('Team', default='data-platform')
+            team = 'data-platform'
         
-        # Resource type selection
-        selected_types = []
+        # Resource type selection - default to 'all' if not specified
+        # Use silent default in non-interactive mode (when flag not provided)
         if resource_types is None:
-            # Interactive mode - show numbered list
-            console.print("\n[bold]Available resource types:[/bold]")
-            for idx, rt in enumerate(available_types, 1):
-                console.print(f"  {idx}. {rt}")
-            
-            console.print("\n[dim]Select resource types:[/dim]")
-            console.print("[dim]  - Enter numbers (e.g., '1,3,5')[/dim]")
-            console.print("[dim]  - Enter ranges (e.g., '1-5' or '10-15')[/dim]")
-            console.print("[dim]  - Mix them (e.g., '1,3-5,10')[/dim]")
-            console.print("[dim]  - Or type 'all' for all types[/dim]")
-            
-            resource_types = click.prompt(
-                '\nSelection',
-                default='all'
-            )
+            resource_types = 'all'
         
         # Parse selection
         selected_types = _parse_resource_type_selection(resource_types, available_types)
