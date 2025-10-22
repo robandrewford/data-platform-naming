@@ -12,10 +12,8 @@ from enum import Enum
 from typing import Any, Optional
 
 # Import ConfigurationManager for config-based name generation
-try:
-    from .config.configuration_manager import ConfigurationManager
-except ImportError:
-    ConfigurationManager = None  # Make optional for backwards compatibility
+from .config.configuration_manager import ConfigurationManager
+from .constants import Environment
 
 
 class DatabricksResourceType(Enum):
@@ -78,35 +76,35 @@ class DatabricksNamingGenerator:
         DatabricksResourceType.VOLUME: r'^[a-zA-Z0-9_]+$',
     }
 
-    def __init__(self,
-                 config: DatabricksNamingConfig,
-                 configuration_manager: Optional['ConfigurationManager'] = None,
-                 use_config: bool = False):
+    def __init__(
+        self,
+        config: DatabricksNamingConfig,
+        configuration_manager: ConfigurationManager
+    ):
         """
         Initialize Databricks naming generator.
-        
+
         Args:
             config: Databricks naming configuration
-            configuration_manager: Optional configuration manager for pattern-based generation
-            use_config: If True, use ConfigurationManager for name generation
-        
+            configuration_manager: ConfigurationManager for pattern-based generation
+
         Raises:
-            ValueError: If use_config=True but configuration_manager not provided
-            ValueError: If required patterns missing from configuration
+            ValueError: If configuration_manager is None or required patterns missing
         """
+        if configuration_manager is None:
+            raise ValueError(
+                "ConfigurationManager is required. "
+                "Legacy mode without ConfigurationManager is no longer supported."
+            )
+        
         self.config = config
         self.configuration_manager = configuration_manager
-        self.use_config = use_config
 
         self._validate_config()
 
-        if use_config:
-            if not configuration_manager:
-                raise ValueError("configuration_manager required when use_config=True")
-
     def _validate_config(self):
         """Validate configuration parameters"""
-        if self.config.environment not in ['dev', 'stg', 'prd']:
+        if self.config.environment not in [e.value for e in Environment]:
             raise ValueError(f"Invalid environment: {self.config.environment}")
 
         if not re.match(r'^[a-z0-9-]+$', self.config.project):
@@ -130,14 +128,7 @@ class DatabricksNamingGenerator:
         
         Raises:
             ValueError: If name generation fails
-            NotImplementedError: If use_config=False
         """
-        if not self.use_config:
-            raise NotImplementedError(
-                "Config-based generation required. Set use_config=True and provide "
-                "ConfigurationManager with pattern definitions."
-            )
-
         # Merge config values with method params
         values = {
             'environment': self.config.environment,
@@ -221,10 +212,9 @@ class DatabricksNamingGenerator:
 
         Raises:
             ValueError: If name generation fails
-            NotImplementedError: If use_config=False
 
         Example:
-            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> gen = DatabricksNamingGenerator(config, config_mgr)
             >>> name = gen.generate_workspace_name('analytics')
             >>> print(name)
             'dbx-dataplatform-analytics-prd-useast1'
@@ -255,10 +245,9 @@ class DatabricksNamingGenerator:
         
         Raises:
             ValueError: If name generation fails
-            NotImplementedError: If use_config=False
         
         Example:
-            >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
+            >>> gen = DatabricksNamingGenerator(config, config_mgr)
             >>> name = gen.generate_cluster_name('etl', 'shared')
             >>> print(name)
             'dataplatform-etl-shared-prd'
@@ -758,12 +747,13 @@ class DatabricksNamingCLI:
     """CLI interface for Databricks naming generator"""
 
     def __init__(self):
-        self.generator = None
+        self.generator: Optional[DatabricksNamingGenerator] = None
 
     def configure(self,
                  environment: str,
                  project: str,
                  region: str,
+                 configuration_manager: ConfigurationManager,
                  team: Optional[str] = None,
                  cost_center: Optional[str] = None) -> None:
         """Configure the naming generator"""
@@ -774,13 +764,14 @@ class DatabricksNamingCLI:
             team=team,
             cost_center=cost_center
         )
-        self.generator = DatabricksNamingGenerator(config)
+        self.generator = DatabricksNamingGenerator(config, configuration_manager)
         print(f"✓ Configured naming generator for {project} in {environment}")
 
     def generate_workspace(self, purpose: str = "data") -> str:
         """Generate workspace name"""
         if not self.generator:
             raise ValueError("Generator not configured. Run configure() first.")
+        assert self.generator is not None  # Type narrowing for mypy
         return self.generator.generate_workspace_name(purpose)
 
     def generate_cluster(self,
@@ -789,6 +780,7 @@ class DatabricksNamingCLI:
         """Generate cluster name"""
         if not self.generator:
             raise ValueError("Generator not configured. Run configure() first.")
+        assert self.generator is not None  # Type narrowing for mypy
         return self.generator.generate_cluster_name(workload, cluster_type)
 
     def generate_job(self,
@@ -798,6 +790,7 @@ class DatabricksNamingCLI:
         """Generate job name"""
         if not self.generator:
             raise ValueError("Generator not configured. Run configure() first.")
+        assert self.generator is not None  # Type narrowing for mypy
         return self.generator.generate_job_name(job_type, purpose, schedule)
 
     def generate_unity_catalog_stack(self,
@@ -854,14 +847,24 @@ class DatabricksNamingCLI:
 
 # Example usage
 if __name__ == "__main__":
+    from pathlib import Path
+    
     # Initialize CLI
     cli = DatabricksNamingCLI()
+
+    # Load configuration manager
+    config_mgr = ConfigurationManager()
+    config_mgr.load_configs(
+        values_path=Path("examples/configs/naming-values.yaml"),
+        patterns_path=Path("examples/configs/naming-patterns.yaml")
+    )
 
     # Configure for production environment
     cli.configure(
         environment="prd",
         project="dataplatform",
         region="us-east-1",
+        configuration_manager=config_mgr,
         team="data-engineering",
         cost_center="IT-1001"
     )

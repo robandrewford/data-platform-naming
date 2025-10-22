@@ -6,10 +6,13 @@ S3, Glue, IAM operations with rollback support
 
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import boto3
 from botocore.exceptions import ClientError
+
+if TYPE_CHECKING:
+    from .transaction_manager import Operation
 
 
 @dataclass
@@ -29,7 +32,7 @@ class AWSS3Executor:
         self.session = session or boto3.Session()
         self.s3 = self.session.client('s3')
 
-    def create(self, operation) -> Dict[str, Any]:
+    def create(self, operation: "Operation") -> Dict[str, Any]:
         """Create S3 bucket"""
         bucket_name = operation.resource_id
         params = operation.params
@@ -106,7 +109,7 @@ class AWSS3Executor:
         except ClientError as e:
             raise RuntimeError(f"S3 create failed: {e.response['Error']['Message']}")
 
-    def read(self, operation) -> Dict[str, Any]:
+    def read(self, operation: "Operation") -> Dict[str, Any]:
         """Read S3 bucket configuration"""
         bucket_name = operation.resource_id
 
@@ -140,7 +143,7 @@ class AWSS3Executor:
         except ClientError as e:
             raise RuntimeError(f"S3 read failed: {e.response['Error']['Message']}")
 
-    def update(self, operation) -> Dict[str, Any]:
+    def update(self, operation: "Operation") -> Dict[str, Any]:
         """Update S3 bucket configuration"""
         bucket_name = operation.resource_id
         params = operation.params
@@ -171,7 +174,7 @@ class AWSS3Executor:
         except ClientError as e:
             raise RuntimeError(f"S3 update failed: {e.response['Error']['Message']}")
 
-    def delete(self, operation) -> Dict[str, Any]:
+    def delete(self, operation: "Operation") -> Dict[str, Any]:
         """Delete S3 bucket"""
         bucket_name = operation.resource_id
         archive = operation.params.get('archive', False)
@@ -202,11 +205,13 @@ class AWSS3Executor:
         except ClientError as e:
             raise RuntimeError(f"S3 delete failed: {e.response['Error']['Message']}")
 
-    def rollback(self, operation) -> None:
+    def rollback(self, operation: "Operation") -> None:
         """Rollback S3 operation"""
         if operation.type.value == 'create':
             # Delete created bucket
             try:
+                if operation.rollback_data is None:
+                    raise ValueError("Rollback data is None for create operation")
                 bucket_name = operation.rollback_data['bucket_name']
                 self._empty_bucket(bucket_name)
                 self.s3.delete_bucket(Bucket=bucket_name)
@@ -255,7 +260,7 @@ class AWSGlueExecutor:
         self.session = session or boto3.Session()
         self.glue = self.session.client('glue')
 
-    def create_database(self, operation) -> Dict[str, Any]:
+    def create_database(self, operation: "Operation") -> Dict[str, Any]:
         """Create Glue database"""
         db_name = operation.resource_id
         params = operation.params
@@ -285,7 +290,7 @@ class AWSGlueExecutor:
         except ClientError as e:
             raise RuntimeError(f"Glue DB create failed: {e.response['Error']['Message']}")
 
-    def create_table(self, operation) -> Dict[str, Any]:
+    def create_table(self, operation: "Operation") -> Dict[str, Any]:
         """Create Glue table"""
         table_name = operation.resource_id
         params = operation.params
@@ -325,7 +330,7 @@ class AWSGlueExecutor:
         except ClientError as e:
             raise RuntimeError(f"Glue table create failed: {e.response['Error']['Message']}")
 
-    def read_database(self, operation) -> Dict[str, Any]:
+    def read_database(self, operation: "Operation") -> Dict[str, Any]:
         """Read Glue database"""
         db_name = operation.resource_id
 
@@ -336,7 +341,7 @@ class AWSGlueExecutor:
         except ClientError as e:
             raise RuntimeError(f"Glue DB read failed: {e.response['Error']['Message']}")
 
-    def read_table(self, operation) -> Dict[str, Any]:
+    def read_table(self, operation: "Operation") -> Dict[str, Any]:
         """Read Glue table"""
         params = operation.params
 
@@ -350,7 +355,7 @@ class AWSGlueExecutor:
         except ClientError as e:
             raise RuntimeError(f"Glue table read failed: {e.response['Error']['Message']}")
 
-    def delete_database(self, operation) -> Dict[str, Any]:
+    def delete_database(self, operation: "Operation") -> Dict[str, Any]:
         """Delete Glue database"""
         db_name = operation.resource_id
 
@@ -364,7 +369,7 @@ class AWSGlueExecutor:
         except ClientError as e:
             raise RuntimeError(f"Glue DB delete failed: {e.response['Error']['Message']}")
 
-    def delete_table(self, operation) -> Dict[str, Any]:
+    def delete_table(self, operation: "Operation") -> Dict[str, Any]:
         """Delete Glue table"""
         params = operation.params
 
@@ -381,20 +386,24 @@ class AWSGlueExecutor:
         except ClientError as e:
             raise RuntimeError(f"Glue table delete failed: {e.response['Error']['Message']}")
 
-    def rollback_database(self, operation) -> None:
+    def rollback_database(self, operation: "Operation") -> None:
         """Rollback database operation"""
         if operation.type.value == 'create':
             try:
+                if operation.rollback_data is None:
+                    raise ValueError("Rollback data is None for create operation")
                 self.glue.delete_database(
                     Name=operation.rollback_data['database_name']
                 )
             except ClientError:
                 pass
 
-    def rollback_table(self, operation) -> None:
+    def rollback_table(self, operation: "Operation") -> None:
         """Rollback table operation"""
         if operation.type.value == 'create':
             try:
+                if operation.rollback_data is None:
+                    raise ValueError("Rollback data is None for create operation")
                 self.glue.delete_table(
                     DatabaseName=operation.rollback_data['database_name'],
                     Name=operation.rollback_data['table_name']
@@ -435,7 +444,7 @@ class AWSExecutorRegistry:
             }
         }
 
-    def execute(self, operation) -> Dict[str, Any]:
+    def execute(self, operation: "Operation") -> Dict[str, Any]:
         """Execute operation"""
         resource_type = operation.resource_type.value
         operation_type = operation.type.value
@@ -446,9 +455,12 @@ class AWSExecutorRegistry:
         if operation_type not in self.executors[resource_type]:
             raise ValueError(f"Unsupported operation: {operation_type}")
 
-        return self.executors[resource_type][operation_type](operation)
+        result = self.executors[resource_type][operation_type](operation)
+        if result is None:
+            raise ValueError(f"Executor returned None for {resource_type}.{operation_type}")
+        return result
 
-    def rollback(self, operation) -> None:
+    def rollback(self, operation: "Operation") -> None:
         """Rollback operation"""
         resource_type = operation.resource_type.value
 
@@ -460,7 +472,8 @@ class AWSExecutorRegistry:
 if __name__ == "__main__":
     import uuid
 
-    from transaction_manager import Operation, OperationType, ResourceType
+    from ..constants import Environment
+    from .transaction_manager import Operation, OperationType, ResourceType
 
     registry = AWSExecutorRegistry()
 
@@ -475,7 +488,7 @@ if __name__ == "__main__":
             'versioning': True,
             'encryption': True,
             'tags': {
-                'Environment': 'prd',
+                'Environment': Environment.PRD.value,
                 'Project': 'dataplatform'
             }
         }

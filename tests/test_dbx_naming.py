@@ -10,6 +10,7 @@ import pytest
 from data_platform_naming.config.configuration_manager import (
     ConfigurationManager,
 )
+from data_platform_naming.constants import Environment
 from data_platform_naming.dbx_naming import (
     DatabricksNamingConfig,
     DatabricksNamingGenerator,
@@ -24,7 +25,7 @@ from data_platform_naming.dbx_naming import (
 def dbx_config():
     """Standard Databricks naming config for tests"""
     return DatabricksNamingConfig(
-        environment="prd",
+        environment=Environment.PRD.value,
         project="testproject",
         region="us-east-1",
         team="data-engineering",
@@ -36,7 +37,7 @@ def dbx_config():
 def dbx_config_minimal():
     """Minimal Databricks naming config without optional fields"""
     return DatabricksNamingConfig(
-        environment="dev",
+        environment=Environment.DEV.value,
         project="testproject",
         region="us-west-2"
     )
@@ -206,38 +207,16 @@ def config_manager(values_config, patterns_config):
 class TestDatabricksNamingGeneratorInit:
     """Test DatabricksNamingGenerator initialization"""
 
-    def test_init_without_config_manager(self, dbx_config):
-        """Test initialization without ConfigurationManager (use_config=False)"""
-        generator = DatabricksNamingGenerator(
-            config=dbx_config,
-            use_config=False
-        )
-
-        assert generator.config == dbx_config
-        assert generator.configuration_manager is None
-        assert generator.use_config is False
-
     def test_init_with_config_manager(self, dbx_config, config_manager):
-        """Test initialization with ConfigurationManager (use_config=True)"""
+        """Test initialization with ConfigurationManager"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         assert generator.config == dbx_config
         assert generator.configuration_manager is config_manager
-        assert generator.use_config is True
-
-    def test_init_use_config_without_manager_raises_error(self, dbx_config):
-        """Test that use_config=True without ConfigurationManager raises ValueError"""
-        with pytest.raises(ValueError, match="configuration_manager required"):
-            DatabricksNamingGenerator(
-                config=dbx_config,
-                use_config=True
-            )
-
-    def test_init_validates_environment(self):
+    def test_init_validates_environment(self, config_manager):
         """Test that invalid environment raises ValueError"""
         invalid_config = DatabricksNamingConfig(
             environment="invalid",
@@ -246,30 +225,26 @@ class TestDatabricksNamingGeneratorInit:
         )
 
         with pytest.raises(ValueError, match="Invalid environment"):
-            DatabricksNamingGenerator(config=invalid_config)
+            DatabricksNamingGenerator(config=invalid_config, configuration_manager=config_manager)
 
-    def test_init_validates_project_name(self):
+    def test_init_validates_project_name(self, config_manager):
         """Test that invalid project name raises ValueError"""
         invalid_config = DatabricksNamingConfig(
-            environment="dev",
+            environment=Environment.DEV.value,
             project="Test_Project!",  # Invalid characters
             region="us-east-1"
         )
 
         with pytest.raises(ValueError, match="Invalid project name"):
-            DatabricksNamingGenerator(config=invalid_config)
+            DatabricksNamingGenerator(config=invalid_config, configuration_manager=config_manager)
 
     def test_init_pattern_validation_success(self, dbx_config, config_manager):
         """Test that pattern validation succeeds with all required patterns"""
         # Should not raise an error
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
-
-        assert generator.use_config is True
-
     def test_init_pattern_validation_missing_patterns(self, dbx_config):
         """Test that missing patterns raise error during ConfigurationManager loading"""
         # Create a ConfigurationManager with incomplete patterns
@@ -303,8 +278,7 @@ class TestDatabricksNamingGeneratorCluster:
         """Test successful cluster name generation"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_cluster_name(
@@ -318,8 +292,7 @@ class TestDatabricksNamingGeneratorCluster:
         """Test cluster name generation with version parameter"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_cluster_name(
@@ -335,8 +308,7 @@ class TestDatabricksNamingGeneratorCluster:
         """Test cluster name generation with blueprint metadata"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         metadata = {"cluster_type": "job"}
@@ -349,20 +321,6 @@ class TestDatabricksNamingGeneratorCluster:
         assert "prd" in name
         assert "etl" in name
 
-    def test_generate_cluster_name_use_config_false_raises_error(self, dbx_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = DatabricksNamingGenerator(
-            config=dbx_config,
-            use_config=False
-        )
-
-        with pytest.raises(NotImplementedError, match="use_config=True"):
-            generator.generate_cluster_name(workload="etl", cluster_type="shared")
-
-
-# ============================================================================
-# Test Job Name Generation (HIGH PRIORITY)
-# ============================================================================
 
 class TestDatabricksNamingGeneratorJob:
     """Test Databricks job name generation"""
@@ -371,8 +329,7 @@ class TestDatabricksNamingGeneratorJob:
         """Test successful job name generation with schedule"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_job_name(
@@ -387,8 +344,7 @@ class TestDatabricksNamingGeneratorJob:
         """Test job name generation without schedule parameter"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_job_name(
@@ -404,8 +360,7 @@ class TestDatabricksNamingGeneratorJob:
         """Test job name generation with blueprint metadata"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         metadata = {"schedule": "daily"}
@@ -418,20 +373,6 @@ class TestDatabricksNamingGeneratorJob:
         assert "prd" in name
         assert "batch" in name
 
-    def test_generate_job_name_use_config_false_raises_error(self, dbx_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = DatabricksNamingGenerator(
-            config=dbx_config,
-            use_config=False
-        )
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_job_name(job_type="batch", purpose="test")
-
-
-# ============================================================================
-# Test Unity Catalog Name Generation (HIGH PRIORITY)
-# ============================================================================
 
 class TestDatabricksNamingGeneratorUnityCatalog:
     """Test Unity Catalog resource name generation"""
@@ -441,8 +382,7 @@ class TestDatabricksNamingGeneratorUnityCatalog:
         """Test successful catalog name generation"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_catalog_name(catalog_type="dev")
@@ -453,8 +393,7 @@ class TestDatabricksNamingGeneratorUnityCatalog:
         """Test catalog name generation with metadata"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         metadata = {"catalog_type": "test"}
@@ -466,20 +405,11 @@ class TestDatabricksNamingGeneratorUnityCatalog:
         assert "prd" in name
         assert "testproject" in name
 
-    def test_generate_catalog_name_use_config_false_raises_error(self, dbx_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = DatabricksNamingGenerator(config=dbx_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_catalog_name(catalog_type="main")
-
-    # Schema tests
     def test_generate_schema_name_success(self, dbx_config, config_manager):
         """Test successful schema name generation"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_schema_name(
@@ -493,8 +423,7 @@ class TestDatabricksNamingGeneratorUnityCatalog:
         """Test schema name generation with metadata"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         metadata = {"layer": "gold"}
@@ -506,20 +435,11 @@ class TestDatabricksNamingGeneratorUnityCatalog:
 
         assert "finance" in name
 
-    def test_generate_schema_name_use_config_false_raises_error(self, dbx_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = DatabricksNamingGenerator(config=dbx_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_schema_name(domain="test", layer="gold")
-
-    # Table tests
     def test_generate_table_name_success(self, dbx_config, config_manager):
         """Test successful table name generation"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_table_name(
@@ -533,8 +453,7 @@ class TestDatabricksNamingGeneratorUnityCatalog:
         """Test table name generation with metadata"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         metadata = {"table_type": "dim"}
@@ -550,8 +469,7 @@ class TestDatabricksNamingGeneratorUnityCatalog:
         """Test table name generation with different table types"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         dim_name = generator.generate_table_name(entity="products", table_type="dim")
@@ -560,20 +478,11 @@ class TestDatabricksNamingGeneratorUnityCatalog:
         assert "dim" in dim_name
         assert "fact" in fact_name
 
-    def test_generate_table_name_use_config_false_raises_error(self, dbx_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = DatabricksNamingGenerator(config=dbx_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_table_name(entity="test", table_type="fact")
-
-    # Full table reference tests
     def test_generate_full_table_reference(self, dbx_config, config_manager):
         """Test full Unity Catalog table reference generation"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         ref = generator.generate_full_table_reference(
@@ -590,8 +499,7 @@ class TestDatabricksNamingGeneratorUnityCatalog:
         """Test that full table reference has correct 3-tier format"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         ref = generator.generate_full_table_reference(
@@ -611,8 +519,7 @@ class TestDatabricksNamingGeneratorUnityCatalog:
         """Test Unity Catalog 3-tier namespace structure"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         catalog = generator.generate_catalog_name("main")
@@ -636,8 +543,7 @@ class TestDatabricksNamingGeneratorWorkspace:
         """Test successful workspace name generation"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_workspace_name(purpose="analytics")
@@ -649,8 +555,7 @@ class TestDatabricksNamingGeneratorWorkspace:
         """Test workspace name generation with default purpose"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_workspace_name()
@@ -661,8 +566,7 @@ class TestDatabricksNamingGeneratorWorkspace:
         """Test workspace name generation with metadata"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         metadata = {"purpose": "ml"}
@@ -670,17 +574,6 @@ class TestDatabricksNamingGeneratorWorkspace:
 
         assert "prd" in name
 
-    def test_generate_workspace_name_use_config_false_raises_error(self, dbx_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = DatabricksNamingGenerator(config=dbx_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_workspace_name(purpose="analytics")
-
-
-# ============================================================================
-# Test SQL Warehouse Name Generation (MEDIUM PRIORITY)
-# ============================================================================
 
 class TestDatabricksNamingGeneratorSQLWarehouse:
     """Test Databricks SQL warehouse name generation"""
@@ -689,8 +582,7 @@ class TestDatabricksNamingGeneratorSQLWarehouse:
         """Test successful SQL warehouse name generation"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_sql_warehouse_name(size="large", purpose="reporting")
@@ -702,8 +594,7 @@ class TestDatabricksNamingGeneratorSQLWarehouse:
         """Test SQL warehouse name generation with default parameters"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_sql_warehouse_name()
@@ -714,8 +605,7 @@ class TestDatabricksNamingGeneratorSQLWarehouse:
         """Test SQL warehouse name generation with metadata"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         metadata = {"size": "xlarge"}
@@ -731,8 +621,7 @@ class TestDatabricksNamingGeneratorSQLWarehouse:
         """Test SQL warehouse names with different sizes"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         small = generator.generate_sql_warehouse_name(size="small", purpose="adhoc")
@@ -741,17 +630,6 @@ class TestDatabricksNamingGeneratorSQLWarehouse:
         assert "prd" in small
         assert "prd" in large
 
-    def test_generate_sql_warehouse_name_use_config_false_raises_error(self, dbx_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = DatabricksNamingGenerator(config=dbx_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_sql_warehouse_name(size="medium", purpose="analytics")
-
-
-# ============================================================================
-# Test Pipeline Name Generation (MEDIUM PRIORITY)
-# ============================================================================
 
 class TestDatabricksNamingGeneratorPipeline:
     """Test Databricks Delta Live Tables pipeline name generation"""
@@ -760,8 +638,7 @@ class TestDatabricksNamingGeneratorPipeline:
         """Test successful pipeline name generation"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_pipeline_name(
@@ -777,8 +654,7 @@ class TestDatabricksNamingGeneratorPipeline:
         """Test pipeline name generation with default type"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_pipeline_name(source="kafka", target="events")
@@ -789,8 +665,7 @@ class TestDatabricksNamingGeneratorPipeline:
         """Test pipeline name generation with metadata"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         metadata = {"pipeline_type": "streaming"}
@@ -802,17 +677,6 @@ class TestDatabricksNamingGeneratorPipeline:
 
         assert "prd" in name
 
-    def test_generate_pipeline_name_use_config_false_raises_error(self, dbx_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = DatabricksNamingGenerator(config=dbx_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_pipeline_name(source="s3", target="bronze")
-
-
-# ============================================================================
-# Test Notebook Path Generation (LOWER PRIORITY)
-# ============================================================================
 
 class TestDatabricksNamingGeneratorNotebook:
     """Test Databricks notebook path generation"""
@@ -821,8 +685,7 @@ class TestDatabricksNamingGeneratorNotebook:
         """Test successful notebook path generation"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         path = generator.generate_notebook_path(
@@ -839,8 +702,7 @@ class TestDatabricksNamingGeneratorNotebook:
         """Test notebook path generation with metadata"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         metadata = {"domain": "marketing"}
@@ -853,17 +715,6 @@ class TestDatabricksNamingGeneratorNotebook:
 
         assert path.startswith("/")
 
-    def test_generate_notebook_path_use_config_false_raises_error(self, dbx_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = DatabricksNamingGenerator(config=dbx_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_notebook_path("finance", "etl", "test")
-
-
-# ============================================================================
-# Test Repo Name Generation (LOWER PRIORITY)
-# ============================================================================
 
 class TestDatabricksNamingGeneratorRepo:
     """Test Databricks Git repo name generation"""
@@ -872,8 +723,7 @@ class TestDatabricksNamingGeneratorRepo:
         """Test successful repo name generation"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_repo_name(repo_purpose="notebooks")
@@ -885,8 +735,7 @@ class TestDatabricksNamingGeneratorRepo:
         """Test repo name generation with metadata"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         metadata = {"repo_purpose": "pipelines"}
@@ -894,17 +743,6 @@ class TestDatabricksNamingGeneratorRepo:
 
         assert "prd" in name
 
-    def test_generate_repo_name_use_config_false_raises_error(self, dbx_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = DatabricksNamingGenerator(config=dbx_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_repo_name(repo_purpose="test")
-
-
-# ============================================================================
-# Test Volume Name Generation (LOWER PRIORITY)
-# ============================================================================
 
 class TestDatabricksNamingGeneratorVolume:
     """Test Unity Catalog volume name generation"""
@@ -913,8 +751,7 @@ class TestDatabricksNamingGeneratorVolume:
         """Test successful volume name generation"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_volume_name(purpose="uploads", data_type="raw")
@@ -926,8 +763,7 @@ class TestDatabricksNamingGeneratorVolume:
         """Test volume name generation with default data_type"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_volume_name(purpose="landing")
@@ -938,8 +774,7 @@ class TestDatabricksNamingGeneratorVolume:
         """Test volume name generation with metadata"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         metadata = {"data_type": "processed"}
@@ -947,17 +782,6 @@ class TestDatabricksNamingGeneratorVolume:
 
         assert "_" in name
 
-    def test_generate_volume_name_use_config_false_raises_error(self, dbx_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = DatabricksNamingGenerator(config=dbx_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_volume_name(purpose="test")
-
-
-# ============================================================================
-# Test Secret Scope Name Generation (LOWER PRIORITY)
-# ============================================================================
 
 class TestDatabricksNamingGeneratorSecretScope:
     """Test Databricks secret scope name generation"""
@@ -966,8 +790,7 @@ class TestDatabricksNamingGeneratorSecretScope:
         """Test successful secret scope name generation"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_secret_scope_name(purpose="azure")
@@ -979,8 +802,7 @@ class TestDatabricksNamingGeneratorSecretScope:
         """Test secret scope name generation with default purpose"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_secret_scope_name()
@@ -991,8 +813,7 @@ class TestDatabricksNamingGeneratorSecretScope:
         """Test secret scope name generation with metadata"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         metadata = {"purpose": "prod-keys"}
@@ -1000,17 +821,6 @@ class TestDatabricksNamingGeneratorSecretScope:
 
         assert "prd" in name
 
-    def test_generate_secret_scope_name_use_config_false_raises_error(self, dbx_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = DatabricksNamingGenerator(config=dbx_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_secret_scope_name(purpose="test")
-
-
-# ============================================================================
-# Test Instance Pool Name Generation (LOWER PRIORITY)
-# ============================================================================
 
 class TestDatabricksNamingGeneratorInstancePool:
     """Test Databricks instance pool name generation"""
@@ -1019,8 +829,7 @@ class TestDatabricksNamingGeneratorInstancePool:
         """Test successful instance pool name generation"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_instance_pool_name(node_type="compute", purpose="ml")
@@ -1032,8 +841,7 @@ class TestDatabricksNamingGeneratorInstancePool:
         """Test instance pool name generation with default purpose"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_instance_pool_name(node_type="memory")
@@ -1044,8 +852,7 @@ class TestDatabricksNamingGeneratorInstancePool:
         """Test instance pool name generation with metadata"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         metadata = {"purpose": "analytics"}
@@ -1057,17 +864,6 @@ class TestDatabricksNamingGeneratorInstancePool:
 
         assert "prd" in name
 
-    def test_generate_instance_pool_name_use_config_false_raises_error(self, dbx_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = DatabricksNamingGenerator(config=dbx_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_instance_pool_name(node_type="compute", purpose="etl")
-
-
-# ============================================================================
-# Test Policy Name Generation (LOWER PRIORITY)
-# ============================================================================
 
 class TestDatabricksNamingGeneratorPolicy:
     """Test Databricks policy name generation"""
@@ -1076,8 +872,7 @@ class TestDatabricksNamingGeneratorPolicy:
         """Test successful policy name generation"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_policy_name(policy_type="cost", target="sql")
@@ -1089,8 +884,7 @@ class TestDatabricksNamingGeneratorPolicy:
         """Test policy name generation with default target"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         name = generator.generate_policy_name(policy_type="security")
@@ -1101,8 +895,7 @@ class TestDatabricksNamingGeneratorPolicy:
         """Test policy name generation with metadata"""
         generator = DatabricksNamingGenerator(
             config=dbx_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         metadata = {"target": "job"}
@@ -1114,24 +907,13 @@ class TestDatabricksNamingGeneratorPolicy:
 
         assert "prd" in name
 
-    def test_generate_policy_name_use_config_false_raises_error(self, dbx_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = DatabricksNamingGenerator(config=dbx_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_policy_name(policy_type="security", target="cluster")
-
-
-# ============================================================================
-# Test Utility Functions
-# ============================================================================
 
 class TestDatabricksNamingGeneratorUtilities:
     """Test utility functions like tags generation"""
 
-    def test_generate_standard_tags(self, dbx_config):
+    def test_generate_standard_tags(self, dbx_config, config_manager):
         """Test standard tags generation"""
-        generator = DatabricksNamingGenerator(config=dbx_config, use_config=False)
+        generator = DatabricksNamingGenerator(config=dbx_config, configuration_manager=config_manager)
 
         tags = generator.generate_standard_tags(DatabricksResourceType.CLUSTER)
 
@@ -1142,9 +924,9 @@ class TestDatabricksNamingGeneratorUtilities:
         assert tags["Team"] == "data-engineering"
         assert tags["CostCenter"] == "eng-001"
 
-    def test_generate_standard_tags_minimal_config(self, dbx_config_minimal):
+    def test_generate_standard_tags_minimal_config(self, dbx_config_minimal, config_manager):
         """Test standard tags with minimal config"""
-        generator = DatabricksNamingGenerator(config=dbx_config_minimal, use_config=False)
+        generator = DatabricksNamingGenerator(config=dbx_config_minimal, configuration_manager=config_manager)
 
         tags = generator.generate_standard_tags(DatabricksResourceType.JOB)
 
@@ -1153,9 +935,9 @@ class TestDatabricksNamingGeneratorUtilities:
         assert "Team" not in tags  # Not provided in minimal config
         assert "CostCenter" not in tags
 
-    def test_generate_standard_tags_with_additional(self, dbx_config):
+    def test_generate_standard_tags_with_additional(self, dbx_config, config_manager):
         """Test standard tags with additional custom tags"""
-        generator = DatabricksNamingGenerator(config=dbx_config, use_config=False)
+        generator = DatabricksNamingGenerator(config=dbx_config, configuration_manager=config_manager)
 
         additional = {"Owner": "data-team", "Critical": "true"}
         tags = generator.generate_standard_tags(

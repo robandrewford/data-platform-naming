@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from data_platform_naming.constants import Environment
 from data_platform_naming.config.configuration_manager import (
     ConfigurationManager,
     GeneratedName,
@@ -61,10 +62,10 @@ class TestConfigurationManager:
             },
             "environments": {
                 "dev": {
-                    "environment": "dev"
+                    "environment": Environment.DEV.value
                 },
                 "prd": {
-                    "environment": "prd"
+                    "environment": Environment.PRD.value
                 }
             },
             "resource_types": {
@@ -77,18 +78,39 @@ class TestConfigurationManager:
 
     @pytest.fixture
     def patterns_config(self):
-        """Valid patterns configuration"""
+        """Valid patterns configuration with all 27 resource types"""
         return {
             "version": "1.0",
             "patterns": {
+                # AWS (13)
                 "aws_s3_bucket": "{project}-{purpose}-{layer}-{environment}-{region_short}",
                 "aws_glue_database": "{project}_{environment}",
                 "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}-{environment}-crawler",
+                "aws_lambda_function": "{project}-{environment}-{domain}",
+                "aws_iam_role": "{project}-{environment}-role",
+                "aws_iam_policy": "{project}-{environment}-policy",
+                "aws_kinesis_stream": "{project}-{environment}-stream",
+                "aws_kinesis_firehose": "{project}-{environment}-firehose",
+                "aws_dynamodb_table": "{project}-{environment}-{entity}",
+                "aws_sns_topic": "{project}-{environment}-topic",
+                "aws_sqs_queue": "{project}-{environment}-queue",
+                "aws_step_function": "{project}-{environment}-workflow",
+                # Databricks (14)
+                "dbx_workspace": "dbx-{project}-{environment}",
                 "dbx_cluster": "{project}-{environment}",
                 "dbx_job": "{project}-{environment}",
+                "dbx_notebook_path": "/{project}/{environment}",
+                "dbx_repo": "{project}-{environment}",
+                "dbx_pipeline": "{project}-{environment}",
+                "dbx_sql_warehouse": "{project}-{environment}",
                 "dbx_catalog": "{project}_{environment}",
                 "dbx_schema": "{domain}",
-                "dbx_table": "{entity}"
+                "dbx_table": "{entity}",
+                "dbx_volume": "{purpose}",
+                "dbx_secret_scope": "{project}-{environment}",
+                "dbx_instance_pool": "{project}-{environment}",
+                "dbx_policy": "{project}-{environment}"
             },
             "transformations": {
                 "region_mapping": {
@@ -176,7 +198,7 @@ class TestConfigurationManager:
 
         result = manager.generate_name(
             resource_type="aws_s3_bucket",
-            environment="prd"
+            environment=Environment.PRD.value
         )
 
         assert result.is_valid
@@ -194,7 +216,7 @@ class TestConfigurationManager:
 
         result = manager.generate_name(
             resource_type="aws_s3_bucket",
-            environment="prd",
+            environment=Environment.PRD.value,
             value_overrides={"purpose": "processed"}
         )
 
@@ -211,7 +233,7 @@ class TestConfigurationManager:
 
         result = manager.generate_name(
             resource_type="aws_s3_bucket",
-            environment="prd",
+            environment=Environment.PRD.value,
             blueprint_metadata={"layer": "gold"}
         )
 
@@ -258,7 +280,7 @@ class TestConfigurationManager:
 
         results = manager.generate_names_for_blueprint(
             resources=resources,
-            environment="prd"
+            environment=Environment.PRD.value
         )
 
         assert len(results) == 2
@@ -284,7 +306,7 @@ class TestConfigurationManager:
 
         results = manager.generate_names_for_blueprint(
             resources=resources,
-            environment="prd"
+            environment=Environment.PRD.value
         )
 
         assert len(results) == 2
@@ -317,14 +339,35 @@ class TestConfigurationManager:
         patterns_config = {
             "version": "1.0",
             "patterns": {
+                # AWS (13)
                 "aws_s3_bucket": "{project}-{missing_var}",
                 "aws_glue_database": "{project}",
                 "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}",
+                "aws_lambda_function": "{project}",
+                "aws_iam_role": "{project}",
+                "aws_iam_policy": "{project}",
+                "aws_kinesis_stream": "{project}",
+                "aws_kinesis_firehose": "{project}",
+                "aws_dynamodb_table": "{project}",
+                "aws_sns_topic": "{project}",
+                "aws_sqs_queue": "{project}",
+                "aws_step_function": "{project}",
+                # Databricks (14)
+                "dbx_workspace": "{project}",
                 "dbx_cluster": "{project}",
                 "dbx_job": "{project}",
+                "dbx_notebook_path": "/{project}",
+                "dbx_repo": "{project}",
+                "dbx_pipeline": "{project}",
+                "dbx_sql_warehouse": "{project}",
                 "dbx_catalog": "{project}",
                 "dbx_schema": "{domain}",
-                "dbx_table": "{entity}"
+                "dbx_table": "{entity}",
+                "dbx_volume": "{project}",
+                "dbx_secret_scope": "{project}",
+                "dbx_instance_pool": "{project}",
+                "dbx_policy": "{project}"
             },
             "validation": {
                 "required_variables": {
@@ -353,7 +396,7 @@ class TestConfigurationManager:
 
         types = manager.get_available_resource_types()
         assert "aws_s3_bucket" in types
-        assert len(types) == 8
+        assert len(types) == 27
 
     def test_get_available_environments(self, values_config, patterns_config):
         """Test getting available environments"""
@@ -364,8 +407,8 @@ class TestConfigurationManager:
         )
 
         environments = manager.get_available_environments()
-        assert "dev" in environments
-        assert "prd" in environments
+        assert Environment.DEV.value in environments
+        assert Environment.PRD.value in environments
         assert len(environments) == 2
 
     def test_preview_name(self, patterns_config):
@@ -383,7 +426,7 @@ class TestConfigurationManager:
                 "project": "myproject",
                 "purpose": "raw",
                 "layer": "bronze",
-                "environment": "dev",
+                "environment": Environment.DEV.value,
                 "region": "us-east-1"
             }
         )
@@ -415,7 +458,7 @@ class TestConfigurationManager:
         assert "ConfigurationManager" in repr_str
         assert "values_version=1.0" in repr_str
         assert "patterns_version=1.0" in repr_str
-        assert "resource_types=8" in repr_str
+        assert "resource_types=27" in repr_str
         assert "environments=2" in repr_str
 
     def test_check_loaded_values_not_loaded(self, patterns_config):
@@ -440,7 +483,7 @@ class TestConfigurationManager:
         """Test full integration with transformations applied"""
         # Use valid lowercase values that will be transformed
         values_config["defaults"]["project"] = "data-platform"
-        values_config["defaults"]["environment"] = "prd"
+        values_config["defaults"]["environment"] = Environment.PRD.value
 
         manager = ConfigurationManager()
         manager.load_configs(
@@ -451,13 +494,13 @@ class TestConfigurationManager:
         # Test with value overrides that need transformation
         result = manager.generate_name(
             resource_type="aws_s3_bucket",
-            environment="prd"
+            environment=Environment.PRD.value
         )
 
         # Transformations applied correctly
         assert result.is_valid
         assert result.name.startswith("data-platform")
-        assert "prd" in result.name
+        assert Environment.PRD.value in result.name
 
     def test_validation_errors_in_generated_name(self):
         """Test that validation errors are captured in GeneratedName"""
@@ -467,7 +510,7 @@ class TestConfigurationManager:
                 "project": "a" * 100,  # Way too long
                 "purpose": "raw",
                 "layer": "raw",
-                "environment": "prd",
+                "environment": Environment.PRD.value,
                 "region": "us-east-1",
                 "region_short": "use1"
             }
@@ -476,14 +519,35 @@ class TestConfigurationManager:
         patterns_config = {
             "version": "1.0",
             "patterns": {
+                # AWS (13)
                 "aws_s3_bucket": "{project}-{purpose}-{layer}-{environment}-{region_short}",
                 "aws_glue_database": "{project}",
                 "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}",
+                "aws_lambda_function": "{project}",
+                "aws_iam_role": "{project}",
+                "aws_iam_policy": "{project}",
+                "aws_kinesis_stream": "{project}",
+                "aws_kinesis_firehose": "{project}",
+                "aws_dynamodb_table": "{project}",
+                "aws_sns_topic": "{project}",
+                "aws_sqs_queue": "{project}",
+                "aws_step_function": "{project}",
+                # Databricks (14)
+                "dbx_workspace": "{project}",
                 "dbx_cluster": "{project}",
                 "dbx_job": "{project}",
+                "dbx_notebook_path": "/{project}",
+                "dbx_repo": "{project}",
+                "dbx_pipeline": "{project}",
+                "dbx_sql_warehouse": "{project}",
                 "dbx_catalog": "{project}",
                 "dbx_schema": "{domain}",
-                "dbx_table": "{entity}"
+                "dbx_table": "{entity}",
+                "dbx_volume": "{project}",
+                "dbx_secret_scope": "{project}",
+                "dbx_instance_pool": "{project}",
+                "dbx_policy": "{project}"
             },
             "validation": {
                 "max_length": {

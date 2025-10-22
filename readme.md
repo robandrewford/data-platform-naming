@@ -853,9 +853,8 @@ MIT License - see [LICENSE](LICENSE) file.
 
 ## Roadmap
 
-- [ ] Azure naming support
-- [ ] GCP naming support
-- [ ] Terraform provider
 - [ ] GitHub Actions integration
-- [ ] Web UI
+- [ ] Terraform provider
+- [ ] Text UI (TUI)
+- [ ] GCP naming support
 - [ ] API server mode

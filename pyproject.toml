@@ -52,7 +52,8 @@ dev = [
     "mypy>=1.7.1",
     "types-requests>=2.31.0",
     "types-pyyaml>=6.0.12",
-    "types-jsonschema>=4.20.0"
+    "types-jsonschema>=4.20.0",
+    "types-click>=7.1.0"
 ]
 
 [project.scripts]
@@ -158,6 +159,7 @@ strict_equality = true
 [[tool.mypy.overrides]]
 module = [
     "boto3.*",
-    "botocore.*"
+    "botocore.*",
+    "rich.*"
 ]
 ignore_missing_imports = true

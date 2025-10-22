@@ -11,6 +11,8 @@ import pytest
 import yaml
 from jsonschema import Draft7Validator, ValidationError, validate
 
+from data_platform_naming.constants import Environment
+
 # Get project root directory
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -58,7 +60,7 @@ class TestNamingValuesSchema:
             "version": "1.0",
             "defaults": {
                 "project": "testproject",
-                "environment": "dev"
+                "environment": Environment.DEV.value
             }
         }
         validate(instance=config, schema=schema)
@@ -69,7 +71,7 @@ class TestNamingValuesSchema:
             "version": "1.0",
             "defaults": {
                 "project": "dataplatform",
-                "environment": "prd",
+                "environment": Environment.PRD.value,
                 "region": "us-east-1",
                 "region_short": "use1",
                 "team": "data-team",
@@ -77,14 +79,14 @@ class TestNamingValuesSchema:
             },
             "environments": {
                 "dev": {
-                    "environment": "dev",
+                    "environment": Environment.DEV.value,
                     "data_classification": "internal"
                 },
                 "stg": {
-                    "environment": "stg"
+                    "environment": Environment.STG.value
                 },
                 "prd": {
-                    "environment": "prd",
+                    "environment": Environment.PRD.value,
                     "data_classification": "confidential"
                 }
             },
@@ -275,14 +277,35 @@ class TestNamingPatternsSchema:
         config = {
             "version": "1.0",
             "patterns": {
+                # All 13 AWS patterns
                 "aws_s3_bucket": "{project}-{environment}",
                 "aws_glue_database": "{project}_{environment}",
                 "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}",
+                "aws_lambda_function": "{project}",
+                "aws_iam_role": "{project}",
+                "aws_iam_policy": "{project}",
+                "aws_kinesis_stream": "{project}",
+                "aws_kinesis_firehose": "{project}",
+                "aws_dynamodb_table": "{project}",
+                "aws_sns_topic": "{project}",
+                "aws_sqs_queue": "{project}",
+                "aws_step_function": "{project}",
+                # All 14 Databricks patterns
+                "dbx_workspace": "{project}",
                 "dbx_cluster": "{project}-{environment}",
                 "dbx_job": "{project}-{environment}",
+                "dbx_notebook_path": "/{project}",
+                "dbx_repo": "{project}",
+                "dbx_pipeline": "{project}",
+                "dbx_sql_warehouse": "{project}",
                 "dbx_catalog": "{project}_{environment}",
                 "dbx_schema": "{domain}",
-                "dbx_table": "{entity}"
+                "dbx_table": "{entity}",
+                "dbx_volume": "{project}",
+                "dbx_secret_scope": "{project}",
+                "dbx_instance_pool": "{project}",
+                "dbx_policy": "{project}"
             }
         }
         validate(instance=config, schema=schema)
@@ -307,11 +330,30 @@ class TestNamingPatternsSchema:
                 "aws_s3_bucket": "static-name",  # Invalid: no placeholder
                 "aws_glue_database": "{project}_{environment}",
                 "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}",
+                "aws_lambda_function": "{project}",
+                "aws_iam_role": "{project}",
+                "aws_iam_policy": "{project}",
+                "aws_kinesis_stream": "{project}",
+                "aws_kinesis_firehose": "{project}",
+                "aws_dynamodb_table": "{project}",
+                "aws_sns_topic": "{project}",
+                "aws_sqs_queue": "{project}",
+                "aws_step_function": "{project}",
+                "dbx_workspace": "{project}",
                 "dbx_cluster": "{project}-{environment}",
                 "dbx_job": "{project}-{environment}",
+                "dbx_notebook_path": "/{project}",
+                "dbx_repo": "{project}",
+                "dbx_pipeline": "{project}",
+                "dbx_sql_warehouse": "{project}",
                 "dbx_catalog": "{project}_{environment}",
                 "dbx_schema": "{domain}",
-                "dbx_table": "{entity}"
+                "dbx_table": "{entity}",
+                "dbx_volume": "{project}",
+                "dbx_secret_scope": "{project}",
+                "dbx_instance_pool": "{project}",
+                "dbx_policy": "{project}"
             }
         }
         with pytest.raises(ValidationError):
@@ -333,11 +375,30 @@ class TestNamingPatternsSchema:
                     "aws_s3_bucket": pattern,
                     "aws_glue_database": "{project}_{environment}",
                     "aws_glue_table": "{entity}",
+                    "aws_glue_crawler": "{project}",
+                    "aws_lambda_function": "{project}",
+                    "aws_iam_role": "{project}",
+                    "aws_iam_policy": "{project}",
+                    "aws_kinesis_stream": "{project}",
+                    "aws_kinesis_firehose": "{project}",
+                    "aws_dynamodb_table": "{project}",
+                    "aws_sns_topic": "{project}",
+                    "aws_sqs_queue": "{project}",
+                    "aws_step_function": "{project}",
+                    "dbx_workspace": "{project}",
                     "dbx_cluster": "{project}-{environment}",
                     "dbx_job": "{project}-{environment}",
+                    "dbx_notebook_path": "/{project}",
+                    "dbx_repo": "{project}",
+                    "dbx_pipeline": "{project}",
+                    "dbx_sql_warehouse": "{project}",
                     "dbx_catalog": "{project}_{environment}",
                     "dbx_schema": "{domain}",
-                    "dbx_table": "{entity}"
+                    "dbx_table": "{entity}",
+                    "dbx_volume": "{project}",
+                    "dbx_secret_scope": "{project}",
+                    "dbx_instance_pool": "{project}",
+                    "dbx_policy": "{project}"
                 }
             }
             validate(instance=config, schema=schema)
@@ -350,11 +411,30 @@ class TestNamingPatternsSchema:
                 "aws_s3_bucket": "{project}-{environment}",
                 "aws_glue_database": "{project}_{environment}",
                 "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}",
+                "aws_lambda_function": "{project}",
+                "aws_iam_role": "{project}",
+                "aws_iam_policy": "{project}",
+                "aws_kinesis_stream": "{project}",
+                "aws_kinesis_firehose": "{project}",
+                "aws_dynamodb_table": "{project}",
+                "aws_sns_topic": "{project}",
+                "aws_sqs_queue": "{project}",
+                "aws_step_function": "{project}",
+                "dbx_workspace": "{project}",
                 "dbx_cluster": "{project}-{environment}",
                 "dbx_job": "{project}-{environment}",
+                "dbx_notebook_path": "/{project}",
+                "dbx_repo": "{project}",
+                "dbx_pipeline": "{project}",
+                "dbx_sql_warehouse": "{project}",
                 "dbx_catalog": "{project}_{environment}",
                 "dbx_schema": "{domain}",
-                "dbx_table": "{entity}"
+                "dbx_table": "{entity}",
+                "dbx_volume": "{project}",
+                "dbx_secret_scope": "{project}",
+                "dbx_instance_pool": "{project}",
+                "dbx_policy": "{project}"
             },
             "transformations": {
                 "region_mapping": {
@@ -378,11 +458,30 @@ class TestNamingPatternsSchema:
                 "aws_s3_bucket": "{project}-{environment}",
                 "aws_glue_database": "{project}_{environment}",
                 "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}",
+                "aws_lambda_function": "{project}",
+                "aws_iam_role": "{project}",
+                "aws_iam_policy": "{project}",
+                "aws_kinesis_stream": "{project}",
+                "aws_kinesis_firehose": "{project}",
+                "aws_dynamodb_table": "{project}",
+                "aws_sns_topic": "{project}",
+                "aws_sqs_queue": "{project}",
+                "aws_step_function": "{project}",
+                "dbx_workspace": "{project}",
                 "dbx_cluster": "{project}-{environment}",
                 "dbx_job": "{project}-{environment}",
+                "dbx_notebook_path": "/{project}",
+                "dbx_repo": "{project}",
+                "dbx_pipeline": "{project}",
+                "dbx_sql_warehouse": "{project}",
                 "dbx_catalog": "{project}_{environment}",
                 "dbx_schema": "{domain}",
-                "dbx_table": "{entity}"
+                "dbx_table": "{entity}",
+                "dbx_volume": "{project}",
+                "dbx_secret_scope": "{project}",
+                "dbx_instance_pool": "{project}",
+                "dbx_policy": "{project}"
             },
             "transformations": {
                 "region_mapping": {
@@ -401,11 +500,30 @@ class TestNamingPatternsSchema:
                 "aws_s3_bucket": "{project}-{environment}",
                 "aws_glue_database": "{project}_{environment}",
                 "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}",
+                "aws_lambda_function": "{project}",
+                "aws_iam_role": "{project}",
+                "aws_iam_policy": "{project}",
+                "aws_kinesis_stream": "{project}",
+                "aws_kinesis_firehose": "{project}",
+                "aws_dynamodb_table": "{project}",
+                "aws_sns_topic": "{project}",
+                "aws_sqs_queue": "{project}",
+                "aws_step_function": "{project}",
+                "dbx_workspace": "{project}",
                 "dbx_cluster": "{project}-{environment}",
                 "dbx_job": "{project}-{environment}",
+                "dbx_notebook_path": "/{project}",
+                "dbx_repo": "{project}",
+                "dbx_pipeline": "{project}",
+                "dbx_sql_warehouse": "{project}",
                 "dbx_catalog": "{project}_{environment}",
                 "dbx_schema": "{domain}",
-                "dbx_table": "{entity}"
+                "dbx_table": "{entity}",
+                "dbx_volume": "{project}",
+                "dbx_secret_scope": "{project}",
+                "dbx_instance_pool": "{project}",
+                "dbx_policy": "{project}"
             },
             "validation": {
                 "max_length": {
@@ -432,11 +550,30 @@ class TestNamingPatternsSchema:
                 "aws_s3_bucket": "{project}-{environment}",
                 "aws_glue_database": "{project}_{environment}",
                 "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}",
+                "aws_lambda_function": "{project}",
+                "aws_iam_role": "{project}",
+                "aws_iam_policy": "{project}",
+                "aws_kinesis_stream": "{project}",
+                "aws_kinesis_firehose": "{project}",
+                "aws_dynamodb_table": "{project}",
+                "aws_sns_topic": "{project}",
+                "aws_sqs_queue": "{project}",
+                "aws_step_function": "{project}",
+                "dbx_workspace": "{project}",
                 "dbx_cluster": "{project}-{environment}",
                 "dbx_job": "{project}-{environment}",
+                "dbx_notebook_path": "/{project}",
+                "dbx_repo": "{project}",
+                "dbx_pipeline": "{project}",
+                "dbx_sql_warehouse": "{project}",
                 "dbx_catalog": "{project}_{environment}",
                 "dbx_schema": "{domain}",
-                "dbx_table": "{entity}"
+                "dbx_table": "{entity}",
+                "dbx_volume": "{project}",
+                "dbx_secret_scope": "{project}",
+                "dbx_instance_pool": "{project}",
+                "dbx_policy": "{project}"
             },
             "validation": {
                 "max_length": {
@@ -455,11 +592,30 @@ class TestNamingPatternsSchema:
                 "aws_s3_bucket": "{project}-{environment}",
                 "aws_glue_database": "{project}_{environment}",
                 "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}",
+                "aws_lambda_function": "{project}",
+                "aws_iam_role": "{project}",
+                "aws_iam_policy": "{project}",
+                "aws_kinesis_stream": "{project}",
+                "aws_kinesis_firehose": "{project}",
+                "aws_dynamodb_table": "{project}",
+                "aws_sns_topic": "{project}",
+                "aws_sqs_queue": "{project}",
+                "aws_step_function": "{project}",
+                "dbx_workspace": "{project}",
                 "dbx_cluster": "{project}-{environment}",
                 "dbx_job": "{project}-{environment}",
+                "dbx_notebook_path": "/{project}",
+                "dbx_repo": "{project}",
+                "dbx_pipeline": "{project}",
+                "dbx_sql_warehouse": "{project}",
                 "dbx_catalog": "{project}_{environment}",
                 "dbx_schema": "{domain}",
                 "dbx_table": "{entity}",
+                "dbx_volume": "{project}",
+                "dbx_secret_scope": "{project}",
+                "dbx_instance_pool": "{project}",
+                "dbx_policy": "{project}",
                 "custom_resource": "{project}"  # Invalid: not allowed
             }
         }

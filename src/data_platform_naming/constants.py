@@ -4,6 +4,69 @@ constants.py
 Global constants for AWS and Databricks naming conventions
 """
 
+from enum import Enum
+
+
+# =============================================================================
+# ENUMS (TYPE-SAFE CONSTANTS)
+# =============================================================================
+
+class Environment(str, Enum):
+    """Environment codes for deployments"""
+    DEV = "dev"
+    STG = "stg"
+    PRD = "prd"
+
+
+class AWSResourceType(str, Enum):
+    """AWS resource type identifiers"""
+    S3_BUCKET = "aws_s3_bucket"
+    GLUE_DATABASE = "aws_glue_database"
+    GLUE_TABLE = "aws_glue_table"
+    GLUE_CRAWLER = "aws_glue_crawler"
+    LAMBDA_FUNCTION = "aws_lambda_function"
+    IAM_ROLE = "aws_iam_role"
+    IAM_POLICY = "aws_iam_policy"
+    KINESIS_STREAM = "aws_kinesis_stream"
+    KINESIS_FIREHOSE = "aws_kinesis_firehose"
+    DYNAMODB_TABLE = "aws_dynamodb_table"
+    SNS_TOPIC = "aws_sns_topic"
+    SQS_QUEUE = "aws_sqs_queue"
+    STEP_FUNCTION = "aws_step_function"
+
+
+class DatabricksResourceType(str, Enum):
+    """Databricks resource type identifiers"""
+    WORKSPACE = "dbx_workspace"
+    CLUSTER = "dbx_cluster"
+    JOB = "dbx_job"
+    NOTEBOOK = "dbx_notebook"
+    REPO = "dbx_repo"
+    PIPELINE = "dbx_pipeline"
+    SQL_WAREHOUSE = "dbx_sql_warehouse"
+    CATALOG = "dbx_catalog"
+    SCHEMA = "dbx_schema"
+    TABLE = "dbx_table"
+    VOLUME = "dbx_volume"
+    SECRET_SCOPE = "dbx_secret_scope"
+    INSTANCE_POOL = "dbx_instance_pool"
+    POLICY = "dbx_policy"
+
+
+class AWSDataLayer(str, Enum):
+    """AWS S3 data layer names"""
+    RAW = "raw"
+    PROCESSED = "processed"
+    CURATED = "curated"
+    ARCHIVE = "archive"
+    LOGS = "logs"
+
+
+class DatabricksDataLayer(str, Enum):
+    """Databricks medallion architecture layers"""
+    BRONZE = "bronze"
+    SILVER = "silver"
+    GOLD = "gold"
 
 
 # =============================================================================
@@ -11,12 +74,12 @@ Global constants for AWS and Databricks naming conventions
 # =============================================================================
 
 ENVIRONMENTS = {
-    'dev': 'Development',
-    'stg': 'Staging',
-    'prd': 'Production'
+    Environment.DEV.value: 'Development',
+    Environment.STG.value: 'Staging',
+    Environment.PRD.value: 'Production'
 }
 
-ENVIRONMENT_CODES = ['dev', 'stg', 'prd']
+ENVIRONMENT_CODES = [e.value for e in Environment]
 
 
 # =============================================================================
@@ -428,6 +491,13 @@ def is_valid_layer(layer: str, platform: str = 'databricks') -> bool:
 # =============================================================================
 
 __all__ = [
+    # Enums (Type-Safe Constants)
+    'Environment',
+    'AWSResourceType',
+    'DatabricksResourceType',
+    'AWSDataLayer',
+    'DatabricksDataLayer',
+
     # Environments
     'ENVIRONMENTS',
     'ENVIRONMENT_CODES',

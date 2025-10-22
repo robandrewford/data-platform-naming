@@ -246,9 +246,10 @@ class ConfigurationManager:
         """
         self._check_loaded()
 
-        results = {}
+        results: Dict[str, GeneratedName] = {}
         for resource in resources:
-            resource_id = resource.get("id", resource.get("type"))
+            # Ensure resource_id is always a string
+            resource_id = str(resource.get("id") or resource.get("type") or "unknown")
             resource_type = resource["type"]
 
             # Merge blueprint metadata with resource metadata

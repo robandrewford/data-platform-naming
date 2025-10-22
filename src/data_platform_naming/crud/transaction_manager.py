@@ -13,10 +13,16 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, cast
 
-from rich.console import Console
-from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+if TYPE_CHECKING:
+    from rich.console import Console
+    from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TextColumn, TimeElapsedColumn
+    from rich.progress import Progress as ProgressType
+else:
+    from rich.console import Console
+    from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TextColumn, TimeElapsedColumn
+    ProgressType = Progress
 
 
 class OperationType(Enum):
@@ -70,7 +76,7 @@ class Operation:
 
     def duration(self) -> Optional[float]:
         """Calculate operation duration"""
-        if self.started_at and self.completed_at:
+        if self.started_at is not None and self.completed_at is not None:
             return self.completed_at - self.started_at
         return None
 
@@ -185,7 +191,7 @@ class WriteAheadLog:
 
         return uncommitted
 
-    def _serialize_transaction(self, tx: Transaction) -> Dict:
+    def _serialize_transaction(self, tx: Transaction) -> Dict[str, Any]:
         """Serialize transaction to JSON"""
         return {
             'id': tx.id,
@@ -196,7 +202,7 @@ class WriteAheadLog:
             'operations': [self._serialize_operation(op) for op in tx.operations]
         }
 
-    def _serialize_operation(self, op: Operation) -> Dict:
+    def _serialize_operation(self, op: Operation) -> Dict[str, Any]:
         """Serialize operation to JSON"""
         return {
             'id': op.id,
@@ -212,7 +218,7 @@ class WriteAheadLog:
             'rollback_data': op.rollback_data
         }
 
-    def _deserialize_transaction(self, data: Dict) -> Transaction:
+    def _deserialize_transaction(self, data: Dict[str, Any]) -> Transaction:
         """Deserialize transaction from JSON"""
         return Transaction(
             id=data['id'],
@@ -223,7 +229,7 @@ class WriteAheadLog:
             operations=[self._deserialize_operation(op) for op in data['operations']]
         )
 
-    def _deserialize_operation(self, data: Dict) -> Operation:
+    def _deserialize_operation(self, data: Dict[str, Any]) -> Operation:
         """Deserialize operation from JSON"""
         return Operation(
             id=data['id'],
@@ -247,14 +253,14 @@ class StateStore:
         self.state_dir = state_dir
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.state_file = self.state_dir / "state.json"
-        self.state: Dict[str, Dict] = self._load_state()
+        self.state: Dict[str, Dict[str, Any]] = self._load_state()
         self._lock = threading.Lock()
 
-    def _load_state(self) -> Dict[str, Dict]:
+    def _load_state(self) -> Dict[str, Dict[str, Any]]:
         """Load state from disk"""
         if self.state_file.exists():
             with open(self.state_file) as f:
-                return json.load(f)
+                return cast(Dict[str, Dict[str, Any]], json.load(f))
         return {}
 
     def _persist_state(self) -> None:
@@ -262,12 +268,12 @@ class StateStore:
         with open(self.state_file, 'w') as f:
             json.dump(self.state, f, indent=2)
 
-    def get(self, resource_id: str) -> Optional[Dict]:
+    def get(self, resource_id: str) -> Optional[Dict[str, Any]]:
         """Get resource state"""
         with self._lock:
             return self.state.get(resource_id)
 
-    def set(self, resource_id: str, state: Dict) -> None:
+    def set(self, resource_id: str, state: Dict[str, Any]) -> None:
         """Set resource state"""
         with self._lock:
             self.state[resource_id] = state
@@ -289,9 +295,9 @@ class StateStore:
 class ProgressTracker:
     """Real-time progress tracking with Rich"""
 
-    def __init__(self, console: Optional[Console] = None):
+    def __init__(self, console: Optional["Console"] = None):
         self.console = console or Console()
-        self.progress = Progress(
+        self.progress: "ProgressType" = Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
@@ -299,18 +305,18 @@ class ProgressTracker:
             TimeElapsedColumn(),
             console=self.console
         )
-        self.task_id = None
-        self.start_time = None
+        self.task_id: Optional["TaskID"] = None
+        self.start_time: Optional[float] = None
 
-    def start(self, total: int, description: str = "Processing"):
+    def start(self, total: int, description: str = "Processing") -> None:
         """Start progress tracking"""
         self.start_time = time.time()
         self.progress.start()
         self.task_id = self.progress.add_task(description, total=total)
 
-    def update(self, status: str, advance: int = 1):
+    def update(self, status: str, advance: int = 1) -> None:
         """Update progress"""
-        if self.task_id is not None:
+        if self.task_id is not None and self.start_time is not None:
             elapsed = time.time() - self.start_time
             self.progress.update(
                 self.task_id,
@@ -318,16 +324,16 @@ class ProgressTracker:
                 advance=advance
             )
 
-    def complete(self):
+    def complete(self) -> None:
         """Complete progress tracking"""
         if self.task_id is not None:
             self.progress.stop()
 
-    def error(self, message: str):
+    def error(self, message: str) -> None:
         """Display error"""
         self.console.print(f"[red]✗ {message}[/red]")
 
-    def success(self, message: str):
+    def success(self, message: str) -> None:
         """Display success"""
         self.console.print(f"[green]✓ {message}[/green]")
 
@@ -469,7 +475,7 @@ class TransactionManager:
                         f"Resource deletion failed: {operation.resource_id}"
                     )
 
-    def _execute_operation(self, operation: Operation) -> Dict:
+    def _execute_operation(self, operation: Operation) -> Dict[str, Any]:
         """Execute single operation"""
         if operation.resource_type not in self.executors:
             raise ValueError(
@@ -477,7 +483,7 @@ class TransactionManager:
             )
 
         executor = self.executors[operation.resource_type]
-        result = executor(operation)
+        result = cast(Dict[str, Any], executor(operation))
 
         # Update state store
         if operation.type == OperationType.CREATE:
@@ -490,8 +496,9 @@ class TransactionManager:
             self.state.delete(operation.resource_id)
         elif operation.type == OperationType.UPDATE:
             current_state = self.state.get(operation.resource_id)
-            current_state.update(operation.params)
-            self.state.set(operation.resource_id, current_state)
+            if current_state is not None:
+                current_state.update(operation.params)
+                self.state.set(operation.resource_id, current_state)
 
         return result
 
@@ -512,7 +519,7 @@ class TransactionManager:
                     if operation.type == OperationType.CREATE:
                         self.state.delete(operation.resource_id)
                     elif operation.type == OperationType.DELETE:
-                        if operation.rollback_data:
+                        if operation.rollback_data is not None:
                             self.state.set(operation.resource_id, operation.rollback_data)
 
                     operation.status = OperationStatus.ROLLED_BACK
@@ -613,6 +620,7 @@ if __name__ == "__main__":
 
     if success:
         print(f"\n✓ Transaction completed: {tx.id}")
-        print(f"  Duration: {tx.committed_at - tx.created_at:.2f}s")
+        if tx.committed_at is not None:
+            print(f"  Duration: {tx.committed_at - tx.created_at:.2f}s")
     else:
         print(f"\n✗ Transaction failed: {tx.id}")

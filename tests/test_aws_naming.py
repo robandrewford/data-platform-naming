@@ -14,6 +14,7 @@ from data_platform_naming.aws_naming import (
 from data_platform_naming.config.configuration_manager import (
     ConfigurationManager,
 )
+from data_platform_naming.constants import Environment
 
 # ============================================================================
 # Test Fixtures
@@ -23,7 +24,7 @@ from data_platform_naming.config.configuration_manager import (
 def aws_config():
     """Standard AWS naming config for tests"""
     return AWSNamingConfig(
-        environment="prd",
+        environment=Environment.PRD.value,
         project="testproject",
         region="us-east-1",
         team="data-engineering",
@@ -35,7 +36,7 @@ def aws_config():
 def aws_config_minimal():
     """Minimal AWS naming config without optional fields"""
     return AWSNamingConfig(
-        environment="dev",
+        environment=Environment.DEV.value,
         project="testproject",
         region="us-west-2"
     )
@@ -201,38 +202,17 @@ def config_manager(values_config, patterns_config):
 class TestAWSNamingGeneratorInit:
     """Test AWSNamingGenerator initialization"""
 
-    def test_init_without_config_manager(self, aws_config):
-        """Test initialization without ConfigurationManager (use_config=False)"""
-        generator = AWSNamingGenerator(
-            config=aws_config,
-            use_config=False
-        )
-
-        assert generator.config == aws_config
-        assert generator.config_manager is None
-        assert generator.use_config is False
-
     def test_init_with_config_manager(self, aws_config, config_manager):
-        """Test initialization with ConfigurationManager (use_config=True)"""
+        """Test initialization with ConfigurationManager"""
         generator = AWSNamingGenerator(
             config=aws_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
 
         assert generator.config == aws_config
-        assert generator.config_manager is config_manager
-        assert generator.use_config is True
+        assert generator.configuration_manager is config_manager
 
-    def test_init_use_config_without_manager_raises_error(self, aws_config):
-        """Test that use_config=True without ConfigurationManager raises ValueError"""
-        with pytest.raises(ValueError, match="use_config=True requires configuration_manager"):
-            AWSNamingGenerator(
-                config=aws_config,
-                use_config=True
-            )
-
-    def test_init_validates_environment(self):
+    def test_init_validates_environment(self, config_manager):
         """Test that invalid environment raises ValueError"""
         invalid_config = AWSNamingConfig(
             environment="invalid",
@@ -241,29 +221,26 @@ class TestAWSNamingGeneratorInit:
         )
 
         with pytest.raises(ValueError, match="Invalid environment"):
-            AWSNamingGenerator(config=invalid_config)
+            AWSNamingGenerator(config=invalid_config, configuration_manager=config_manager)
 
-    def test_init_validates_project_name(self):
+    def test_init_validates_project_name(self, config_manager):
         """Test that invalid project name raises ValueError"""
         invalid_config = AWSNamingConfig(
-            environment="dev",
+            environment=Environment.DEV.value,
             project="Test_Project!",  # Invalid characters
             region="us-east-1"
         )
 
         with pytest.raises(ValueError, match="Invalid project name"):
-            AWSNamingGenerator(config=invalid_config)
+            AWSNamingGenerator(config=invalid_config, configuration_manager=config_manager)
 
     def test_init_pattern_validation_success(self, aws_config, config_manager):
         """Test that pattern validation succeeds with all required patterns"""
         # Should not raise an error
         generator = AWSNamingGenerator(
             config=aws_config,
-            configuration_manager=config_manager,
-            use_config=True
+            configuration_manager=config_manager
         )
-
-        assert generator.use_config is True
 
     def test_init_pattern_validation_missing_patterns(self, aws_config):
         """Test that missing patterns raise error during ConfigurationManager loading"""
@@ -299,7 +276,6 @@ class TestAWSNamingGeneratorS3:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         name = generator.generate_s3_bucket_name(
@@ -314,7 +290,6 @@ class TestAWSNamingGeneratorS3:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         metadata = {"layer": "silver"}
@@ -357,11 +332,20 @@ class TestAWSNamingGeneratorS3:
                 "aws_sns_topic": "{project}",
                 "aws_sqs_queue": "{project}",
                 "aws_step_function": "{project}",
+                "dbx_workspace": "{project}",
                 "dbx_cluster": "{project}",
                 "dbx_job": "{project}",
+                "dbx_notebook_path": "/{project}",
+                "dbx_repo": "{project}",
+                "dbx_pipeline": "{project}",
+                "dbx_sql_warehouse": "{project}",
                 "dbx_catalog": "{project}",
                 "dbx_schema": "{domain}",
-                "dbx_table": "{entity}"
+                "dbx_table": "{entity}",
+                "dbx_volume": "{project}",
+                "dbx_secret_scope": "{project}",
+                "dbx_instance_pool": "{project}",
+                "dbx_policy": "{project}"
             },
             "validation": {
                 "max_length": {
@@ -373,27 +357,20 @@ class TestAWSNamingGeneratorS3:
         manager = ConfigurationManager()
         manager.load_configs(values_dict=long_values, patterns_dict=patterns)
 
+        # Create config with the long project name to match the values_dict
+        long_config = AWSNamingConfig(
+            environment=Environment.PRD.value,
+            project="a" * 100,  # Match the values_dict
+            region="us-east-1"
+        )
+
         generator = AWSNamingGenerator(
-            config=aws_config,
+            config=long_config,
             configuration_manager=manager,
-            use_config=True
         )
 
-        # Generate a name that will exceed the max length
-        name = generator.generate_s3_bucket_name(purpose="data", layer="raw")
-
-        # The name should be generated but will be very long
-        # The actual validation happens in the result
-        assert len(name) > 63  # Name exceeds limit
-
-    def test_generate_s3_bucket_name_use_config_false_raises_error(self, aws_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = AWSNamingGenerator(
-            config=aws_config,
-            use_config=False
-        )
-
-        with pytest.raises(NotImplementedError, match="use_config=True"):
+        # Should raise ValueError because name exceeds max length
+        with pytest.raises(ValueError, match="Name validation failed.*exceeds maximum length"):
             generator.generate_s3_bucket_name(purpose="data", layer="raw")
 
 
@@ -409,7 +386,6 @@ class TestAWSNamingGeneratorGlue:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         name = generator.generate_glue_database_name(
@@ -424,7 +400,6 @@ class TestAWSNamingGeneratorGlue:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         metadata = {"domain": "finance"}
@@ -436,19 +411,11 @@ class TestAWSNamingGeneratorGlue:
 
         assert "prd" in name
 
-    def test_generate_glue_database_name_use_config_false_raises_error(self, aws_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_glue_database_name(domain="sales", layer="gold")
-
     def test_generate_glue_table_name_success(self, aws_config, config_manager):
         """Test successful Glue table name generation"""
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         name = generator.generate_glue_table_name(
@@ -463,7 +430,6 @@ class TestAWSNamingGeneratorGlue:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         metadata = {"table_type": "dim"}
@@ -475,19 +441,11 @@ class TestAWSNamingGeneratorGlue:
 
         assert "customers" in name
 
-    def test_generate_glue_table_name_use_config_false_raises_error(self, aws_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_glue_table_name(entity="test", table_type="fact")
-
     def test_generate_glue_crawler_name_success(self, aws_config, config_manager):
         """Test successful Glue crawler name generation"""
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         name = generator.generate_glue_crawler_name(
@@ -502,7 +460,6 @@ class TestAWSNamingGeneratorGlue:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         metadata = {"source": "rds"}
@@ -514,13 +471,6 @@ class TestAWSNamingGeneratorGlue:
 
         assert "prd" in name
         assert "testdb" in name
-
-    def test_generate_glue_crawler_name_use_config_false_raises_error(self, aws_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_glue_crawler_name(database="test", source="s3")
 
 
 # ============================================================================
@@ -535,7 +485,6 @@ class TestAWSNamingGeneratorLambda:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         name = generator.generate_lambda_function_name(
@@ -551,7 +500,6 @@ class TestAWSNamingGeneratorLambda:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         metadata = {"action": "transform"}
@@ -564,17 +512,6 @@ class TestAWSNamingGeneratorLambda:
 
         assert "prd" in name
         assert "sales" in name
-
-    def test_generate_lambda_function_name_use_config_false_raises_error(self, aws_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_lambda_function_name(
-                domain="test",
-                trigger="s3",
-                action="process"
-            )
 
 
 # ============================================================================
@@ -589,7 +526,6 @@ class TestAWSNamingGeneratorIAM:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         name = generator.generate_iam_role_name(
@@ -604,7 +540,6 @@ class TestAWSNamingGeneratorIAM:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         metadata = {"purpose": "admin"}
@@ -617,19 +552,11 @@ class TestAWSNamingGeneratorIAM:
         assert "prd" in name
         assert "lambda" in name
 
-    def test_generate_iam_role_name_use_config_false_raises_error(self, aws_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_iam_role_name(service="lambda", purpose="execution")
-
     def test_generate_iam_policy_name_success(self, aws_config, config_manager):
         """Test successful IAM policy name generation"""
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         name = generator.generate_iam_policy_name(
@@ -644,7 +571,6 @@ class TestAWSNamingGeneratorIAM:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         metadata = {"service": "dynamodb"}
@@ -656,13 +582,6 @@ class TestAWSNamingGeneratorIAM:
 
         assert "prd" in name
         assert "policy" in name
-
-    def test_generate_iam_policy_name_use_config_false_raises_error(self, aws_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_iam_policy_name(service="s3", purpose="read")
 
 
 # ============================================================================
@@ -677,7 +596,6 @@ class TestAWSNamingGeneratorKinesis:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         name = generator.generate_kinesis_stream_name(
@@ -692,7 +610,6 @@ class TestAWSNamingGeneratorKinesis:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         metadata = {"source": "mobile"}
@@ -705,19 +622,11 @@ class TestAWSNamingGeneratorKinesis:
         assert "prd" in name
         assert "events" in name
 
-    def test_generate_kinesis_stream_name_use_config_false_raises_error(self, aws_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_kinesis_stream_name(domain="events", source="api")
-
     def test_generate_kinesis_firehose_name_success(self, aws_config, config_manager):
         """Test successful Kinesis Firehose name generation"""
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         name = generator.generate_kinesis_firehose_name(
@@ -732,7 +641,6 @@ class TestAWSNamingGeneratorKinesis:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         metadata = {"destination": "redshift"}
@@ -744,13 +652,6 @@ class TestAWSNamingGeneratorKinesis:
 
         assert "prd" in name
         assert "analytics" in name
-
-    def test_generate_kinesis_firehose_name_use_config_false_raises_error(self, aws_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_kinesis_firehose_name(domain="logs", destination="s3")
 
 
 # ============================================================================
@@ -765,7 +666,6 @@ class TestAWSNamingGeneratorDynamoDB:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         name = generator.generate_dynamodb_table_name(
@@ -780,7 +680,6 @@ class TestAWSNamingGeneratorDynamoDB:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         metadata = {"purpose": "state"}
@@ -792,13 +691,6 @@ class TestAWSNamingGeneratorDynamoDB:
 
         assert "prd" in name
         assert "user" in name
-
-    def test_generate_dynamodb_table_name_use_config_false_raises_error(self, aws_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_dynamodb_table_name(entity="test", purpose="data")
 
 
 # ============================================================================
@@ -813,7 +705,6 @@ class TestAWSNamingGeneratorSNS:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         name = generator.generate_sns_topic_name(
@@ -828,7 +719,6 @@ class TestAWSNamingGeneratorSNS:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         metadata = {"purpose": "completed"}
@@ -840,13 +730,6 @@ class TestAWSNamingGeneratorSNS:
 
         assert "prd" in name
         assert "data" in name
-
-    def test_generate_sns_topic_name_use_config_false_raises_error(self, aws_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_sns_topic_name(event_type="alert", purpose="failed")
 
 
 # ============================================================================
@@ -861,7 +744,6 @@ class TestAWSNamingGeneratorSQS:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         name = generator.generate_sqs_queue_name(
@@ -876,7 +758,6 @@ class TestAWSNamingGeneratorSQS:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         metadata = {"queue_type": "fifo"}
@@ -888,13 +769,6 @@ class TestAWSNamingGeneratorSQS:
 
         assert "prd" in name
         assert "processing" in name
-
-    def test_generate_sqs_queue_name_use_config_false_raises_error(self, aws_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_sqs_queue_name(purpose="processing", queue_type="standard")
 
 
 # ============================================================================
@@ -909,7 +783,6 @@ class TestAWSNamingGeneratorStepFunctions:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         name = generator.generate_step_function_name(
@@ -924,7 +797,6 @@ class TestAWSNamingGeneratorStepFunctions:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         metadata = {"purpose": "inference"}
@@ -936,13 +808,6 @@ class TestAWSNamingGeneratorStepFunctions:
 
         assert "prd" in name
         assert "etl" in name
-
-    def test_generate_step_function_name_use_config_false_raises_error(self, aws_config):
-        """Test that use_config=False raises NotImplementedError"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
-
-        with pytest.raises(NotImplementedError):
-            generator.generate_step_function_name(workflow="etl", purpose="orchestration")
 
 
 # ============================================================================
@@ -957,7 +822,6 @@ class TestAWSNamingGeneratorIntegration:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         # Generate one name for each resource type
@@ -987,7 +851,7 @@ class TestAWSNamingGeneratorIntegration:
 
     def test_different_environments(self, config_manager):
         """Test generating names across different environments"""
-        environments = ["dev", "stg", "prd"]
+        environments = [Environment.DEV.value, Environment.STG.value, Environment.PRD.value]
 
         for env in environments:
             config = AWSNamingConfig(
@@ -999,7 +863,6 @@ class TestAWSNamingGeneratorIntegration:
             generator = AWSNamingGenerator(
                 config=config,
                 configuration_manager=config_manager,
-                use_config=True
             )
 
             name = generator.generate_s3_bucket_name("data", "raw")
@@ -1012,7 +875,6 @@ class TestAWSNamingGeneratorIntegration:
         generator = AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         # Generate with custom purpose
@@ -1029,7 +891,6 @@ class TestAWSNamingGeneratorIntegration:
         generator = AWSNamingGenerator(
             config=aws_config_minimal,
             configuration_manager=config_manager,
-            use_config=True
         )
 
         # Should still work without optional fields
@@ -1047,31 +908,31 @@ class TestAWSNamingGeneratorIntegration:
 class TestAWSNamingGeneratorUtilities:
     """Test utility methods"""
 
-    def test_get_region_code(self, aws_config):
+    def test_get_region_code(self, aws_config, config_manager):
         """Test region code mapping"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
+        generator = AWSNamingGenerator(config=aws_config, configuration_manager=config_manager)
 
         region_code = generator._get_region_code()
 
         assert region_code == "use1"
 
-    def test_get_region_code_unknown_region(self):
+    def test_get_region_code_unknown_region(self, config_manager):
         """Test region code for unknown region returns default"""
         config = AWSNamingConfig(
-            environment="dev",
+            environment=Environment.DEV.value,
             project="test",
             region="unknown-region"
         )
 
-        generator = AWSNamingGenerator(config=config, use_config=False)
+        generator = AWSNamingGenerator(config=config, configuration_manager=config_manager)
         region_code = generator._get_region_code()
 
         # Should return default
         assert region_code == "use1"
 
-    def test_sanitize_name_s3(self, aws_config):
+    def test_sanitize_name_s3(self, aws_config, config_manager):
         """Test name sanitization for S3 buckets"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
+        generator = AWSNamingGenerator(config=aws_config, configuration_manager=config_manager)
 
         sanitized = generator._sanitize_name(
             "Test_Bucket!Name",
@@ -1082,9 +943,9 @@ class TestAWSNamingGeneratorUtilities:
         assert sanitized == "test-bucket-name"
         assert sanitized.islower()
 
-    def test_sanitize_name_glue(self, aws_config):
+    def test_sanitize_name_glue(self, aws_config, config_manager):
         """Test name sanitization for Glue resources"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
+        generator = AWSNamingGenerator(config=aws_config, configuration_manager=config_manager)
 
         sanitized = generator._sanitize_name(
             "Test-Database!Name",
@@ -1095,9 +956,9 @@ class TestAWSNamingGeneratorUtilities:
         assert sanitized == "test_database_name"
         assert sanitized.islower()
 
-    def test_truncate_name_within_limit(self, aws_config):
+    def test_truncate_name_within_limit(self, aws_config, config_manager):
         """Test name truncation when within limit"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
+        generator = AWSNamingGenerator(config=aws_config, configuration_manager=config_manager)
 
         short_name = "short-name"
         truncated = generator._truncate_name(short_name, AWSResourceType.S3_BUCKET)
@@ -1105,9 +966,9 @@ class TestAWSNamingGeneratorUtilities:
         # Should remain unchanged
         assert truncated == short_name
 
-    def test_truncate_name_exceeds_limit(self, aws_config):
+    def test_truncate_name_exceeds_limit(self, aws_config, config_manager):
         """Test name truncation when exceeding limit"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
+        generator = AWSNamingGenerator(config=aws_config, configuration_manager=config_manager)
 
         long_name = "a" * 100  # Way over S3 limit of 63
         truncated = generator._truncate_name(long_name, AWSResourceType.S3_BUCKET)
@@ -1115,9 +976,9 @@ class TestAWSNamingGeneratorUtilities:
         # Should be truncated to limit
         assert len(truncated) <= 63
 
-    def test_generate_standard_tags(self, aws_config):
+    def test_generate_standard_tags(self, aws_config, config_manager):
         """Test standard tags generation"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
+        generator = AWSNamingGenerator(config=aws_config, configuration_manager=config_manager)
 
         tags = generator.generate_standard_tags(AWSResourceType.S3_BUCKET)
 
@@ -1134,9 +995,9 @@ class TestAWSNamingGeneratorUtilities:
         assert "CostCenter" in tags
         assert tags["CostCenter"] == "eng-001"
 
-    def test_generate_standard_tags_with_additional(self, aws_config):
+    def test_generate_standard_tags_with_additional(self, aws_config, config_manager):
         """Test standard tags with additional custom tags"""
-        generator = AWSNamingGenerator(config=aws_config, use_config=False)
+        generator = AWSNamingGenerator(config=aws_config, configuration_manager=config_manager)
 
         additional = {
             "Owner": "data-team",

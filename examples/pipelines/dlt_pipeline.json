@@ -1,0 +1,38 @@
+{
+  "name": "PHI-Deidentification-DLT",
+  "development": false,
+  "continuous": false,
+  "edition": "ADVANCED",
+  "photon": true,
+  "channel": "CURRENT",
+  "target": "<UC_CATALOG>.<UC_SCHEMA>",
+  "storage": "s3://<YOUR-DLT-STORAGE-LOCATION>/phi_deid_pipeline",
+  "configuration": {
+    "raw_path": "s3://landing/clinical/",
+    "schema_path": "s3://dlt/schemas/clinical",
+    "token_vault_catalog": "<UC_CATALOG>",
+    "token_vault_schema": "token_vault",
+    "token_vault_table": "token_map",
+    "secret_scope": "secrets",
+    "hmac_salt_secret_key": "hmac_salt_v1"
+  },
+  "libraries": [
+    {
+      "file": "Workspace:/Repos/<YOUR-REPO-PATH>/dlt_phi_deid.py"
+    }
+  ],
+  "clusters": [
+    {
+      "label": "default",
+      "autoscale": {
+        "min_workers": 2,
+        "max_workers": 8
+      },
+      "spark_conf": {
+        "spark.databricks.delta.preview.enabled": "true",
+        "spark.sql.adaptive.enabled": "true"
+      },
+      "policy_id": null
+    }
+  ]
+}
