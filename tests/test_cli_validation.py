@@ -2,6 +2,7 @@
 Tests for CLI input validation in data_platform_naming.cli
 """
 
+import json
 import pytest
 from click.testing import CliRunner
 
@@ -16,34 +17,49 @@ class TestOverrideValidation:
         """Create CLI runner"""
         return CliRunner()
 
-    def test_valid_override_environment(self, runner):
+    @pytest.fixture
+    def valid_blueprint(self, tmp_path):
+        """Create a minimal valid blueprint file"""
+        blueprint = {
+            "version": "1.0",
+            "metadata": {
+                "environment": "dev",
+                "project": "test"
+            },
+            "resources": {}
+        }
+        blueprint_file = tmp_path / "test.json"
+        blueprint_file.write_text(json.dumps(blueprint))
+        return str(blueprint_file)
+
+    def test_valid_override_environment(self, runner, valid_blueprint):
         """Test valid environment override"""
         result = runner.invoke(
             cli,
-            ['plan', 'preview', 'test.json', '--override', 'environment=dev'],
+            ['plan', 'preview', valid_blueprint, '--override', 'environment=dev'],
             catch_exceptions=False
         )
         # Command will fail due to missing test.json, but validation should pass
         assert 'Invalid override key' not in result.output
         assert 'Invalid environment' not in result.output
 
-    def test_valid_override_project(self, runner):
+    def test_valid_override_project(self, runner, valid_blueprint):
         """Test valid project override"""
         result = runner.invoke(
             cli,
-            ['plan', 'preview', 'test.json', '--override', 'project=my-project'],
+            ['plan', 'preview', valid_blueprint, '--override', 'project=my-project'],
             catch_exceptions=False
         )
         # Command will fail due to missing test.json, but validation should pass
         assert 'Invalid override key' not in result.output
         assert 'Invalid project name' not in result.output
 
-    def test_valid_multiple_overrides(self, runner):
+    def test_valid_multiple_overrides(self, runner, valid_blueprint):
         """Test multiple valid overrides"""
         result = runner.invoke(
             cli,
             [
-                'plan', 'preview', 'test.json',
+                'plan', 'preview', valid_blueprint,
                 '--override', 'environment=stg',
                 '--override', 'project=data-platform',
                 '--override', 'region=us-west-2'
@@ -55,11 +71,11 @@ class TestOverrideValidation:
         assert 'Invalid environment' not in result.output
         assert 'Invalid project name' not in result.output
 
-    def test_invalid_override_key(self, runner):
+    def test_invalid_override_key(self, runner, valid_blueprint):
         """Test invalid override key rejected"""
         result = runner.invoke(
             cli,
-            ['plan', 'preview', 'test.json', '--override', 'invalid_key=value'],
+            ['plan', 'preview', valid_blueprint, '--override', 'invalid_key=value'],
             catch_exceptions=False
         )
         assert result.exit_code != 0
@@ -67,11 +83,11 @@ class TestOverrideValidation:
         assert 'invalid_key' in result.output
         assert 'Allowed keys:' in result.output
 
-    def test_invalid_environment_value(self, runner):
+    def test_invalid_environment_value(self, runner, valid_blueprint):
         """Test invalid environment value rejected"""
         result = runner.invoke(
             cli,
-            ['plan', 'preview', 'test.json', '--override', 'environment=prod'],
+            ['plan', 'preview', valid_blueprint, '--override', 'environment=prod'],
             catch_exceptions=False
         )
         assert result.exit_code != 0
@@ -79,11 +95,11 @@ class TestOverrideValidation:
         assert 'prod' in result.output
         assert 'Allowed values:' in result.output
 
-    def test_invalid_project_uppercase(self, runner):
+    def test_invalid_project_uppercase(self, runner, valid_blueprint):
         """Test project name with uppercase rejected"""
         result = runner.invoke(
             cli,
-            ['plan', 'preview', 'test.json', '--override', 'project=MyProject'],
+            ['plan', 'preview', valid_blueprint, '--override', 'project=MyProject'],
             catch_exceptions=False
         )
         assert result.exit_code != 0
@@ -91,33 +107,33 @@ class TestOverrideValidation:
         assert 'MyProject' in result.output
         assert 'lowercase' in result.output
 
-    def test_invalid_project_special_chars(self, runner):
+    def test_invalid_project_special_chars(self, runner, valid_blueprint):
         """Test project name with special characters rejected"""
         result = runner.invoke(
             cli,
-            ['plan', 'preview', 'test.json', '--override', 'project=my_project!'],
+            ['plan', 'preview', valid_blueprint, '--override', 'project=my_project!'],
             catch_exceptions=False
         )
         assert result.exit_code != 0
         assert 'Invalid project name' in result.output
         assert 'my_project!' in result.output
 
-    def test_invalid_project_spaces(self, runner):
+    def test_invalid_project_spaces(self, runner, valid_blueprint):
         """Test project name with spaces rejected"""
         result = runner.invoke(
             cli,
-            ['plan', 'preview', 'test.json', '--override', 'project=my project'],
+            ['plan', 'preview', valid_blueprint, '--override', 'project=my project'],
             catch_exceptions=False
         )
         assert result.exit_code != 0
         assert 'Invalid project name' in result.output
         assert 'my project' in result.output
 
-    def test_invalid_override_format_missing_equals(self, runner):
+    def test_invalid_override_format_missing_equals(self, runner, valid_blueprint):
         """Test override format without equals sign rejected"""
         result = runner.invoke(
             cli,
-            ['plan', 'preview', 'test.json', '--override', 'environmentdev'],
+            ['plan', 'preview', valid_blueprint, '--override', 'environmentdev'],
             catch_exceptions=False
         )
         assert result.exit_code != 0
@@ -125,11 +141,11 @@ class TestOverrideValidation:
         assert 'environmentdev' in result.output
         assert 'key=value' in result.output
 
-    def test_override_whitespace_trimmed(self, runner):
+    def test_override_whitespace_trimmed(self, runner, valid_blueprint):
         """Test that whitespace in override is trimmed"""
         result = runner.invoke(
             cli,
-            ['plan', 'preview', 'test.json', '--override', ' environment = dev '],
+            ['plan', 'preview', valid_blueprint, '--override', ' environment = dev '],
             catch_exceptions=False
         )
         # Validation should pass (whitespace trimmed), command fails on missing file
@@ -145,22 +161,37 @@ class TestOverrideValidationInCreateCommand:
         """Create CLI runner"""
         return CliRunner()
 
-    def test_create_invalid_override_key(self, runner):
+    @pytest.fixture
+    def valid_blueprint(self, tmp_path):
+        """Create a minimal valid blueprint file"""
+        blueprint = {
+            "version": "1.0",
+            "metadata": {
+                "environment": "dev",
+                "project": "test"
+            },
+            "resources": {}
+        }
+        blueprint_file = tmp_path / "test.json"
+        blueprint_file.write_text(json.dumps(blueprint))
+        return str(blueprint_file)
+
+    def test_create_invalid_override_key(self, runner, valid_blueprint):
         """Test invalid override key rejected in create command"""
         result = runner.invoke(
             cli,
-            ['create', '--blueprint', 'test.json', '--override', 'bad_key=value'],
+            ['create', '--blueprint', valid_blueprint, '--override', 'bad_key=value'],
             catch_exceptions=False
         )
         assert result.exit_code != 0
         assert 'Invalid override key' in result.output
         assert 'bad_key' in result.output
 
-    def test_create_invalid_environment(self, runner):
+    def test_create_invalid_environment(self, runner, valid_blueprint):
         """Test invalid environment rejected in create command"""
         result = runner.invoke(
             cli,
-            ['create', '--blueprint', 'test.json', '--override', 'environment=production'],
+            ['create', '--blueprint', valid_blueprint, '--override', 'environment=production'],
             catch_exceptions=False
         )
         assert result.exit_code != 0
@@ -176,6 +207,21 @@ class TestAllowedOverrideKeys:
         """Create CLI runner"""
         return CliRunner()
 
+    @pytest.fixture
+    def valid_blueprint(self, tmp_path):
+        """Create a minimal valid blueprint file"""
+        blueprint = {
+            "version": "1.0",
+            "metadata": {
+                "environment": "dev",
+                "project": "test"
+            },
+            "resources": {}
+        }
+        blueprint_file = tmp_path / "test.json"
+        blueprint_file.write_text(json.dumps(blueprint))
+        return str(blueprint_file)
+
     @pytest.mark.parametrize('key', [
         'environment',
         'project',
@@ -184,11 +230,11 @@ class TestAllowedOverrideKeys:
         'cost_center',
         'data_classification'
     ])
-    def test_allowed_keys_accepted(self, runner, key):
+    def test_allowed_keys_accepted(self, runner, valid_blueprint, key):
         """Test that all allowed keys are accepted"""
         result = runner.invoke(
             cli,
-            ['plan', 'preview', 'test.json', '--override', f'{key}=test-value'],
+            ['plan', 'preview', valid_blueprint, '--override', f'{key}=test-value'],
             catch_exceptions=False
         )
         # Validation should pass, command fails on missing file
@@ -203,12 +249,27 @@ class TestEnvironmentValues:
         """Create CLI runner"""
         return CliRunner()
 
+    @pytest.fixture
+    def valid_blueprint(self, tmp_path):
+        """Create a minimal valid blueprint file"""
+        blueprint = {
+            "version": "1.0",
+            "metadata": {
+                "environment": "dev",
+                "project": "test"
+            },
+            "resources": {}
+        }
+        blueprint_file = tmp_path / "test.json"
+        blueprint_file.write_text(json.dumps(blueprint))
+        return str(blueprint_file)
+
     @pytest.mark.parametrize('env', ['dev', 'stg', 'prd'])
-    def test_valid_environments_accepted(self, runner, env):
+    def test_valid_environments_accepted(self, runner, valid_blueprint, env):
         """Test that all valid environments are accepted"""
         result = runner.invoke(
             cli,
-            ['plan', 'preview', 'test.json', '--override', f'environment={env}'],
+            ['plan', 'preview', valid_blueprint, '--override', f'environment={env}'],
             catch_exceptions=False
         )
         # Validation should pass, command fails on missing file
@@ -223,6 +284,21 @@ class TestProjectNameValidation:
         """Create CLI runner"""
         return CliRunner()
 
+    @pytest.fixture
+    def valid_blueprint(self, tmp_path):
+        """Create a minimal valid blueprint file"""
+        blueprint = {
+            "version": "1.0",
+            "metadata": {
+                "environment": "dev",
+                "project": "test"
+            },
+            "resources": {}
+        }
+        blueprint_file = tmp_path / "test.json"
+        blueprint_file.write_text(json.dumps(blueprint))
+        return str(blueprint_file)
+
     @pytest.mark.parametrize('project', [
         'myproject',
         'my-project',
@@ -231,11 +307,11 @@ class TestProjectNameValidation:
         'a',
         '123'
     ])
-    def test_valid_project_names(self, runner, project):
+    def test_valid_project_names(self, runner, valid_blueprint, project):
         """Test valid project name formats are accepted"""
         result = runner.invoke(
             cli,
-            ['plan', 'preview', 'test.json', '--override', f'project={project}'],
+            ['plan', 'preview', valid_blueprint, '--override', f'project={project}'],
             catch_exceptions=False
         )
         # Validation should pass, command fails on missing file
@@ -250,11 +326,11 @@ class TestProjectNameValidation:
         'my-project@',         # special char
         'my-project#'          # special char
     ])
-    def test_invalid_project_names(self, runner, project):
+    def test_invalid_project_names(self, runner, valid_blueprint, project):
         """Test invalid project name formats are rejected"""
         result = runner.invoke(
             cli,
-            ['plan', 'preview', 'test.json', '--override', f'project={project}'],
+            ['plan', 'preview', valid_blueprint, '--override', f'project={project}'],
             catch_exceptions=False
         )
         assert result.exit_code != 0

@@ -83,14 +83,20 @@ class DatabricksNamingGenerator:
     ):
         """
         Initialize Databricks naming generator.
-        
+
         Args:
             config: Databricks naming configuration
             configuration_manager: ConfigurationManager for pattern-based generation
-        
+
         Raises:
-            ValueError: If required patterns missing from configuration
+            ValueError: If configuration_manager is None or required patterns missing
         """
+        if configuration_manager is None:
+            raise ValueError(
+                "ConfigurationManager is required. "
+                "Legacy mode without ConfigurationManager is no longer supported."
+            )
+        
         self.config = config
         self.configuration_manager = configuration_manager
 

@@ -210,7 +210,7 @@ class TestAWSNamingGeneratorInit:
         )
 
         assert generator.config == aws_config
-        assert generator.config_manager is config_manager
+        assert generator.configuration_manager is config_manager
 
     def test_init_validates_environment(self, config_manager):
         """Test that invalid environment raises ValueError"""

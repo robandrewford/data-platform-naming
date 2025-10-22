@@ -81,17 +81,23 @@ class AWSNamingGenerator:
         configuration_manager: ConfigurationManager
     ):
         """
-        Initialize AWSNamingGenerator.
-        
+        Initialize AWS naming generator.
+
         Args:
             config: AWS naming configuration
             configuration_manager: ConfigurationManager for pattern-based generation
-        
+
         Raises:
-            ValueError: If pattern validation fails during initialization
+            ValueError: If configuration_manager is None or required patterns missing
         """
+        if configuration_manager is None:
+            raise ValueError(
+                "ConfigurationManager is required. "
+                "Legacy mode without ConfigurationManager is no longer supported."
+            )
+        
         self.config = config
-        self.config_manager = configuration_manager
+        self.configuration_manager = configuration_manager
 
         self._validate_config()
         self._validate_patterns_at_init()
@@ -133,7 +139,7 @@ class AWSNamingGenerator:
 
         for resource_type in required_resource_types:
             try:
-                pattern = self.config_manager.patterns_loader.get_pattern(resource_type)
+                pattern = self.configuration_manager.patterns_loader.get_pattern(resource_type)
                 # Check that pattern has required variables
                 pattern_vars = pattern.get_variables()
                 if not pattern_vars:
@@ -195,7 +201,7 @@ class AWSNamingGenerator:
 
         # Generate using ConfigurationManager
         # metadata will have highest precedence in ConfigurationManager
-        result = self.config_manager.generate_name(
+        result = self.configuration_manager.generate_name(
             resource_type=resource_type,
             environment=self.config.environment,
             blueprint_metadata=metadata,

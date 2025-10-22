@@ -339,14 +339,35 @@ class TestConfigurationManager:
         patterns_config = {
             "version": "1.0",
             "patterns": {
+                # AWS (13)
                 "aws_s3_bucket": "{project}-{missing_var}",
                 "aws_glue_database": "{project}",
                 "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}",
+                "aws_lambda_function": "{project}",
+                "aws_iam_role": "{project}",
+                "aws_iam_policy": "{project}",
+                "aws_kinesis_stream": "{project}",
+                "aws_kinesis_firehose": "{project}",
+                "aws_dynamodb_table": "{project}",
+                "aws_sns_topic": "{project}",
+                "aws_sqs_queue": "{project}",
+                "aws_step_function": "{project}",
+                # Databricks (14)
+                "dbx_workspace": "{project}",
                 "dbx_cluster": "{project}",
                 "dbx_job": "{project}",
+                "dbx_notebook_path": "/{project}",
+                "dbx_repo": "{project}",
+                "dbx_pipeline": "{project}",
+                "dbx_sql_warehouse": "{project}",
                 "dbx_catalog": "{project}",
                 "dbx_schema": "{domain}",
-                "dbx_table": "{entity}"
+                "dbx_table": "{entity}",
+                "dbx_volume": "{project}",
+                "dbx_secret_scope": "{project}",
+                "dbx_instance_pool": "{project}",
+                "dbx_policy": "{project}"
             },
             "validation": {
                 "required_variables": {
@@ -375,7 +396,7 @@ class TestConfigurationManager:
 
         types = manager.get_available_resource_types()
         assert "aws_s3_bucket" in types
-        assert len(types) == 8
+        assert len(types) == 27
 
     def test_get_available_environments(self, values_config, patterns_config):
         """Test getting available environments"""
@@ -437,7 +458,7 @@ class TestConfigurationManager:
         assert "ConfigurationManager" in repr_str
         assert "values_version=1.0" in repr_str
         assert "patterns_version=1.0" in repr_str
-        assert "resource_types=8" in repr_str
+        assert "resource_types=27" in repr_str
         assert "environments=2" in repr_str
 
     def test_check_loaded_values_not_loaded(self, patterns_config):
@@ -498,14 +519,35 @@ class TestConfigurationManager:
         patterns_config = {
             "version": "1.0",
             "patterns": {
+                # AWS (13)
                 "aws_s3_bucket": "{project}-{purpose}-{layer}-{environment}-{region_short}",
                 "aws_glue_database": "{project}",
                 "aws_glue_table": "{entity}",
+                "aws_glue_crawler": "{project}",
+                "aws_lambda_function": "{project}",
+                "aws_iam_role": "{project}",
+                "aws_iam_policy": "{project}",
+                "aws_kinesis_stream": "{project}",
+                "aws_kinesis_firehose": "{project}",
+                "aws_dynamodb_table": "{project}",
+                "aws_sns_topic": "{project}",
+                "aws_sqs_queue": "{project}",
+                "aws_step_function": "{project}",
+                # Databricks (14)
+                "dbx_workspace": "{project}",
                 "dbx_cluster": "{project}",
                 "dbx_job": "{project}",
+                "dbx_notebook_path": "/{project}",
+                "dbx_repo": "{project}",
+                "dbx_pipeline": "{project}",
+                "dbx_sql_warehouse": "{project}",
                 "dbx_catalog": "{project}",
                 "dbx_schema": "{domain}",
-                "dbx_table": "{entity}"
+                "dbx_table": "{entity}",
+                "dbx_volume": "{project}",
+                "dbx_secret_scope": "{project}",
+                "dbx_instance_pool": "{project}",
+                "dbx_policy": "{project}"
             },
             "validation": {
                 "max_length": {
