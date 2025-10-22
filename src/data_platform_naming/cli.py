@@ -674,27 +674,94 @@ def config():
     pass
 
 
-@config.command('init')
-@click.option('--project', prompt='Project name', help='Project name (e.g., dataplatform, oncology)')
-@click.option('--environment', prompt='Environment',
-              type=click.Choice(['dev', 'stg', 'prd']),
-              default='dev', help='Default environment')
-@click.option('--region', prompt='AWS region',
-              default='us-east-1', help='Default AWS region')
-@click.option('--force', is_flag=True, help='Overwrite existing files')
-def config_init(project: str, environment: str, region: str, force: bool):
-    """Initialize default configuration files in .dpn/
+def _parse_resource_type_selection(selection: str, available_types: list) -> list:
+    """
+    Parse resource type selection string.
     
-    Creates naming-values.yaml and naming-patterns.yaml with sensible defaults.
-    Prompts for basic values (project, environment, region) to customize the templates.
+    Supports:
+    - "all" - selects all types
+    - "1,3,5" - specific numbers
+    - "1-5" - range
+    - "1,3-5,10" - mixed
+    
+    Args:
+        selection: User input string
+        available_types: List of available resource types
+        
+    Returns:
+        List of selected resource type names
+    """
+    selection = selection.strip().lower()
+    
+    if selection == 'all':
+        return available_types
+    
+    selected_indices = set()
+    
+    # Split by comma
+    parts = [p.strip() for p in selection.split(',')]
+    
+    for part in parts:
+        if '-' in part:
+            # Range
+            try:
+                start, end = part.split('-')
+                start_idx = int(start.strip())
+                end_idx = int(end.strip())
+                for idx in range(start_idx, end_idx + 1):
+                    if 1 <= idx <= len(available_types):
+                        selected_indices.add(idx - 1)  # Convert to 0-based
+            except ValueError:
+                console.print(f"[yellow]Warning:[/yellow] Invalid range: {part}")
+        else:
+            # Single number
+            try:
+                idx = int(part)
+                if 1 <= idx <= len(available_types):
+                    selected_indices.add(idx - 1)  # Convert to 0-based
+            except ValueError:
+                console.print(f"[yellow]Warning:[/yellow] Invalid number: {part}")
+    
+    return [available_types[i] for i in sorted(selected_indices)]
+
+
+@config.command('init')
+@click.option('--cost-center', default=None, help='Cost center (e.g., engineering)')
+@click.option('--environment', default=None,
+              type=click.Choice(['dev', 'stg', 'prd']),
+              help='Default environment')
+@click.option('--project', default=None, help='Project name')
+@click.option('--region', default=None, help='AWS region (e.g., us-east-1)')
+@click.option('--team', default=None, help='Team name')
+@click.option('--resource-types', default=None,
+              help='Resource type selection (e.g., "1,3,5", "1-5", or "all")')
+@click.option('--force', is_flag=True, help='Overwrite existing files without prompting')
+def config_init(cost_center: Optional[str], environment: Optional[str], 
+                project: Optional[str], region: Optional[str], team: Optional[str],
+                resource_types: Optional[str], force: bool):
+    """Initialize configuration with interactive prompts (default) or flags
+    
+    Interactive mode (prompts for all values):
+      dpn config init
+    
+    Non-interactive mode (provide all flags):
+      dpn config init --project myapp --environment dev --region us-east-1 \\
+        --team engineering --cost-center eng --resource-types "all" --force
     
     Examples:
+      # Interactive
       dpn config init
-      dpn config init --project oncology --environment prd --region us-west-2
-      dpn config init --force  # Overwrite existing files
+      
+      # Partial flags (prompts for missing)
+      dpn config init --project oncology --environment prd
+      
+      # Fully automated
+      dpn config init --project analytics --environment dev --region us-west-2 \\
+        --team data-platform --cost-center engineering --resource-types "1,3-5" --force
     """
 
     import shutil
+    import yaml
 
     try:
         # Create .dpn directory in current working directory
@@ -705,18 +772,7 @@ def config_init(project: str, environment: str, region: str, force: bool):
         values_path = config_dir / 'naming-values.yaml'
         patterns_path = config_dir / 'naming-patterns.yaml'
 
-        # Check if files exist
-        if values_path.exists() and not force:
-            console.print(f"[yellow]Warning:[/yellow] {values_path} already exists")
-            console.print("[yellow]Use --force to overwrite[/yellow]")
-            sys.exit(1)
-
-        if patterns_path.exists() and not force:
-            console.print(f"[yellow]Warning:[/yellow] {patterns_path} already exists")
-            console.print("[yellow]Use --force to overwrite[/yellow]")
-            sys.exit(1)
-
-        # Copy example files
+        # Get example directory
         example_dir = Path(__file__).parent.parent.parent / 'examples' / 'configs'
 
         if not example_dir.exists():
@@ -724,41 +780,118 @@ def config_init(project: str, environment: str, region: str, force: bool):
             console.print("[yellow]Hint:[/yellow] Run from project root or install package properly")
             sys.exit(1)
 
-        # Copy and customize naming-values.yaml
-        example_values = example_dir / 'naming-values.yaml'
-        if example_values.exists():
-            import yaml
-            with open(example_values) as f:
-                values_data = yaml.safe_load(f)
+        # Load available resource types from example patterns file
+        example_patterns = example_dir / 'naming-patterns.yaml'
+        if not example_patterns.exists():
+            console.print("[red]Error:[/red] Example naming-patterns.yaml not found")
+            sys.exit(1)
 
-            # Customize with prompted values
-            if 'defaults' in values_data:
-                values_data['defaults']['project'] = project.lower().replace(' ', '-')
-                values_data['defaults']['environment'] = environment
-                values_data['defaults']['region'] = region
+        with open(example_patterns) as f:
+            patterns_data = yaml.safe_load(f)
+        
+        available_types = list(patterns_data.get('patterns', {}).keys())
+        
+        if not available_types:
+            console.print("[yellow]Warning:[/yellow] No resource types found in patterns file")
 
-            with open(values_path, 'w') as f:
-                yaml.dump(values_data, f, default_flow_style=False, sort_keys=False)
-
-            console.print(f"[green]✓[/green] Created: {values_path}")
+        # Interactive prompts (only if value not provided via flag)
+        if cost_center is None:
+            cost_center = click.prompt('Cost center', default='engineering')
+        
+        if environment is None:
+            environment = click.prompt(
+                'Environment',
+                type=click.Choice(['dev', 'stg', 'prd']),
+                default='dev'
+            )
+        
+        if project is None:
+            project = click.prompt('Project name')
+        
+        if region is None:
+            region = click.prompt('AWS region', default='us-east-1')
+        
+        if team is None:
+            team = click.prompt('Team', default='data-platform')
+        
+        # Resource type selection
+        selected_types = []
+        if resource_types is None:
+            # Interactive mode - show numbered list
+            console.print("\n[bold]Available resource types:[/bold]")
+            for idx, rt in enumerate(available_types, 1):
+                console.print(f"  {idx}. {rt}")
+            
+            console.print("\n[dim]Select resource types:[/dim]")
+            console.print("[dim]  - Enter numbers (e.g., '1,3,5')[/dim]")
+            console.print("[dim]  - Enter ranges (e.g., '1-5' or '10-15')[/dim]")
+            console.print("[dim]  - Mix them (e.g., '1,3-5,10')[/dim]")
+            console.print("[dim]  - Or type 'all' for all types[/dim]")
+            
+            resource_types = click.prompt(
+                '\nSelection',
+                default='all'
+            )
+        
+        # Parse selection
+        selected_types = _parse_resource_type_selection(resource_types, available_types)
+        
+        if not selected_types:
+            console.print("[yellow]Warning:[/yellow] No valid resource types selected")
         else:
-            console.print("[yellow]Warning:[/yellow] Example naming-values.yaml not found")
+            console.print(f"\n[green]Selected {len(selected_types)} resource type(s):[/green]")
+            for rt in selected_types:
+                console.print(f"  ✓ {rt}")
+
+        # Check for existing files and handle overwrite
+        files_exist = values_path.exists() or patterns_path.exists()
+        
+        if files_exist and not force:
+            console.print("\n[yellow]⚠ Warning:[/yellow] Configuration files already exist in .dpn/")
+            if values_path.exists():
+                console.print(f"  - {values_path.name}")
+            if patterns_path.exists():
+                console.print(f"  - {patterns_path.name}")
+            
+            if not click.confirm('\nThese changes will overwrite existing files. Continue?', default=False):
+                console.print("[yellow]No changes were made to the naming-values.yaml file[/yellow]")
+                sys.exit(0)
+
+        # Load and customize naming-values.yaml
+        example_values = example_dir / 'naming-values.yaml'
+        if not example_values.exists():
+            console.print("[red]Error:[/red] Example naming-values.yaml not found")
+            sys.exit(1)
+
+        with open(example_values) as f:
+            values_data = yaml.safe_load(f)
+
+        # Customize with prompted/provided values
+        if 'defaults' in values_data:
+            values_data['defaults']['cost_center'] = cost_center
+            values_data['defaults']['environment'] = environment
+            values_data['defaults']['project'] = project.lower().replace(' ', '-')
+            values_data['defaults']['region'] = region
+            values_data['defaults']['team'] = team
+
+        # Populate resource_types with selected types as empty dicts
+        values_data['resource_types'] = {rt: {} for rt in selected_types}
+
+        # Write naming-values.yaml
+        with open(values_path, 'w') as f:
+            yaml.dump(values_data, f, default_flow_style=False, sort_keys=False)
+
+        console.print(f"\n[green]✓[/green] Created: {values_path}")
 
         # Copy naming-patterns.yaml as-is
-        example_patterns = example_dir / 'naming-patterns.yaml'
-        if example_patterns.exists():
-            shutil.copy(example_patterns, patterns_path)
-            console.print(f"[green]✓[/green] Created: {patterns_path}")
-        else:
-            console.print("[yellow]Warning:[/yellow] Example naming-patterns.yaml not found")
+        shutil.copy(example_patterns, patterns_path)
+        console.print(f"[green]✓[/green] Created: {patterns_path}")
 
         # Success message with next steps
         console.print("\n[green]Configuration initialized successfully![/green]")
         console.print("\n[bold]Next steps:[/bold]")
-        console.print(f"1. Review and customize: {values_path}")
-        console.print(f"2. Review patterns: {patterns_path}")
-        console.print("3. Validate configs: [cyan]dpn config validate[/cyan]")
-        console.print("4. Preview names: [cyan]dpn plan preview <blueprint>[/cyan]")
+        console.print("1. Validate configs: [cyan]dpn config validate[/cyan]")
+        console.print("2. Preview names: [cyan]dpn plan preview <blueprint>[/cyan]")
 
     except Exception as e:
         console.print(f"[red]✗[/red] Initialization failed: {str(e)}")
