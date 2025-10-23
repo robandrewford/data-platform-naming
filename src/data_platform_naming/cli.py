@@ -9,7 +9,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import click
 from rich.console import Console
@@ -514,7 +514,7 @@ def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
         parsed = parser.parse(Path(blueprint))
 
         # Build operations
-        operations: List[Operation] = []
+        operations: list[Operation] = []
         for resource in parsed.get_execution_order():
             op = Operation(
                 id=f"op-{len(operations)}",
@@ -1056,7 +1056,7 @@ def config_show(values_config: Optional[str], patterns_config: Optional[str],
 
         if format == 'json':
             # JSON output
-            output: Dict[str, Any] = {
+            output: dict[str, Any] = {
                 'defaults': config_manager.values_loader.get_defaults(),
                 'environments': {env: config_manager.values_loader.get_environment_values(env) 
                                 for env in config_manager.values_loader.list_environments()},

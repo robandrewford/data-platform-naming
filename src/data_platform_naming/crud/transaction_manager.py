@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, cast
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 if TYPE_CHECKING:
     from rich.console import Console
@@ -62,13 +62,13 @@ class Operation:
     type: OperationType
     resource_type: ResourceType
     resource_id: str
-    params: Dict[str, Any]
+    params: dict[str, Any]
     status: OperationStatus = OperationStatus.PENDING
     created_at: float = 0.0
     started_at: Optional[float] = None
     completed_at: Optional[float] = None
     error: Optional[str] = None
-    rollback_data: Optional[Dict] = None
+    rollback_data: Optional[dict] = None
 
     def __post_init__(self):
         if self.created_at == 0.0:
@@ -85,7 +85,7 @@ class Operation:
 class Transaction:
     """ACID transaction containing multiple operations"""
     id: str
-    operations: List[Operation]
+    operations: list[Operation]
     status: OperationStatus = OperationStatus.PENDING
     created_at: float = 0.0
     committed_at: Optional[float] = None
@@ -171,7 +171,7 @@ class WriteAheadLog:
             with open(rollback_file, 'w') as f:
                 json.dump(tx_data, f, indent=2)
 
-    def recover_transactions(self) -> List[Transaction]:
+    def recover_transactions(self) -> list[Transaction]:
         """Recover uncommitted transactions from WAL"""
         uncommitted = []
 
@@ -191,7 +191,7 @@ class WriteAheadLog:
 
         return uncommitted
 
-    def _serialize_transaction(self, tx: Transaction) -> Dict[str, Any]:
+    def _serialize_transaction(self, tx: Transaction) -> dict[str, Any]:
         """Serialize transaction to JSON"""
         return {
             'id': tx.id,
@@ -202,7 +202,7 @@ class WriteAheadLog:
             'operations': [self._serialize_operation(op) for op in tx.operations]
         }
 
-    def _serialize_operation(self, op: Operation) -> Dict[str, Any]:
+    def _serialize_operation(self, op: Operation) -> dict[str, Any]:
         """Serialize operation to JSON"""
         return {
             'id': op.id,
@@ -218,7 +218,7 @@ class WriteAheadLog:
             'rollback_data': op.rollback_data
         }
 
-    def _deserialize_transaction(self, data: Dict[str, Any]) -> Transaction:
+    def _deserialize_transaction(self, data: dict[str, Any]) -> Transaction:
         """Deserialize transaction from JSON"""
         return Transaction(
             id=data['id'],
@@ -229,7 +229,7 @@ class WriteAheadLog:
             operations=[self._deserialize_operation(op) for op in data['operations']]
         )
 
-    def _deserialize_operation(self, data: Dict[str, Any]) -> Operation:
+    def _deserialize_operation(self, data: dict[str, Any]) -> Operation:
         """Deserialize operation from JSON"""
         return Operation(
             id=data['id'],
@@ -253,14 +253,14 @@ class StateStore:
         self.state_dir = state_dir
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.state_file = self.state_dir / "state.json"
-        self.state: Dict[str, Dict[str, Any]] = self._load_state()
+        self.state: dict[str, dict[str, Any]] = self._load_state()
         self._lock = threading.Lock()
 
-    def _load_state(self) -> Dict[str, Dict[str, Any]]:
+    def _load_state(self) -> dict[str, dict[str, Any]]:
         """Load state from disk"""
         if self.state_file.exists():
             with open(self.state_file) as f:
-                return cast(Dict[str, Dict[str, Any]], json.load(f))
+                return cast(dict[str, dict[str, Any]], json.load(f))
         return {}
 
     def _persist_state(self) -> None:
@@ -268,12 +268,12 @@ class StateStore:
         with open(self.state_file, 'w') as f:
             json.dump(self.state, f, indent=2)
 
-    def get(self, resource_id: str) -> Optional[Dict[str, Any]]:
+    def get(self, resource_id: str) -> Optional[dict[str, Any]]:
         """Get resource state"""
         with self._lock:
             return self.state.get(resource_id)
 
-    def set(self, resource_id: str, state: Dict[str, Any]) -> None:
+    def set(self, resource_id: str, state: dict[str, Any]) -> None:
         """Set resource state"""
         with self._lock:
             self.state[resource_id] = state
@@ -350,8 +350,8 @@ class TransactionManager:
         self.console = Console()
 
         # Operation executors (injected)
-        self.executors: Dict[ResourceType, Callable] = {}
-        self.rollback_handlers: Dict[ResourceType, Callable] = {}
+        self.executors: dict[ResourceType, Callable] = {}
+        self.rollback_handlers: dict[ResourceType, Callable] = {}
 
     def register_executor(self,
                          resource_type: ResourceType,
@@ -361,7 +361,7 @@ class TransactionManager:
         self.executors[resource_type] = executor
         self.rollback_handlers[resource_type] = rollback_handler
 
-    def begin_transaction(self, operations: List[Operation]) -> Transaction:
+    def begin_transaction(self, operations: list[Operation]) -> Transaction:
         """Begin new transaction"""
         tx = Transaction(
             id=str(uuid.uuid4()),
@@ -378,7 +378,7 @@ class TransactionManager:
         tracker = ProgressTracker(self.console)
         tracker.start(len(transaction.operations), "Executing transaction")
 
-        completed_operations: List[Operation] = []
+        completed_operations: list[Operation] = []
 
         try:
             # Validate pre-conditions (Consistency)
@@ -475,7 +475,7 @@ class TransactionManager:
                         f"Resource deletion failed: {operation.resource_id}"
                     )
 
-    def _execute_operation(self, operation: Operation) -> Dict[str, Any]:
+    def _execute_operation(self, operation: Operation) -> dict[str, Any]:
         """Execute single operation"""
         if operation.resource_type not in self.executors:
             raise ValueError(
@@ -483,7 +483,7 @@ class TransactionManager:
             )
 
         executor = self.executors[operation.resource_type]
-        result = cast(Dict[str, Any], executor(operation))
+        result = cast(dict[str, Any], executor(operation))
 
         # Update state store
         if operation.type == OperationType.CREATE:
@@ -504,7 +504,7 @@ class TransactionManager:
 
     def _rollback_transaction(self,
                              transaction: Transaction,
-                             completed_operations: List[Operation]) -> None:
+                             completed_operations: list[Operation]) -> None:
         """Rollback completed operations"""
         self.console.print("[yellow]Rolling back transaction...[/yellow]")
 
@@ -562,7 +562,7 @@ class TransactionManager:
 class TransactionError(Exception):
     """Transaction execution error"""
 
-    def __init__(self, message: str, operation: Operation, completed_operations: List[Operation]):
+    def __init__(self, message: str, operation: Operation, completed_operations: list[Operation]):
         super().__init__(message)
         self.message = message
         self.operation = operation
@@ -579,8 +579,7 @@ if __name__ == "__main__":
     # Initialize transaction manager
     tm = TransactionManager()
 
-    # Mock executors
-    def mock_create_cluster(operation: Operation) -> Dict:
+    def mock_create_cluster(operation: Operation) -> dict:
         time.sleep(0.5)  # Simulate API call
         return {'rollback_data': {'cluster_id': operation.resource_id}}
 

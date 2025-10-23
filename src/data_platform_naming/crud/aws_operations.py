@@ -6,7 +6,7 @@ S3, Glue, IAM operations with rollback support
 
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import boto3
 from botocore.exceptions import ClientError
@@ -20,9 +20,9 @@ class AWSOperationResult:
     """AWS operation result with rollback data"""
     success: bool
     resource_id: str
-    rollback_data: Optional[Dict[str, Any]] = None
+    rollback_data: Optional[dict[str, Any]] = None
     error: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[dict[str, Any]] = None
 
 
 class AWSS3Executor:
@@ -32,7 +32,7 @@ class AWSS3Executor:
         self.session = session or boto3.Session()
         self.s3 = self.session.client('s3')
 
-    def create(self, operation: "Operation") -> Dict[str, Any]:
+    def create(self, operation: "Operation") -> dict[str, Any]:
         """Create S3 bucket"""
         bucket_name = operation.resource_id
         params = operation.params
@@ -109,7 +109,7 @@ class AWSS3Executor:
         except ClientError as e:
             raise RuntimeError(f"S3 create failed: {e.response['Error']['Message']}")
 
-    def read(self, operation: "Operation") -> Dict[str, Any]:
+    def read(self, operation: "Operation") -> dict[str, Any]:
         """Read S3 bucket configuration"""
         bucket_name = operation.resource_id
 
@@ -143,7 +143,7 @@ class AWSS3Executor:
         except ClientError as e:
             raise RuntimeError(f"S3 read failed: {e.response['Error']['Message']}")
 
-    def update(self, operation: "Operation") -> Dict[str, Any]:
+    def update(self, operation: "Operation") -> dict[str, Any]:
         """Update S3 bucket configuration"""
         bucket_name = operation.resource_id
         params = operation.params
@@ -174,7 +174,7 @@ class AWSS3Executor:
         except ClientError as e:
             raise RuntimeError(f"S3 update failed: {e.response['Error']['Message']}")
 
-    def delete(self, operation: "Operation") -> Dict[str, Any]:
+    def delete(self, operation: "Operation") -> dict[str, Any]:
         """Delete S3 bucket"""
         bucket_name = operation.resource_id
         archive = operation.params.get('archive', False)
@@ -260,7 +260,7 @@ class AWSGlueExecutor:
         self.session = session or boto3.Session()
         self.glue = self.session.client('glue')
 
-    def create_database(self, operation: "Operation") -> Dict[str, Any]:
+    def create_database(self, operation: "Operation") -> dict[str, Any]:
         """Create Glue database"""
         db_name = operation.resource_id
         params = operation.params
@@ -290,7 +290,7 @@ class AWSGlueExecutor:
         except ClientError as e:
             raise RuntimeError(f"Glue DB create failed: {e.response['Error']['Message']}")
 
-    def create_table(self, operation: "Operation") -> Dict[str, Any]:
+    def create_table(self, operation: "Operation") -> dict[str, Any]:
         """Create Glue table"""
         table_name = operation.resource_id
         params = operation.params
@@ -330,7 +330,7 @@ class AWSGlueExecutor:
         except ClientError as e:
             raise RuntimeError(f"Glue table create failed: {e.response['Error']['Message']}")
 
-    def read_database(self, operation: "Operation") -> Dict[str, Any]:
+    def read_database(self, operation: "Operation") -> dict[str, Any]:
         """Read Glue database"""
         db_name = operation.resource_id
 
@@ -341,7 +341,7 @@ class AWSGlueExecutor:
         except ClientError as e:
             raise RuntimeError(f"Glue DB read failed: {e.response['Error']['Message']}")
 
-    def read_table(self, operation: "Operation") -> Dict[str, Any]:
+    def read_table(self, operation: "Operation") -> dict[str, Any]:
         """Read Glue table"""
         params = operation.params
 
@@ -355,7 +355,7 @@ class AWSGlueExecutor:
         except ClientError as e:
             raise RuntimeError(f"Glue table read failed: {e.response['Error']['Message']}")
 
-    def delete_database(self, operation: "Operation") -> Dict[str, Any]:
+    def delete_database(self, operation: "Operation") -> dict[str, Any]:
         """Delete Glue database"""
         db_name = operation.resource_id
 
@@ -369,7 +369,7 @@ class AWSGlueExecutor:
         except ClientError as e:
             raise RuntimeError(f"Glue DB delete failed: {e.response['Error']['Message']}")
 
-    def delete_table(self, operation: "Operation") -> Dict[str, Any]:
+    def delete_table(self, operation: "Operation") -> dict[str, Any]:
         """Delete Glue table"""
         params = operation.params
 
@@ -444,7 +444,7 @@ class AWSExecutorRegistry:
             }
         }
 
-    def execute(self, operation: "Operation") -> Dict[str, Any]:
+    def execute(self, operation: "Operation") -> dict[str, Any]:
         """Execute operation"""
         resource_type = operation.resource_type.value
         operation_type = operation.type.value

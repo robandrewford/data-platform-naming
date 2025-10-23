@@ -7,7 +7,7 @@ Battle-tested enterprise naming conventions for AWS resources
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 # Import ConfigurationManager for type hints
 from .config.configuration_manager import ConfigurationManager
@@ -146,8 +146,8 @@ class AWSNamingGenerator:
     def _generate_with_config(
         self,
         resource_type: str,
-        values: Dict[str, Any],
-        metadata: Optional[Dict[str, Any]] = None
+        values: dict[str, Any],
+        metadata: Optional[dict[str, Any]] = None
     ) -> str:
         """
         Generate name using ConfigurationManager.
@@ -246,7 +246,7 @@ class AWSNamingGenerator:
         purpose: str,
         layer: str = "raw",
         include_hash: bool = True,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[dict[str, Any]] = None
     ) -> str:
         """
         Generate S3 bucket name.
@@ -280,7 +280,7 @@ class AWSNamingGenerator:
         self,
         domain: str,
         layer: str = "bronze",
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[dict[str, Any]] = None
     ) -> str:
         """
         Generate Glue database name.
@@ -312,7 +312,7 @@ class AWSNamingGenerator:
         self,
         entity: str,
         table_type: str = "fact",
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[dict[str, Any]] = None
     ) -> str:
         """
         Generate Glue table name.
@@ -344,7 +344,7 @@ class AWSNamingGenerator:
         self,
         database: str,
         source: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[dict[str, Any]] = None
     ) -> str:
         """
         Generate Glue crawler name.
@@ -377,7 +377,7 @@ class AWSNamingGenerator:
         domain: str,
         trigger: str,
         action: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[dict[str, Any]] = None
     ) -> str:
         """
         Generate Lambda function name.
@@ -411,7 +411,7 @@ class AWSNamingGenerator:
         self,
         service: str,
         purpose: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[dict[str, Any]] = None
     ) -> str:
         """
         Generate IAM role name.
@@ -443,7 +443,7 @@ class AWSNamingGenerator:
         self,
         service: str,
         purpose: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[dict[str, Any]] = None
     ) -> str:
         """
         Generate IAM policy name.
@@ -475,7 +475,7 @@ class AWSNamingGenerator:
         self,
         domain: str,
         source: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[dict[str, Any]] = None
     ) -> str:
         """
         Generate Kinesis stream name.
@@ -507,7 +507,7 @@ class AWSNamingGenerator:
         self,
         domain: str,
         destination: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[dict[str, Any]] = None
     ) -> str:
         """
         Generate Kinesis Firehose delivery stream name.
@@ -539,7 +539,7 @@ class AWSNamingGenerator:
         self,
         entity: str,
         purpose: str = "data",
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[dict[str, Any]] = None
     ) -> str:
         """
         Generate DynamoDB table name.
@@ -571,7 +571,7 @@ class AWSNamingGenerator:
         self,
         event_type: str,
         purpose: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[dict[str, Any]] = None
     ) -> str:
         """
         Generate SNS topic name.
@@ -603,7 +603,7 @@ class AWSNamingGenerator:
         self,
         purpose: str,
         queue_type: str = "standard",
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[dict[str, Any]] = None
     ) -> str:
         """
         Generate SQS queue name.
@@ -635,7 +635,7 @@ class AWSNamingGenerator:
         self,
         workflow: str,
         purpose: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[dict[str, Any]] = None
     ) -> str:
         """
         Generate Step Functions state machine name.
@@ -665,7 +665,7 @@ class AWSNamingGenerator:
 
     def generate_standard_tags(self,
                               resource_type: AWSResourceType,
-                              additional_tags: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+                              additional_tags: Optional[dict[str, str]] = None) -> dict[str, str]:
         """Generate standard tags for AWS resources"""
         # Strip 'aws_' prefix from resource type for cleaner tags
         resource_type_tag = resource_type.value.replace('aws_', '')
