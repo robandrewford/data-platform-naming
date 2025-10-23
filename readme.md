@@ -237,28 +237,28 @@ dpn --help
 
 ## Features
 
-### 🎯 Automated Naming
+### Automated Naming
 
 - **AWS**: S3, Glue (databases/tables)
 - **Databricks**: Clusters, Jobs, Unity Catalog (3-tier)
 - **Consistent**: Environment-aware patterns
 - **Validated**: Schema enforcement
 
-### 🔄 ACID Transactions
+### ACID Transactions
 
 - **Atomic**: All-or-nothing execution
 - **Consistent**: Pre/post validation
 - **Isolated**: File-lock WAL
 - **Durable**: Crash recovery
 
-### 📋 Blueprint Planning
+### Blueprint Planning
 
 - **Declarative**: JSON configuration
 - **Validated**: JSON Schema compliance
 - **Preview**: Dry-run mode
 - **Dependencies**: Auto-resolved execution order
 
-### 💻 CRUD Operations
+### CRUD Operations
 
 - **Create**: Batch resource provisioning
 - **Read**: Configuration inspection
