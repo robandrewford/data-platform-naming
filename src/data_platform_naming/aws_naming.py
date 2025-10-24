@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional
+# No imports needed with __future__ annotations
 
 # Import ConfigurationManager for type hints
 from .config.configuration_manager import ConfigurationManager
@@ -22,8 +22,8 @@ class AWSNamingConfig:
     environment: str  # dev, stg, prd
     project: str
     region: str  # us-east-1, eu-west-1, etc.
-    team: Optional[str] = None
-    cost_center: Optional[str] = None
+    team: str | None = None
+    cost_center: str | None = None
 
 
 class AWSNamingGenerator:
@@ -149,7 +149,7 @@ class AWSNamingGenerator:
         self,
         resource_type: str,
         values: dict[str, Any],
-        metadata: Optional[dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
     ) -> str:
         """
         Generate name using ConfigurationManager.
@@ -248,7 +248,7 @@ class AWSNamingGenerator:
         purpose: str,
         layer: str = "raw",
         include_hash: bool = True,
-        metadata: Optional[dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
     ) -> str:
         """
         Generate S3 bucket name.
@@ -667,7 +667,7 @@ class AWSNamingGenerator:
 
     def generate_standard_tags(self,
                               resource_type: AWSResourceType,
-                              additional_tags: Optional[dict[str, str]] = None) -> dict[str, str]:
+                              additional_tags: dict[str, str] | None = None) -> dict[str, str]:
         """Generate standard tags for AWS resources"""
         # Strip 'aws_' prefix from resource type for cleaner tags
         resource_type_tag = resource_type.value.replace('aws_', '')

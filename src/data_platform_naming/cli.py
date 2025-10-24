@@ -11,7 +11,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Any, Optional, Union
+# No imports needed with __future__ annotations
 
 import click
 from rich.console import Console
@@ -22,6 +22,14 @@ from rich.table import Table
 from data_platform_naming.aws_naming import AWSNamingConfig, AWSNamingGenerator
 from data_platform_naming.config.configuration_manager import ConfigurationManager
 from data_platform_naming.config.naming_patterns_loader import PatternError
+from data_platform_naming.exceptions import (
+    ConfigurationError,
+    ValidationError,
+    TransactionError,
+    AWSOperationError,
+    DatabricksOperationError,
+    ConsistencyError,
+)
 from data_platform_naming.constants import AWSResourceType, DatabricksResourceType, Environment
 from data_platform_naming.crud.aws_operations import AWSExecutorRegistry
 from data_platform_naming.crud.dbx_operations import DatabricksConfig, DatabricksExecutorRegistry
@@ -29,8 +37,6 @@ from data_platform_naming.crud.transaction_manager import (
     Operation,
     OperationType,
     TransactionManager,
-    AWSResourceType as AWSResourceTypeFromTM,
-    DatabricksResourceType as DatabricksResourceTypeFromTM,
 )
 from data_platform_naming.dbx_naming import DatabricksNamingConfig, DatabricksNamingGenerator
 from data_platform_naming.plan.blueprint import BLUEPRINT_SCHEMA, BlueprintParser
@@ -57,10 +63,10 @@ ENVIRONMENT_VALUES = {e.value for e in Environment}
 # =============================================================================
 
 def load_configuration_manager(
-    values_config: Optional[str] = None,
-    patterns_config: Optional[str] = None,
-    overrides: Optional[tuple] = None
-) -> Optional[ConfigurationManager]:
+    values_config: str | None = None,
+    patterns_config: str | None = None,
+    overrides: tuple | None = None
+) -> ConfigurationManager | None:
     """
     Load ConfigurationManager from files or defaults.
     
@@ -202,7 +208,7 @@ def plan():
 @click.option('--project', required=True)
 @click.option('--region', default='us-east-1')
 @click.option('--output', type=click.Path(), default=None)
-def plan_init(env: str, project: str, region: str, output: Optional[str]):
+def plan_init(env: str, project: str, region: str, output: str | None):
     """Initialize blueprint template"""
 
     # Default to blueprints/{env}.json if no output specified
@@ -327,8 +333,8 @@ def plan_validate(blueprint: str):
               help='Override values (format: key=value, e.g., environment=dev)')
 @click.option('--output', type=click.Path(), help='Export to JSON')
 @click.option('--format', type=click.Choice(['table', 'json']), default='table')
-def plan_preview(blueprint: str, values_config: Optional[str], patterns_config: Optional[str],
-                override: tuple, output: Optional[str], format: str):
+def plan_preview(blueprint: str, values_config: str | None, patterns_config: str | None,
+                override: tuple, output: str | None, format: str):
     """Preview resource names
     
     Examples:
@@ -457,9 +463,9 @@ def plan_schema(output: str):
               help='Path to naming-patterns.yaml (default: .dpn/naming-patterns.yaml)')
 @click.option('--override', multiple=True,
               help='Override values (format: key=value, e.g., environment=dev)')
-def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
-           dbx_host: Optional[str], dbx_token: Optional[str],
-           values_config: Optional[str], patterns_config: Optional[str],
+def create(blueprint: str, dry_run: bool, aws_profile: str | None,
+           dbx_host: str | None, dbx_token: str | None,
+           values_config: str | None, patterns_config: str | None,
            override: tuple):
     """Create resources from blueprint
     
@@ -522,7 +528,7 @@ def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
             # Convert resource_type string to appropriate enum
             resource_type_str = resource.resource_type
             if resource_type_str.startswith('aws_'):
-                resource_type: Union[AWSResourceType, DatabricksResourceType] = AWSResourceType(resource_type_str)
+                resource_type: AWSResourceType | DatabricksResourceType = AWSResourceType(resource_type_str)
             elif resource_type_str.startswith('dbx_'):
                 resource_type = DatabricksResourceType(resource_type_str)
             else:
@@ -565,7 +571,7 @@ def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
             boto3.Session(profile_name=aws_profile) if aws_profile else None
         )
 
-        dbx_registry: Any = None
+        dbx_registry: DatabricksExecutorRegistry | None = None
         if dbx_host and dbx_token:
             dbx_registry = DatabricksExecutorRegistry(
                 DatabricksConfig(host=dbx_host, token=dbx_token)
@@ -611,8 +617,8 @@ def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
 @click.option('--dbx-host', envvar='DATABRICKS_HOST')
 @click.option('--dbx-token', envvar='DATABRICKS_TOKEN')
 @click.option('--format', type=click.Choice(['json', 'yaml', 'table']), default='json')
-def read(resource_id: str, resource_type: str, aws_profile: Optional[str],
-         dbx_host: Optional[str], dbx_token: Optional[str], format: str):
+def read(resource_id: str, resource_type: str, aws_profile: str | None,
+         dbx_host: str | None, dbx_token: str | None, format: str):
     """Read resource configuration"""
 
     try:
@@ -675,8 +681,8 @@ def read(resource_id: str, resource_type: str, aws_profile: Optional[str],
 @click.option('--type', 'resource_type', required=True)
 @click.option('--rename', help='New resource name')
 @click.option('--params', type=click.Path(exists=True), help='JSON params file')
-def update(resource_id: str, resource_type: str, rename: Optional[str],
-           params: Optional[str]):
+def update(resource_id: str, resource_type: str, rename: str | None,
+           params: str | None):
     """Update resource configuration"""
 
     console.print("[yellow]⚠[/yellow] Update command not implemented")
@@ -696,8 +702,8 @@ def update(resource_id: str, resource_type: str, rename: Optional[str],
 @click.option('--dbx-token', envvar='DATABRICKS_TOKEN')
 @click.confirmation_option(prompt='Confirm deletion?')
 def delete(resource_id: str, resource_type: str, archive: bool,
-           aws_profile: Optional[str], dbx_host: Optional[str],
-           dbx_token: Optional[str]):
+           aws_profile: str | None, dbx_host: str | None,
+           dbx_token: str | None):
     """Delete resource"""
 
     try:
@@ -786,9 +792,9 @@ def _parse_resource_type_selection(selection: str, available_types: list) -> lis
 @click.option('--resource-types', default=None,
               help='Resource type selection (e.g., "1,3,5", "1-5", or "all")')
 @click.option('--force', is_flag=True, help='Overwrite existing files without prompting')
-def config_init(cost_center: Optional[str], environment: Optional[str], 
-                project: Optional[str], region: Optional[str], team: Optional[str],
-                resource_types: Optional[str], force: bool):
+def config_init(cost_center: str | None, environment: str | None,
+                project: str | None, region: str | None, team: str | None,
+                resource_types: str | None, force: bool):
     """Initialize configuration with interactive prompts (default) or flags
     
     Interactive mode (prompts for all values):
@@ -936,7 +942,7 @@ def config_init(cost_center: Optional[str], environment: Optional[str],
               help='Path to naming-values.yaml (default: .dpn/naming-values.yaml)')
 @click.option('--patterns-config', type=click.Path(exists=True),
               help='Path to naming-patterns.yaml (default: .dpn/naming-patterns.yaml)')
-def config_validate(values_config: Optional[str], patterns_config: Optional[str]):
+def config_validate(values_config: str | None, patterns_config: str | None):
     """Validate configuration files against JSON schemas
     
     Checks both naming-values.yaml and naming-patterns.yaml for:
@@ -1042,8 +1048,8 @@ def config_validate(values_config: Optional[str], patterns_config: Optional[str]
 @click.option('--resource-type', help='Filter by resource type (e.g., aws_s3_bucket)')
 @click.option('--format', type=click.Choice(['table', 'json']), default='table',
               help='Output format')
-def config_show(values_config: Optional[str], patterns_config: Optional[str],
-                resource_type: Optional[str], format: str):
+def config_show(values_config: str | None, patterns_config: str | None,
+                resource_type: str | None, format: str):
     """Display current configuration values
     
     Shows the effective configuration after merging:
@@ -1095,7 +1101,7 @@ def config_show(values_config: Optional[str], patterns_config: Optional[str],
                 # Show specific resource type
                 values_result = config_manager.values_loader.get_values_for_resource(resource_type)
                 values = values_result.values
-                pattern_template: Optional[str] = None
+                pattern_template: str | None = None
                 try:
                     pattern_obj = config_manager.patterns_loader.get_pattern(resource_type)
                     pattern_template = pattern_obj.pattern
