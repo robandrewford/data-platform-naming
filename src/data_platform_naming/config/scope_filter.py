@@ -6,10 +6,12 @@ This module provides functionality to filter resources based on type patterns,
 supporting include/exclude modes with wildcard matching (e.g., 'aws_*', 'dbx_*').
 """
 
+from __future__ import annotations
+
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional
+from typing import Optional
 
 
 class FilterMode(Enum):
@@ -22,7 +24,7 @@ class FilterMode(Enum):
 class ScopeConfig:
     """Configuration for scope filtering"""
     mode: FilterMode
-    patterns: List[str]
+    patterns: list[str]
 
     def __post_init__(self):
         """Validate patterns"""
@@ -66,11 +68,11 @@ class ScopeFilter:
     def __init__(
         self,
         mode: FilterMode = FilterMode.INCLUDE,
-        patterns: Optional[List[str]] = None
+        patterns: Optional[list[str]] = None
     ):
         """
         Initialize ScopeFilter.
-        
+
         Args:
             mode: Filter mode (INCLUDE or EXCLUDE)
             patterns: List of wildcard patterns
@@ -152,14 +154,14 @@ class ScopeFilter:
 
     def filter_resources(
         self,
-        resources: List[dict]
-    ) -> List[dict]:
+        resources: list[dict]
+    ) -> list[dict]:
         """
         Filter a list of resources based on their types.
-        
+
         Args:
             resources: List of resource dictionaries with 'type' field
-            
+
         Returns:
             Filtered list of resources that should be processed
         """
@@ -171,14 +173,14 @@ class ScopeFilter:
 
     def get_matching_types(
         self,
-        resource_types: List[str]
-    ) -> List[str]:
+        resource_types: list[str]
+    ) -> list[str]:
         """
         Get list of resource types that match the filter.
-        
+
         Args:
             resource_types: List of resource type strings
-            
+
         Returns:
             List of matching resource types
         """
@@ -202,26 +204,26 @@ class ScopeFilter:
         return cls(mode=config.mode, patterns=config.patterns)
 
     @classmethod
-    def include(cls, patterns: List[str]) -> "ScopeFilter":
+    def include(cls, patterns: list[str]) -> "ScopeFilter":
         """
         Create an INCLUDE mode filter.
-        
+
         Args:
             patterns: List of wildcard patterns to include
-            
+
         Returns:
             ScopeFilter in INCLUDE mode
         """
         return cls(mode=FilterMode.INCLUDE, patterns=patterns)
 
     @classmethod
-    def exclude(cls, patterns: List[str]) -> "ScopeFilter":
+    def exclude(cls, patterns: list[str]) -> "ScopeFilter":
         """
         Create an EXCLUDE mode filter.
-        
+
         Args:
             patterns: List of wildcard patterns to exclude
-            
+
         Returns:
             ScopeFilter in EXCLUDE mode
         """

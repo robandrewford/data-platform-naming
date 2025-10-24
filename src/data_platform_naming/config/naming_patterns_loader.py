@@ -6,12 +6,14 @@ This module provides functionality to load naming patterns from YAML files,
 validate them against JSON Schema, and apply transformations to pattern variables.
 """
 
+from __future__ import annotations
+
 import hashlib
 import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, cast
+from typing import Any, Optional, cast
 
 import jsonschema
 import yaml
@@ -35,19 +37,19 @@ class NamingPattern:
     """Container for a naming pattern with metadata"""
     pattern: str
     resource_type: str
-    required_variables: List[str]
+    required_variables: list[str]
 
-    def get_variables(self) -> Set[str]:
+    def get_variables(self) -> set[str]:
         """Extract all {variable} placeholders from pattern"""
         return set(re.findall(r'\{([a-z_]+)\}', self.pattern))
 
-    def validate_variables(self, available_variables: Dict[str, Any]) -> List[str]:
+    def validate_variables(self, available_variables: dict[str, Any]) -> list[str]:
         """
         Validate that all required variables are available.
-        
+
         Args:
             available_variables: Dictionary of available variable values
-            
+
         Returns:
             List of missing variable names (empty if all present)
         """
@@ -56,16 +58,16 @@ class NamingPattern:
         missing = pattern_vars - available_keys
         return sorted(list(missing))
 
-    def format(self, values: Dict[str, Any]) -> str:
+    def format(self, values: dict[str, Any]) -> str:
         """
         Format pattern with provided values.
-        
+
         Args:
             values: Dictionary of variable values
-            
+
         Returns:
             Formatted string with variables substituted
-            
+
         Raises:
             PatternError: If required variables are missing
         """
@@ -107,11 +109,11 @@ class NamingPatternsLoader:
             schema_path: Optional path to JSON schema file.
                         If not provided, uses bundled schema.
         """
-        self.config: Optional[Dict[str, Any]] = None
-        self.schema: Dict[str, Any] = self._load_schema(schema_path)
+        self.config: Optional[dict[str, Any]] = None
+        self.schema: dict[str, Any] = self._load_schema(schema_path)
         self.config_path: Optional[Path] = None
 
-    def _load_schema(self, schema_path: Optional[Path] = None) -> Dict[str, Any]:
+    def _load_schema(self, schema_path: Optional[Path] = None) -> dict[str, Any]:
         """Load the JSON schema for validation"""
         if schema_path is None:
             # Use bundled schema
@@ -120,7 +122,7 @@ class NamingPatternsLoader:
 
         try:
             with open(schema_path) as f:
-                return cast(Dict[str, Any], json.load(f))
+                return cast(dict[str, Any], json.load(f))
         except FileNotFoundError:
             raise ConfigurationError(
                 f"Schema file not found: {schema_path}"
@@ -163,13 +165,13 @@ class NamingPatternsLoader:
         self.config_path = config_path
         self._validate_config()
 
-    def load_from_dict(self, config: Dict[str, Any]) -> None:
+    def load_from_dict(self, config: dict[str, Any]) -> None:
         """
         Load configuration from a dictionary.
-        
+
         Args:
             config: Configuration dictionary
-            
+
         Raises:
             SchemaValidationError: If configuration doesn't validate
         """
@@ -227,10 +229,10 @@ class NamingPatternsLoader:
             required_variables=required_vars
         )
 
-    def get_all_patterns(self) -> Dict[str, NamingPattern]:
+    def get_all_patterns(self) -> dict[str, NamingPattern]:
         """
         Get all naming patterns.
-        
+
         Returns:
             Dictionary mapping resource types to NamingPattern objects
         """
@@ -285,18 +287,18 @@ class NamingPatternsLoader:
 
         return hash_str
 
-    def apply_transformations(self, values: Dict[str, Any]) -> Dict[str, Any]:
+    def apply_transformations(self, values: dict[str, Any]) -> dict[str, Any]:
         """
         Apply configured transformations to values.
-        
+
         Transformations include:
         - Region mapping (us-east-1 → use1)
         - Case conversion (lowercase/uppercase)
         - Character replacement (hyphens to underscores)
-        
+
         Args:
             values: Dictionary of variable values
-            
+
         Returns:
             Dictionary with transformations applied
         """
@@ -366,13 +368,13 @@ class NamingPatternsLoader:
         allowed_chars = validation.get("allowed_chars", {})
         return cast(Optional[str], allowed_chars.get(resource_type))
 
-    def get_required_variables(self, resource_type: str) -> List[str]:
+    def get_required_variables(self, resource_type: str) -> list[str]:
         """
         Get list of required variables for resource type.
-        
+
         Args:
             resource_type: Resource type (e.g., 'aws_s3_bucket')
-            
+
         Returns:
             List of required variable names
         """
@@ -381,16 +383,16 @@ class NamingPatternsLoader:
 
         validation = self.config.get("validation", {})
         required_vars = validation.get("required_variables", {})
-        return cast(List[str], required_vars.get(resource_type, []))
+        return cast(list[str], required_vars.get(resource_type, []))
 
-    def validate_name(self, resource_type: str, name: str) -> List[str]:
+    def validate_name(self, resource_type: str, name: str) -> list[str]:
         """
         Validate a generated name against constraints.
-        
+
         Args:
             resource_type: Resource type (e.g., 'aws_s3_bucket')
             name: Generated name to validate
-            
+
         Returns:
             List of validation errors (empty if valid)
         """
@@ -412,10 +414,10 @@ class NamingPatternsLoader:
 
         return errors
 
-    def list_resource_types(self) -> List[str]:
+    def list_resource_types(self) -> list[str]:
         """
         List all resource types with defined patterns.
-        
+
         Returns:
             List of resource type names
         """

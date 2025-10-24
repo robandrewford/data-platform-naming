@@ -4,6 +4,8 @@ constants.py
 Global constants for AWS and Databricks naming conventions
 """
 
+from __future__ import annotations
+
 from enum import Enum
 
 

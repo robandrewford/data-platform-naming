@@ -4,6 +4,8 @@ validators.py
 Resource name validation rules and constraint enforcement
 """
 
+from __future__ import annotations
+
 import re
 from dataclasses import dataclass
 from enum import Enum

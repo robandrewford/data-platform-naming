@@ -14,7 +14,6 @@ from botocore.exceptions import ClientError
 if TYPE_CHECKING:
     from .transaction_manager import Operation
 
-
 @dataclass
 class AWSOperationResult:
     """AWS operation result with rollback data"""
@@ -472,8 +471,8 @@ class AWSExecutorRegistry:
 if __name__ == "__main__":
     import uuid
 
-    from ..constants import Environment
-    from .transaction_manager import Operation, OperationType, ResourceType
+    from ..constants import AWSResourceType, Environment
+    from .transaction_manager import Operation, OperationType
 
     registry = AWSExecutorRegistry()
 
@@ -481,7 +480,7 @@ if __name__ == "__main__":
     op = Operation(
         id=str(uuid.uuid4()),
         type=OperationType.CREATE,
-        resource_type=ResourceType.AWS_S3_BUCKET,
+        resource_type=AWSResourceType.S3_BUCKET,
         resource_id="dataplatform-raw-prd-useast1",
         params={
             'region': 'us-east-1',

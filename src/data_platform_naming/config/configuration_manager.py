@@ -6,9 +6,11 @@ This module provides a unified interface for managing naming configurations
 by coordinating between NamingValuesLoader and NamingPatternsLoader.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from .naming_patterns_loader import (
     NamingPatternsLoader,
@@ -26,8 +28,8 @@ class GeneratedName:
     name: str
     resource_type: str
     pattern_used: str
-    values_used: Dict[str, Any]
-    validation_errors: List[str]
+    values_used: dict[str, Any]
+    validation_errors: list[str]
 
     @property
     def is_valid(self) -> bool:
@@ -82,8 +84,8 @@ class ConfigurationManager:
         self,
         values_path: Optional[Path] = None,
         patterns_path: Optional[Path] = None,
-        values_dict: Optional[Dict[str, Any]] = None,
-        patterns_dict: Optional[Dict[str, Any]] = None
+        values_dict: Optional[dict[str, Any]] = None,
+        patterns_dict: Optional[dict[str, Any]] = None
     ) -> None:
         """
         Load both naming values and patterns configurations.
@@ -159,8 +161,8 @@ class ConfigurationManager:
         self,
         resource_type: str,
         environment: Optional[str] = None,
-        blueprint_metadata: Optional[Dict[str, Any]] = None,
-        value_overrides: Optional[Dict[str, Any]] = None
+        blueprint_metadata: Optional[dict[str, Any]] = None,
+        value_overrides: Optional[dict[str, Any]] = None
     ) -> GeneratedName:
         """
         Generate a resource name by combining values and patterns.
@@ -226,27 +228,27 @@ class ConfigurationManager:
 
     def generate_names_for_blueprint(
         self,
-        resources: List[Dict[str, Any]],
+        resources: list[dict[str, Any]],
         environment: Optional[str] = None,
-        blueprint_metadata: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, GeneratedName]:
+        blueprint_metadata: Optional[dict[str, Any]] = None
+    ) -> dict[str, GeneratedName]:
         """
         Generate names for all resources in a blueprint.
-        
+
         Args:
             resources: List of resource definitions with 'type' field
             environment: Optional environment code
             blueprint_metadata: Optional blueprint-level metadata
-            
+
         Returns:
             Dictionary mapping resource IDs to GeneratedName objects
-            
+
         Raises:
             ConfigurationError: If configs not loaded
         """
         self._check_loaded()
 
-        results: Dict[str, GeneratedName] = {}
+        results: dict[str, GeneratedName] = {}
         for resource in resources:
             # Ensure resource_id is always a string
             resource_id = str(resource.get("id") or resource.get("type") or "unknown")
@@ -276,15 +278,15 @@ class ConfigurationManager:
 
         return results
 
-    def validate_configuration(self) -> List[str]:
+    def validate_configuration(self) -> list[str]:
         """
         Validate the loaded configuration.
-        
+
         Checks:
         - All pattern variables have corresponding values
         - Required variables are defined
         - Patterns are valid
-        
+
         Returns:
             List of validation warnings/errors (empty if valid)
         """
@@ -324,20 +326,20 @@ class ConfigurationManager:
 
         return warnings
 
-    def get_available_resource_types(self) -> List[str]:
+    def get_available_resource_types(self) -> list[str]:
         """
         Get list of resource types that have both values and patterns defined.
-        
+
         Returns:
             List of resource type names
         """
         self._check_loaded()
         return self.patterns_loader.list_resource_types()
 
-    def get_available_environments(self) -> List[str]:
+    def get_available_environments(self) -> list[str]:
         """
         Get list of configured environments.
-        
+
         Returns:
             List of environment codes
         """
@@ -347,7 +349,7 @@ class ConfigurationManager:
     def preview_name(
         self,
         resource_type: str,
-        values: Dict[str, Any]
+        values: dict[str, Any]
     ) -> GeneratedName:
         """
         Preview a name with specific values (bypass value loading).

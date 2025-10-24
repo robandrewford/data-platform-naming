@@ -4,6 +4,8 @@ Blueprint Parser - JSON Schema Validation & Name Generation
 Transforms declarative blueprints into executable operations
 """
 
+from __future__ import annotations
+
 import json
 from dataclasses import dataclass, field
 from pathlib import Path

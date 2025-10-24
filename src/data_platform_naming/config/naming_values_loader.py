@@ -6,10 +6,12 @@ This module provides functionality to load naming values from YAML files,
 validate them against JSON Schema, and merge values according to precedence rules.
 """
 
+from __future__ import annotations
+
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Optional, cast
 
 import jsonschema
 import yaml
@@ -39,7 +41,7 @@ class ValueResolutionError(ConfigurationError):
 @dataclass
 class NamingValues:
     """Container for resolved naming values"""
-    values: Dict[str, Any]
+    values: dict[str, Any]
     source: str  # Describes where values came from
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -54,7 +56,7 @@ class NamingValues:
         """Check if key exists in values"""
         return key in self.values
 
-    def keys(self) -> List[str]:
+    def keys(self) -> list[str]:
         """Return list of all keys"""
         return list(self.values.keys())
 
@@ -88,11 +90,11 @@ class NamingValuesLoader:
             schema_path: Optional path to JSON schema file.
                         If not provided, uses bundled schema.
         """
-        self.config: Optional[Dict[str, Any]] = None
-        self.schema: Dict[str, Any] = self._load_schema(schema_path)
+        self.config: Optional[dict[str, Any]] = None
+        self.schema: dict[str, Any] = self._load_schema(schema_path)
         self.config_path: Optional[Path] = None
 
-    def _load_schema(self, schema_path: Optional[Path] = None) -> Dict[str, Any]:
+    def _load_schema(self, schema_path: Optional[Path] = None) -> dict[str, Any]:
         """Load the JSON schema for validation"""
         if schema_path is None:
             # Use bundled schema
@@ -101,7 +103,7 @@ class NamingValuesLoader:
 
         try:
             with open(schema_path) as f:
-                return cast(Dict[str, Any], json.load(f))
+                return cast(dict[str, Any], json.load(f))
         except FileNotFoundError:
             raise ConfigurationError(
                 f"Schema file not found: {schema_path}"
@@ -144,13 +146,13 @@ class NamingValuesLoader:
         self.config_path = config_path
         self._validate_config()
 
-    def load_from_dict(self, config: Dict[str, Any]) -> None:
+    def load_from_dict(self, config: dict[str, Any]) -> None:
         """
         Load configuration from a dictionary.
-        
+
         Args:
             config: Configuration dictionary
-            
+
         Raises:
             SchemaValidationError: If configuration doesn't validate
         """
@@ -181,22 +183,22 @@ class NamingValuesLoader:
         self,
         resource_type: str,
         environment: Optional[str] = None,
-        blueprint_metadata: Optional[Dict[str, Any]] = None
+        blueprint_metadata: Optional[dict[str, Any]] = None
     ) -> NamingValues:
         """
         Get merged values for a specific resource type and environment.
-        
+
         Values are merged according to precedence:
         defaults → environments.{env} → resource_types.{type} → blueprint_metadata
-        
+
         Args:
             resource_type: Resource type (e.g., 'aws_s3_bucket')
             environment: Optional environment code ('dev', 'stg', 'prd')
             blueprint_metadata: Optional blueprint metadata to merge (highest precedence)
-            
+
         Returns:
             NamingValues object with merged values
-            
+
         Raises:
             ValueResolutionError: If value resolution fails
         """
@@ -232,10 +234,10 @@ class NamingValuesLoader:
             source=source_description
         )
 
-    def get_defaults(self) -> Dict[str, Any]:
+    def get_defaults(self) -> dict[str, Any]:
         """
         Get default values without any overrides.
-        
+
         Returns:
             Dictionary of default values
         """
@@ -244,13 +246,13 @@ class NamingValuesLoader:
 
         return dict(self.config.get("defaults", {}))
 
-    def get_environment_values(self, environment: str) -> Dict[str, Any]:
+    def get_environment_values(self, environment: str) -> dict[str, Any]:
         """
         Get environment-specific values.
-        
+
         Args:
             environment: Environment code ('dev', 'stg', 'prd')
-            
+
         Returns:
             Dictionary of environment-specific values
         """
@@ -261,13 +263,13 @@ class NamingValuesLoader:
             self.config.get("environments", {}).get(environment, {})
         )
 
-    def get_resource_type_values(self, resource_type: str) -> Dict[str, Any]:
+    def get_resource_type_values(self, resource_type: str) -> dict[str, Any]:
         """
         Get resource-type-specific values.
-        
+
         Args:
             resource_type: Resource type (e.g., 'aws_s3_bucket')
-            
+
         Returns:
             Dictionary of resource-type-specific values
         """
@@ -278,10 +280,10 @@ class NamingValuesLoader:
             self.config.get("resource_types", {}).get(resource_type, {})
         )
 
-    def list_environments(self) -> List[str]:
+    def list_environments(self) -> list[str]:
         """
         List all configured environments.
-        
+
         Returns:
             List of environment codes
         """
@@ -290,10 +292,10 @@ class NamingValuesLoader:
 
         return list(self.config.get("environments", {}).keys())
 
-    def list_resource_types(self) -> List[str]:
+    def list_resource_types(self) -> list[str]:
         """
         List all configured resource types.
-        
+
         Returns:
             List of resource type names
         """

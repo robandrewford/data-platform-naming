@@ -5,6 +5,8 @@ Automated naming convention generator for Databricks resources
 Integrates with existing AWS naming conventions
 """
 
+from __future__ import annotations
+
 import json
 import re
 from dataclasses import dataclass
@@ -46,7 +48,6 @@ class DatabricksNamingGenerator:
         DatabricksResourceType.SECRET_SCOPE: 128,
         DatabricksResourceType.INSTANCE_POOL: 100,
         DatabricksResourceType.POLICY: 100,
-        DatabricksResourceType.TOKEN: 100,
     }
 
     # Allowed characters per resource type
@@ -202,7 +203,7 @@ class DatabricksNamingGenerator:
         """
         params = {'purpose': purpose}
         return self._generate_with_config(
-            resource_type=f'dbx_{DatabricksResourceType.WORKSPACE.value}',
+            resource_type=DatabricksResourceType.WORKSPACE.value,
             method_params=params,
             metadata=metadata
         )
@@ -241,7 +242,7 @@ class DatabricksNamingGenerator:
             params['version'] = version
 
         return self._generate_with_config(
-            resource_type=f'dbx_{DatabricksResourceType.CLUSTER.value}',
+            resource_type=DatabricksResourceType.CLUSTER.value,
             method_params=params,
             metadata=metadata
         )
@@ -281,7 +282,7 @@ class DatabricksNamingGenerator:
             params['schedule'] = schedule
 
         return self._generate_with_config(
-            resource_type=f'dbx_{DatabricksResourceType.JOB.value}',
+            resource_type=DatabricksResourceType.JOB.value,
             method_params=params,
             metadata=metadata
         )
@@ -319,7 +320,7 @@ class DatabricksNamingGenerator:
             'notebook_name': notebook_name,
         }
         return self._generate_with_config(
-            resource_type=f'dbx_{DatabricksResourceType.NOTEBOOK.value}',
+            resource_type=DatabricksResourceType.NOTEBOOK.value,
             method_params=params,
             metadata=metadata
         )
@@ -349,7 +350,7 @@ class DatabricksNamingGenerator:
         """
         params = {'repo_purpose': repo_purpose}
         return self._generate_with_config(
-            resource_type=f'dbx_{DatabricksResourceType.REPO.value}',
+            resource_type=DatabricksResourceType.REPO.value,
             method_params=params,
             metadata=metadata
         )
@@ -387,7 +388,7 @@ class DatabricksNamingGenerator:
             'pipeline_type': pipeline_type,
         }
         return self._generate_with_config(
-            resource_type=f'dbx_{DatabricksResourceType.PIPELINE.value}',
+            resource_type=DatabricksResourceType.PIPELINE.value,
             method_params=params,
             metadata=metadata
         )
@@ -422,7 +423,7 @@ class DatabricksNamingGenerator:
             'purpose': purpose,
         }
         return self._generate_with_config(
-            resource_type=f'dbx_{DatabricksResourceType.SQL_WAREHOUSE.value}',
+            resource_type=DatabricksResourceType.SQL_WAREHOUSE.value,
             method_params=params,
             metadata=metadata
         )
@@ -452,7 +453,7 @@ class DatabricksNamingGenerator:
         """
         params = {'catalog_type': catalog_type}
         return self._generate_with_config(
-            resource_type=f'dbx_{DatabricksResourceType.CATALOG.value}',
+            resource_type=DatabricksResourceType.CATALOG.value,
             method_params=params,
             metadata=metadata
         )
@@ -487,7 +488,7 @@ class DatabricksNamingGenerator:
             'layer': layer,
         }
         return self._generate_with_config(
-            resource_type=f'dbx_{DatabricksResourceType.SCHEMA.value}',
+            resource_type=DatabricksResourceType.SCHEMA.value,
             method_params=params,
             metadata=metadata
         )
@@ -522,7 +523,7 @@ class DatabricksNamingGenerator:
             'table_type': table_type,
         }
         return self._generate_with_config(
-            resource_type=f'dbx_{DatabricksResourceType.TABLE.value}',
+            resource_type=DatabricksResourceType.TABLE.value,
             method_params=params,
             metadata=metadata
         )
@@ -557,7 +558,7 @@ class DatabricksNamingGenerator:
             'data_type': data_type,
         }
         return self._generate_with_config(
-            resource_type=f'dbx_{DatabricksResourceType.VOLUME.value}',
+            resource_type=DatabricksResourceType.VOLUME.value,
             method_params=params,
             metadata=metadata
         )
@@ -587,7 +588,7 @@ class DatabricksNamingGenerator:
         """
         params = {'purpose': purpose}
         return self._generate_with_config(
-            resource_type=f'dbx_{DatabricksResourceType.SECRET_SCOPE.value}',
+            resource_type=DatabricksResourceType.SECRET_SCOPE.value,
             method_params=params,
             metadata=metadata
         )
@@ -622,7 +623,7 @@ class DatabricksNamingGenerator:
             'purpose': purpose,
         }
         return self._generate_with_config(
-            resource_type=f'dbx_{DatabricksResourceType.INSTANCE_POOL.value}',
+            resource_type=DatabricksResourceType.INSTANCE_POOL.value,
             method_params=params,
             metadata=metadata
         )
@@ -657,7 +658,7 @@ class DatabricksNamingGenerator:
             'target': target,
         }
         return self._generate_with_config(
-            resource_type=f'dbx_{DatabricksResourceType.POLICY.value}',
+            resource_type=DatabricksResourceType.POLICY.value,
             method_params=params,
             metadata=metadata
         )

@@ -13,7 +13,6 @@ import requests
 if TYPE_CHECKING:
     from .transaction_manager import Operation
 
-
 @dataclass
 class DatabricksConfig:
     """Databricks connection configuration"""
@@ -758,8 +757,8 @@ if __name__ == "__main__":
     import os
     import uuid
 
-    from ..constants import Environment
-    from .transaction_manager import Operation, OperationType, ResourceType
+    from ..constants import DatabricksResourceType, Environment
+    from .transaction_manager import Operation, OperationType
 
     config = DatabricksConfig(
         host=os.getenv('DATABRICKS_HOST'),
@@ -772,7 +771,7 @@ if __name__ == "__main__":
     op = Operation(
         id=str(uuid.uuid4()),
         type=OperationType.CREATE,
-        resource_type=ResourceType.DBX_CLUSTER,
+        resource_type=DatabricksResourceType.CLUSTER,
         resource_id="dataplatform-etl-shared-prd",
         params={
             'spark_version': '13.3.x-scala2.12',
@@ -795,7 +794,7 @@ if __name__ == "__main__":
     uc_op = Operation(
         id=str(uuid.uuid4()),
         type=OperationType.CREATE,
-        resource_type=ResourceType.DBX_TABLE,
+        resource_type=DatabricksResourceType.TABLE,
         resource_id="dim_customers",
         params={
             'catalog_name': 'dataplatform_main_prd',

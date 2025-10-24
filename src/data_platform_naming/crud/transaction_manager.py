@@ -4,6 +4,8 @@ ACID Transaction Manager for Data Platform Resource Operations
 Ensures Atomicity, Consistency, Isolation, Durability
 """
 
+from __future__ import annotations
+
 import fcntl
 import json
 import threading
@@ -13,15 +15,31 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional, cast
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
+
+from data_platform_naming.constants import AWSResourceType, DatabricksResourceType
 
 if TYPE_CHECKING:
     from rich.console import Console
-    from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TextColumn, TimeElapsedColumn
+    from rich.progress import (
+        BarColumn,
+        Progress,
+        SpinnerColumn,
+        TaskID,
+        TextColumn,
+        TimeElapsedColumn,
+    )
     from rich.progress import Progress as ProgressType
 else:
     from rich.console import Console
-    from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TextColumn, TimeElapsedColumn
+    from rich.progress import (
+        BarColumn,
+        Progress,
+        SpinnerColumn,
+        TaskID,
+        TextColumn,
+        TimeElapsedColumn,
+    )
     ProgressType = Progress
 
 
@@ -42,25 +60,12 @@ class OperationStatus(Enum):
     ROLLED_BACK = "rolled_back"
 
 
-class ResourceType(Enum):
-    """Supported resource types"""
-    AWS_S3_BUCKET = "aws_s3_bucket"
-    AWS_GLUE_DATABASE = "aws_glue_database"
-    AWS_GLUE_TABLE = "aws_glue_table"
-    DBX_WORKSPACE = "dbx_workspace"
-    DBX_CLUSTER = "dbx_cluster"
-    DBX_JOB = "dbx_job"
-    DBX_CATALOG = "dbx_catalog"
-    DBX_SCHEMA = "dbx_schema"
-    DBX_TABLE = "dbx_table"
-
-
 @dataclass
 class Operation:
     """Single CRUD operation"""
     id: str
     type: OperationType
-    resource_type: ResourceType
+    resource_type: Union[AWSResourceType, DatabricksResourceType]
     resource_id: str
     params: dict[str, Any]
     status: OperationStatus = OperationStatus.PENDING
@@ -231,10 +236,17 @@ class WriteAheadLog:
 
     def _deserialize_operation(self, data: dict[str, Any]) -> Operation:
         """Deserialize operation from JSON"""
+        # Parse resource type from string value
+        resource_type_str = data['resource_type']
+        try:
+            resource_type: Union[AWSResourceType, DatabricksResourceType] = AWSResourceType(resource_type_str)
+        except ValueError:
+            resource_type = DatabricksResourceType(resource_type_str)
+
         return Operation(
             id=data['id'],
             type=OperationType(data['type']),
-            resource_type=ResourceType(data['resource_type']),
+            resource_type=resource_type,
             resource_id=data['resource_id'],
             params=data['params'],
             status=OperationStatus(data['status']),
@@ -350,11 +362,11 @@ class TransactionManager:
         self.console = Console()
 
         # Operation executors (injected)
-        self.executors: dict[ResourceType, Callable] = {}
-        self.rollback_handlers: dict[ResourceType, Callable] = {}
+        self.executors: dict[Union[AWSResourceType, DatabricksResourceType], Callable] = {}
+        self.rollback_handlers: dict[Union[AWSResourceType, DatabricksResourceType], Callable] = {}
 
     def register_executor(self,
-                         resource_type: ResourceType,
+                         resource_type: Union[AWSResourceType, DatabricksResourceType],
                          executor: Callable,
                          rollback_handler: Callable) -> None:
         """Register operation executor and rollback handler"""
@@ -589,7 +601,7 @@ if __name__ == "__main__":
 
     # Register executors
     tm.register_executor(
-        ResourceType.DBX_CLUSTER,
+        DatabricksResourceType.CLUSTER,
         mock_create_cluster,
         mock_rollback_cluster
     )
@@ -599,14 +611,14 @@ if __name__ == "__main__":
         Operation(
             id=str(uuid.uuid4()),
             type=OperationType.CREATE,
-            resource_type=ResourceType.DBX_CLUSTER,
+            resource_type=DatabricksResourceType.CLUSTER,
             resource_id="dataplatform-etl-shared-prd",
             params={'node_type': 'i3.xlarge', 'autoscale': {'min': 2, 'max': 8}}
         ),
         Operation(
             id=str(uuid.uuid4()),
             type=OperationType.CREATE,
-            resource_type=ResourceType.DBX_CLUSTER,
+            resource_type=DatabricksResourceType.CLUSTER,
             resource_id="dataplatform-ml-dedicated-prd",
             params={'node_type': 'g4dn.xlarge', 'workers': 4}
         )

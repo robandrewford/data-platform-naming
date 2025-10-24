@@ -4,6 +4,8 @@ Data Platform Naming CLI
 Unified interface for blueprint planning and CRUD operations
 """
 
+from __future__ import annotations
+
 import json
 import os
 import re
@@ -20,14 +22,15 @@ from rich.table import Table
 from data_platform_naming.aws_naming import AWSNamingConfig, AWSNamingGenerator
 from data_platform_naming.config.configuration_manager import ConfigurationManager
 from data_platform_naming.config.naming_patterns_loader import PatternError
-from data_platform_naming.constants import Environment
+from data_platform_naming.constants import AWSResourceType, DatabricksResourceType, Environment
 from data_platform_naming.crud.aws_operations import AWSExecutorRegistry
 from data_platform_naming.crud.dbx_operations import DatabricksConfig, DatabricksExecutorRegistry
 from data_platform_naming.crud.transaction_manager import (
     Operation,
     OperationType,
-    ResourceType,
     TransactionManager,
+    AWSResourceType as AWSResourceTypeFromTM,
+    DatabricksResourceType as DatabricksResourceTypeFromTM,
 )
 from data_platform_naming.dbx_naming import DatabricksNamingConfig, DatabricksNamingGenerator
 from data_platform_naming.plan.blueprint import BLUEPRINT_SCHEMA, BlueprintParser
@@ -516,10 +519,19 @@ def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
         # Build operations
         operations: list[Operation] = []
         for resource in parsed.get_execution_order():
+            # Convert resource_type string to appropriate enum
+            resource_type_str = resource.resource_type
+            if resource_type_str.startswith('aws_'):
+                resource_type: Union[AWSResourceType, DatabricksResourceType] = AWSResourceType(resource_type_str)
+            elif resource_type_str.startswith('dbx_'):
+                resource_type = DatabricksResourceType(resource_type_str)
+            else:
+                raise ValueError(f"Unknown resource type: {resource_type_str}")
+
             op = Operation(
                 id=f"op-{len(operations)}",
                 type=OperationType.CREATE,
-                resource_type=ResourceType[resource.resource_type.upper()],
+                resource_type=resource_type,
                 resource_id=resource.resource_id,
                 params=resource.params
             )
@@ -560,15 +572,15 @@ def create(blueprint: str, dry_run: bool, aws_profile: Optional[str],
             )
 
         # Register AWS
-        for rt in [ResourceType.AWS_S3_BUCKET, ResourceType.AWS_GLUE_DATABASE,
-                   ResourceType.AWS_GLUE_TABLE]:
+        for rt in [AWSResourceType.S3_BUCKET, AWSResourceType.GLUE_DATABASE,
+                   AWSResourceType.GLUE_TABLE]:
             tm.register_executor(rt, aws_registry.execute, aws_registry.rollback)
 
         # Register Databricks
         if dbx_registry:
-            for rt in [ResourceType.DBX_CLUSTER, ResourceType.DBX_JOB,
-                       ResourceType.DBX_CATALOG, ResourceType.DBX_SCHEMA,
-                       ResourceType.DBX_TABLE]:
+            for rt in [DatabricksResourceType.CLUSTER, DatabricksResourceType.JOB,
+                       DatabricksResourceType.CATALOG, DatabricksResourceType.SCHEMA,
+                       DatabricksResourceType.TABLE]:
                 tm.register_executor(rt, dbx_registry.execute, dbx_registry.rollback)
 
         # Execute transaction
@@ -606,14 +618,14 @@ def read(resource_id: str, resource_type: str, aws_profile: Optional[str],
     try:
         # Map type to ResourceType
         type_map = {
-            's3': ResourceType.AWS_S3_BUCKET,
-            'glue-db': ResourceType.AWS_GLUE_DATABASE,
-            'glue-table': ResourceType.AWS_GLUE_TABLE,
-            'cluster': ResourceType.DBX_CLUSTER,
-            'job': ResourceType.DBX_JOB,
-            'catalog': ResourceType.DBX_CATALOG,
-            'schema': ResourceType.DBX_SCHEMA,
-            'table': ResourceType.DBX_TABLE
+            's3': AWSResourceType.S3_BUCKET,
+            'glue-db': AWSResourceType.GLUE_DATABASE,
+            'glue-table': AWSResourceType.GLUE_TABLE,
+            'cluster': DatabricksResourceType.CLUSTER,
+            'job': DatabricksResourceType.JOB,
+            'catalog': DatabricksResourceType.CATALOG,
+            'schema': DatabricksResourceType.SCHEMA,
+            'table': DatabricksResourceType.TABLE
         }
 
         rt = type_map[resource_type]
