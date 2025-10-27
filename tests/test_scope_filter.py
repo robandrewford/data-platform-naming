@@ -10,6 +10,7 @@ from data_platform_naming.config.scope_filter import (
     ScopeConfig,
     ScopeFilter,
 )
+from data_platform_naming.exceptions import ValidationError
 
 
 class TestFilterMode:
@@ -38,17 +39,17 @@ class TestScopeConfig:
 
     def test_empty_patterns_raises_error(self):
         """Test that empty patterns list raises error"""
-        with pytest.raises(ValueError, match="At least one pattern"):
+        with pytest.raises(ValidationError, match="At least one pattern"):
             ScopeConfig(mode=FilterMode.INCLUDE, patterns=[])
 
     def test_invalid_pattern_type(self):
         """Test that invalid pattern type raises error"""
-        with pytest.raises(ValueError, match="Invalid pattern"):
+        with pytest.raises(ValidationError, match="Invalid pattern"):
             ScopeConfig(mode=FilterMode.INCLUDE, patterns=[123])  # type: ignore
 
     def test_empty_string_pattern(self):
         """Test that empty string pattern raises error"""
-        with pytest.raises(ValueError, match="Invalid pattern"):
+        with pytest.raises(ValidationError, match="Invalid pattern"):
             ScopeConfig(mode=FilterMode.INCLUDE, patterns=[""])
 
 

@@ -15,7 +15,8 @@ from typing import Any, Optional
 
 # Import ConfigurationManager for config-based name generation
 from .config.configuration_manager import ConfigurationManager
-from .constants import Environment, DatabricksResourceType
+from .constants import Environment, DatabricksResourceType, TableType, ClusterType, DatabricksDataLayer
+from .exceptions import ValidationError, ConfigurationError, PatternError
 
 
 @dataclass
@@ -74,9 +75,9 @@ class DatabricksNamingGenerator:
             ValueError: If configuration_manager is None or required patterns missing
         """
         if configuration_manager is None:
-            raise ValueError(
-                "ConfigurationManager is required. "
-                "Legacy mode without ConfigurationManager is no longer supported."
+            raise ConfigurationError(
+                message="ConfigurationManager is required. Legacy mode without ConfigurationManager is no longer supported.",
+                config_key="configuration_manager"
             )
         
         self.config = config
@@ -87,10 +88,20 @@ class DatabricksNamingGenerator:
     def _validate_config(self):
         """Validate configuration parameters"""
         if self.config.environment not in [e.value for e in Environment]:
-            raise ValueError(f"Invalid environment: {self.config.environment}")
+            raise ValidationError(
+                message=f"Invalid environment: {self.config.environment}",
+                field="environment",
+                value=self.config.environment,
+                suggestion="Must be one of: dev, stg, prd"
+            )
 
         if not re.match(r'^[a-z0-9-]+$', self.config.project):
-            raise ValueError(f"Invalid project name: {self.config.project}")
+            raise ValidationError(
+                message=f"Invalid project name: {self.config.project}",
+                field="project",
+                value=self.config.project,
+                suggestion="Project name must contain only lowercase letters, numbers, and hyphens"
+            )
 
 
     def _generate_with_config(self,
@@ -141,7 +152,12 @@ class DatabricksNamingGenerator:
         )
 
         if not result.is_valid:
-            raise ValueError(f"Generated invalid name: {', '.join(result.validation_errors)}")
+            raise PatternError(
+                message=f"Generated invalid name: {', '.join(result.validation_errors)}",
+                pattern=resource_type,
+                resource_type=resource_type,
+                operation="generate_name"
+            )
 
         return result.name
 
@@ -210,7 +226,7 @@ class DatabricksNamingGenerator:
 
     def generate_cluster_name(self,
                             workload: str,
-                            cluster_type: str = "shared",
+                            cluster_type: str = ClusterType.SHARED.value,
                             version: str | None = None,
                             metadata: dict[str, Any] | None = None) -> str:
         """
@@ -460,7 +476,7 @@ class DatabricksNamingGenerator:
 
     def generate_schema_name(self,
                            domain: str,
-                           layer: str = "bronze",
+                           layer: str = DatabricksDataLayer.BRONZE.value,
                            metadata: dict[str, Any] | None = None) -> str:
         """
         Generate Unity Catalog schema name.
@@ -495,7 +511,7 @@ class DatabricksNamingGenerator:
 
     def generate_table_name(self,
                           entity: str,
-                          table_type: str = "fact",
+                          table_type: str = TableType.FACT.value,
                           metadata: dict[str, Any] | None = None) -> str:
         """
         Generate Unity Catalog table name.
@@ -752,7 +768,10 @@ class DatabricksNamingCLI:
     def generate_workspace(self, purpose: str = "data") -> str:
         """Generate workspace name"""
         if not self.generator:
-            raise ValueError("Generator not configured. Run configure() first.")
+            raise ConfigurationError(
+                message="Generator not configured. Run configure() first.",
+                config_key="generator"
+            )
         assert self.generator is not None  # Type narrowing for mypy
         return self.generator.generate_workspace_name(purpose)
 
@@ -761,7 +780,10 @@ class DatabricksNamingCLI:
                         cluster_type: str = "shared") -> str:
         """Generate cluster name"""
         if not self.generator:
-            raise ValueError("Generator not configured. Run configure() first.")
+            raise ConfigurationError(
+                message="Generator not configured. Run configure() first.",
+                config_key="generator"
+            )
         assert self.generator is not None  # Type narrowing for mypy
         return self.generator.generate_cluster_name(workload, cluster_type)
 
@@ -771,7 +793,10 @@ class DatabricksNamingCLI:
                     schedule: str | None = None) -> str:
         """Generate job name"""
         if not self.generator:
-            raise ValueError("Generator not configured. Run configure() first.")
+            raise ConfigurationError(
+                message="Generator not configured. Run configure() first.",
+                config_key="generator"
+            )
         assert self.generator is not None  # Type narrowing for mypy
         return self.generator.generate_job_name(job_type, purpose, schedule)
 
@@ -782,7 +807,10 @@ class DatabricksNamingCLI:
                                     entity: str) -> dict[str, str]:
         """Generate complete Unity Catalog naming stack"""
         if not self.generator:
-            raise ValueError("Generator not configured. Run configure() first.")
+            raise ConfigurationError(
+                message="Generator not configured. Run configure() first.",
+                config_key="generator"
+            )
 
         return {
             "catalog": self.generator.generate_catalog_name(catalog_type),
@@ -796,7 +824,10 @@ class DatabricksNamingCLI:
     def export_naming_reference(self, output_file: str = "dbx_naming.json") -> None:
         """Export naming examples as JSON reference"""
         if not self.generator:
-            raise ValueError("Generator not configured. Run configure() first.")
+            raise ConfigurationError(
+                message="Generator not configured. Run configure() first.",
+                config_key="generator"
+            )
 
         reference = {
             "configuration": {

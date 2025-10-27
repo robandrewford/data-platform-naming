@@ -23,12 +23,35 @@
 
 **Impact**: Single code path, 100% mypy compliance, all CLI inputs validated
 
-### Sprint 2: Consistency & Error Context (Planned)
+### Sprint 2: Consistency & Error Context (In Progress - Oct 2025)
+
+**Status**: 53% Complete | **Started**: Oct 22, 2025
 
 **Strategy**:
-1. **Type-safe Enums** (replace 50+ magic strings)
-2. **Modern Type Hints** (Python 3.9+ syntax throughout)
-3. **Exception Hierarchy** (7 custom classes with context)
+
+1. **Type-safe Enums** (Issue #4) - 50% complete
+   - Replace 50+ magic strings with enums
+   - Removed duplicate ResourceType enum
+   - Learning: Enum consolidation requires careful dependency tracking
+
+2. **Modern Type Hints** (Issue #5) - 0% complete
+   - Add `from __future__ import annotations` to 17 files
+   - Replace Dict/List with dict/list syntax
+   - Learning: Deferred to focus on exception hierarchy first
+
+3. **Exception Hierarchy** (Issue #7) - 65% complete
+   - 8 custom exception classes with rich context
+   - 59 replacements completed across 5 files
+   - 13 replacements remaining across 3 files
+   - Learning: Enhanced debugging worth the refactoring effort
+
+**Key Insights**:
+
+- **Tool Selection**: write_to_file more reliable than replace_in_file for large files (>1000 lines)
+- **Batch Operations**: Multiple SEARCH/REPLACE blocks in single call more efficient
+- **Import Ripple Effects**: Removing exports breaks consumers - must update in lockstep
+- **Pre-existing Design**: Well-designed exception hierarchy accelerated implementation
+- **Test Impact**: Exception changes require careful test assertion updates
 
 ---
 
@@ -104,7 +127,7 @@ CRUD Operations (AWS & Databricks)
 
 ### High-Level
 
-```
+```m
 Configuration Files (YAML)
     ↓
 ConfigurationManager (orchestrator)
@@ -117,7 +140,7 @@ Generated Names
 
 ### Value Precedence
 
-```
+```m
 defaults → environment → resource_type → blueprint metadata
 ```
 
@@ -193,16 +216,19 @@ Filter resources by type with wildcard support
 ## Error Handling Strategy
 
 ### Validation Errors (Fail Fast)
+
 - Caught during blueprint parsing
 - Clear line-numbered messages
 - No API calls made
 
 ### API Errors (Retry with Backoff)
+
 - Transient: exponential backoff
 - Permanent: fail and rollback
 - Rate limiting: respect retry-after headers
 
 ### System Errors (Crash Recovery)
+
 - File lock prevents concurrent transactions
 - WAL enables recovery after crash
 - Idempotent operations allow safe retry
@@ -212,15 +238,18 @@ Filter resources by type with wildcard support
 ## Performance Considerations
 
 ### Batch Operations
+
 - Single API call per resource type when possible
 - Minimize round trips
 
 ### Caching
+
 - Cache AWS region data
 - Cache Databricks cluster types
 - Invalidate on error or refresh
 
 ### Progress Feedback
+
 - Real-time rich progress bars
 - Estimated completion time
 - Clear error messages
@@ -231,7 +260,7 @@ Filter resources by type with wildcard support
 
 ### Blueprint → Generators
 
-```
+```m
 Blueprint (JSON)
     ↓ (BlueprintParser)
 GeneratedNames (validated)
@@ -241,7 +270,7 @@ PlatformOperations
 
 ### Transaction → Operations
 
-```
+```m
 TransactionManager
     ↓ (creates)
 Transaction (with WAL)
@@ -253,7 +282,7 @@ State Repository
 
 ### CLI → All Layers
 
-```
+```m
 CLI Command
     ↓ (loads)
 Blueprint
@@ -281,16 +310,19 @@ Unity Catalog: {project}_{type}_{env}.{domain}_{layer}.{type}_{entity}
 ## Testing Strategy
 
 ### Unit Tests
+
 - Name generators with various inputs
 - Validators with edge cases
 - Transaction manager with mock operations
 
 ### Integration Tests
+
 - Full blueprint processing
 - Transaction commit and rollback
 - State persistence and recovery
 
 ### End-to-End Tests (Manual)
+
 - Real AWS/DBX accounts (test environments)
 - Multi-environment deployments
 - Disaster recovery scenarios

@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
+from ..exceptions import ValidationError
+
 
 class FilterMode(Enum):
     """Filter mode: include or exclude"""
@@ -29,12 +31,21 @@ class ScopeConfig:
     def __post_init__(self):
         """Validate patterns"""
         if not self.patterns:
-            raise ValueError("At least one pattern must be provided")
+            raise ValidationError(
+                message="At least one pattern must be provided",
+                field="patterns",
+                suggestion="Provide at least one pattern (e.g., ['aws_*', 'dbx_*'])"
+            )
 
         # Validate each pattern
         for pattern in self.patterns:
             if not isinstance(pattern, str) or not pattern.strip():
-                raise ValueError(f"Invalid pattern: {pattern}")
+                raise ValidationError(
+                    message=f"Invalid pattern: {pattern}",
+                    field="pattern",
+                    value=str(pattern),
+                    suggestion="Pattern must be a non-empty string"
+                )
 
 
 class ScopeFilter:

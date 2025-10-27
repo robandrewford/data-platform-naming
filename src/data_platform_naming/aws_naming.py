@@ -13,7 +13,7 @@ from typing import Any
 
 # Import ConfigurationManager for type hints
 from .config.configuration_manager import ConfigurationManager
-from .constants import AWSResourceType, Environment
+from .constants import AWSResourceType, Environment, TableType
 from .exceptions import ValidationError, PatternError
 
 
@@ -333,7 +333,7 @@ class AWSNamingGenerator:
     def generate_glue_table_name(
         self,
         entity: str,
-        table_type: str = "fact",
+        table_type: str = TableType.FACT.value,
         metadata: dict[str, Any] | None = None
     ) -> str:
         """

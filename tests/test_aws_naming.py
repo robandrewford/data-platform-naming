@@ -15,6 +15,7 @@ from data_platform_naming.config.configuration_manager import (
     ConfigurationManager,
 )
 from data_platform_naming.constants import Environment
+from data_platform_naming.exceptions import ValidationError
 
 # ============================================================================
 # Test Fixtures
@@ -213,25 +214,25 @@ class TestAWSNamingGeneratorInit:
         assert generator.configuration_manager is config_manager
 
     def test_init_validates_environment(self, config_manager):
-        """Test that invalid environment raises ValueError"""
+        """Test that invalid environment raises ValidationError"""
         invalid_config = AWSNamingConfig(
             environment="invalid",
             project="test",
             region="us-east-1"
         )
 
-        with pytest.raises(ValueError, match="Invalid environment"):
+        with pytest.raises(ValidationError, match="Invalid environment"):
             AWSNamingGenerator(config=invalid_config, configuration_manager=config_manager)
 
     def test_init_validates_project_name(self, config_manager):
-        """Test that invalid project name raises ValueError"""
+        """Test that invalid project name raises ValidationError"""
         invalid_config = AWSNamingConfig(
             environment=Environment.DEV.value,
             project="Test_Project!",  # Invalid characters
             region="us-east-1"
         )
 
-        with pytest.raises(ValueError, match="Invalid project name"):
+        with pytest.raises(ValidationError, match="Invalid project name"):
             AWSNamingGenerator(config=invalid_config, configuration_manager=config_manager)
 
     def test_init_pattern_validation_success(self, aws_config, config_manager):
@@ -369,8 +370,8 @@ class TestAWSNamingGeneratorS3:
             configuration_manager=manager,
         )
 
-        # Should raise ValueError because name exceeds max length
-        with pytest.raises(ValueError, match="Name validation failed.*exceeds maximum length"):
+        # Should raise ValidationError because name exceeds max length
+        with pytest.raises(ValidationError, match="Name validation failed.*exceeds maximum length"):
             generator.generate_s3_bucket_name(purpose="data", layer="raw")
 
 

@@ -13,7 +13,14 @@ from typing import Any, Optional
 
 import jsonschema
 
-from ..constants import Environment
+from ..constants import (
+    Environment,
+    TableType,
+    ClusterType,
+    DatabricksDataLayer,
+    DataClassification
+)
+from ..exceptions import ValidationError
 
 # JSON Schema Definition
 BLUEPRINT_SCHEMA = {
@@ -45,7 +52,7 @@ BLUEPRINT_SCHEMA = {
                 "cost_center": {"type": "string"},
                 "data_classification": {
                     "type": "string",
-                    "enum": ["public", "internal", "confidential", "restricted"]
+                    "enum": [e.value for e in DataClassification]
                 }
             }
         },
@@ -131,7 +138,7 @@ BLUEPRINT_SCHEMA = {
             "required": ["domain", "layer"],
             "properties": {
                 "domain": {"type": "string"},
-                "layer": {"type": "string", "enum": ["bronze", "silver", "gold"]},
+                "layer": {"type": "string", "enum": [e.value for e in DatabricksDataLayer]},
                 "description": {"type": "string"}
             }
         },
@@ -141,7 +148,7 @@ BLUEPRINT_SCHEMA = {
             "properties": {
                 "database_ref": {"type": "string"},
                 "entity": {"type": "string"},
-                "table_type": {"type": "string", "enum": ["fact", "dim", "bridge"]},
+                "table_type": {"type": "string", "enum": [e.value for e in TableType]},
                 "columns": {"type": "array"},
                 "partition_keys": {"type": "array"}
             }
@@ -151,7 +158,7 @@ BLUEPRINT_SCHEMA = {
             "required": ["workload", "cluster_type", "node_type"],
             "properties": {
                 "workload": {"type": "string"},
-                "cluster_type": {"type": "string", "enum": ["shared", "dedicated", "job"]},
+                "cluster_type": {"type": "string", "enum": [e.value for e in ClusterType]},
                 "node_type": {"type": "string"},
                 "spark_version": {"type": "string"},
                 "autoscale": {
@@ -191,7 +198,7 @@ BLUEPRINT_SCHEMA = {
             "required": ["domain", "layer"],
             "properties": {
                 "domain": {"type": "string"},
-                "layer": {"type": "string", "enum": ["bronze", "silver", "gold"]},
+                "layer": {"type": "string", "enum": [e.value for e in DatabricksDataLayer]},
                 "tables": {
                     "type": "array",
                     "items": {"$ref": "#/definitions/uc_table"}
@@ -203,7 +210,7 @@ BLUEPRINT_SCHEMA = {
             "required": ["entity"],
             "properties": {
                 "entity": {"type": "string"},
-                "table_type": {"type": "string", "enum": ["fact", "dim", "bridge"]},
+                "table_type": {"type": "string", "enum": [e.value for e in TableType]},
                 "columns": {"type": "array"}
             }
         }
@@ -322,7 +329,11 @@ class BlueprintParser:
         try:
             jsonschema.validate(instance=blueprint, schema=self.schema)
         except jsonschema.ValidationError as e:
-            raise ValueError(f"Blueprint validation failed: {e.message}") from e
+            raise ValidationError(
+                message=f"Blueprint validation failed: {e.message}",
+                field=e.json_path if hasattr(e, 'json_path') else None,
+                suggestion="Check blueprint against JSON schema"
+            ) from e
 
     def _apply_scope_filter(
         self,
@@ -406,7 +417,12 @@ class BlueprintParser:
         for table_spec in aws_config.get('glue_tables', []):
             db_name = db_refs.get(table_spec['database_ref'])
             if not db_name:
-                raise ValueError(f"Database ref not found: {table_spec['database_ref']}")
+                raise ValidationError(
+                    message=f"Database reference not found: {table_spec['database_ref']}",
+                    field="database_ref",
+                    value=table_spec['database_ref'],
+                    suggestion="Ensure referenced database is defined in blueprint"
+                )
 
             table_name = aws_gen.generate_glue_table_name(
                 entity=table_spec['entity'],
