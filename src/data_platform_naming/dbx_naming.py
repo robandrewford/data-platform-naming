@@ -63,7 +63,7 @@ class DatabricksNamingGenerator:
         self,
         config: DatabricksNamingConfig,
         configuration_manager: ConfigurationManager
-    ):
+    ) -> None:
         """
         Initialize Databricks naming generator.
 
@@ -85,7 +85,7 @@ class DatabricksNamingGenerator:
 
         self._validate_config()
 
-    def _validate_config(self):
+    def _validate_config(self) -> None:
         """Validate configuration parameters"""
         if self.config.environment not in [e.value for e in Environment]:
             raise ValidationError(
@@ -744,7 +744,7 @@ class DatabricksNamingGenerator:
 class DatabricksNamingCLI:
     """CLI interface for Databricks naming generator"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.generator: DatabricksNamingGenerator | None = None
 
     def configure(self,

@@ -11,7 +11,7 @@ import os
 import re
 import sys
 from pathlib import Path
-# No imports needed with __future__ annotations
+from typing import Any
 
 import click
 from rich.console import Console
@@ -65,7 +65,7 @@ ENVIRONMENT_VALUES = {e.value for e in Environment}
 def load_configuration_manager(
     values_config: str | None = None,
     patterns_config: str | None = None,
-    overrides: tuple | None = None
+    overrides: tuple[str, ...] | None = None
 ) -> ConfigurationManager | None:
     """
     Load ConfigurationManager from files or defaults.
@@ -171,7 +171,7 @@ def load_configuration_manager(
 
 @click.group()
 @click.version_option(version='0.1.0')
-def cli():
+def cli() -> None:
     """Data Platform Naming Convention CLI
     
     Generate, validate, and execute infrastructure blueprints
@@ -198,7 +198,7 @@ def cli():
 # =============================================================================
 
 @cli.group()
-def plan():
+def plan() -> None:
     """Blueprint planning operations"""
     pass
 
@@ -208,7 +208,7 @@ def plan():
 @click.option('--project', required=True)
 @click.option('--region', default='us-east-1')
 @click.option('--output', type=click.Path(), default=None)
-def plan_init(env: str, project: str, region: str, output: str | None):
+def plan_init(env: str, project: str, region: str, output: str | None) -> None:
     """Initialize blueprint template"""
 
     # Default to blueprints/{env}.json if no output specified
@@ -300,7 +300,7 @@ def plan_init(env: str, project: str, region: str, output: str | None):
 
 @plan.command('validate')
 @click.argument('blueprint', type=click.Path(exists=True))
-def plan_validate(blueprint: str):
+def plan_validate(blueprint: str) -> None:
     """Validate blueprint schema"""
 
     try:
@@ -334,7 +334,7 @@ def plan_validate(blueprint: str):
 @click.option('--output', type=click.Path(), help='Export to JSON')
 @click.option('--format', type=click.Choice(['table', 'json']), default='table')
 def plan_preview(blueprint: str, values_config: str | None, patterns_config: str | None,
-                override: tuple, output: str | None, format: str):
+                override: tuple[str, ...], output: str | None, format: str) -> None:
     """Preview resource names
     
     Examples:
@@ -437,7 +437,7 @@ def plan_preview(blueprint: str, values_config: str | None, patterns_config: str
 
 @plan.command('schema')
 @click.option('--output', type=click.Path(), default='blueprint-schema.json')
-def plan_schema(output: str):
+def plan_schema(output: str) -> None:
     """Export JSON schema"""
 
     output_path = Path(output)
@@ -466,7 +466,7 @@ def plan_schema(output: str):
 def create(blueprint: str, dry_run: bool, aws_profile: str | None,
            dbx_host: str | None, dbx_token: str | None,
            values_config: str | None, patterns_config: str | None,
-           override: tuple):
+           override: tuple[str, ...]) -> None:
     """Create resources from blueprint
     
     Examples:
@@ -527,17 +527,18 @@ def create(blueprint: str, dry_run: bool, aws_profile: str | None,
         for resource in parsed.get_execution_order():
             # Convert resource_type string to appropriate enum
             resource_type_str = resource.resource_type
+            resource_type_enum: AWSResourceType | DatabricksResourceType
             if resource_type_str.startswith('aws_'):
-                resource_type: AWSResourceType | DatabricksResourceType = AWSResourceType(resource_type_str)
+                resource_type_enum = AWSResourceType(resource_type_str)
             elif resource_type_str.startswith('dbx_'):
-                resource_type = DatabricksResourceType(resource_type_str)
+                resource_type_enum = DatabricksResourceType(resource_type_str)
             else:
                 raise ValueError(f"Unknown resource type: {resource_type_str}")
 
             op = Operation(
                 id=f"op-{len(operations)}",
                 type=OperationType.CREATE,
-                resource_type=resource_type,
+                resource_type=resource_type_enum,
                 resource_id=resource.resource_id,
                 params=resource.params
             )
@@ -578,16 +579,16 @@ def create(blueprint: str, dry_run: bool, aws_profile: str | None,
             )
 
         # Register AWS
-        for rt in [AWSResourceType.S3_BUCKET, AWSResourceType.GLUE_DATABASE,
-                   AWSResourceType.GLUE_TABLE]:
-            tm.register_executor(rt, aws_registry.execute, aws_registry.rollback)
+        for aws_rt in [AWSResourceType.S3_BUCKET, AWSResourceType.GLUE_DATABASE,
+                       AWSResourceType.GLUE_TABLE]:
+            tm.register_executor(aws_rt, aws_registry.execute, aws_registry.rollback)
 
         # Register Databricks
         if dbx_registry:
-            for rt in [DatabricksResourceType.CLUSTER, DatabricksResourceType.JOB,
-                       DatabricksResourceType.CATALOG, DatabricksResourceType.SCHEMA,
-                       DatabricksResourceType.TABLE]:
-                tm.register_executor(rt, dbx_registry.execute, dbx_registry.rollback)
+            for dbx_rt in [DatabricksResourceType.CLUSTER, DatabricksResourceType.JOB,
+                           DatabricksResourceType.CATALOG, DatabricksResourceType.SCHEMA,
+                           DatabricksResourceType.TABLE]:
+                tm.register_executor(dbx_rt, dbx_registry.execute, dbx_registry.rollback)
 
         # Execute transaction
         tx = tm.begin_transaction(operations)
@@ -618,12 +619,12 @@ def create(blueprint: str, dry_run: bool, aws_profile: str | None,
 @click.option('--dbx-token', envvar='DATABRICKS_TOKEN')
 @click.option('--format', type=click.Choice(['json', 'yaml', 'table']), default='json')
 def read(resource_id: str, resource_type: str, aws_profile: str | None,
-         dbx_host: str | None, dbx_token: str | None, format: str):
+         dbx_host: str | None, dbx_token: str | None, format: str) -> None:
     """Read resource configuration"""
 
     try:
         # Map type to ResourceType
-        type_map = {
+        type_map: dict[str, AWSResourceType | DatabricksResourceType] = {
             's3': AWSResourceType.S3_BUCKET,
             'glue-db': AWSResourceType.GLUE_DATABASE,
             'glue-table': AWSResourceType.GLUE_TABLE,
@@ -634,7 +635,7 @@ def read(resource_id: str, resource_type: str, aws_profile: str | None,
             'table': DatabricksResourceType.TABLE
         }
 
-        rt = type_map[resource_type]
+        rt: AWSResourceType | DatabricksResourceType = type_map[resource_type]
 
         # Build operation
         op = Operation(
@@ -646,7 +647,7 @@ def read(resource_id: str, resource_type: str, aws_profile: str | None,
         )
 
         # Execute
-        if rt.value.startswith('aws'):
+        if rt.value.startswith('aws_'):
             import boto3
             aws_reg = AWSExecutorRegistry(
                 boto3.Session(profile_name=aws_profile) if aws_profile else None
@@ -682,7 +683,7 @@ def read(resource_id: str, resource_type: str, aws_profile: str | None,
 @click.option('--rename', help='New resource name')
 @click.option('--params', type=click.Path(exists=True), help='JSON params file')
 def update(resource_id: str, resource_type: str, rename: str | None,
-           params: str | None):
+           params: str | None) -> None:
     """Update resource configuration"""
 
     console.print("[yellow]⚠[/yellow] Update command not implemented")
@@ -703,7 +704,7 @@ def update(resource_id: str, resource_type: str, rename: str | None,
 @click.confirmation_option(prompt='Confirm deletion?')
 def delete(resource_id: str, resource_type: str, archive: bool,
            aws_profile: str | None, dbx_host: str | None,
-           dbx_token: str | None):
+           dbx_token: str | None) -> None:
     """Delete resource"""
 
     try:
@@ -725,12 +726,12 @@ def delete(resource_id: str, resource_type: str, archive: bool,
 # =============================================================================
 
 @cli.group()
-def config():
+def config() -> None:
     """Configuration management commands"""
     pass
 
 
-def _parse_resource_type_selection(selection: str, available_types: list) -> list:
+def _parse_resource_type_selection(selection: str, available_types: list[str]) -> list[str]:
     """
     Parse resource type selection string.
     
@@ -794,7 +795,7 @@ def _parse_resource_type_selection(selection: str, available_types: list) -> lis
 @click.option('--force', is_flag=True, help='Overwrite existing files without prompting')
 def config_init(cost_center: str | None, environment: str | None,
                 project: str | None, region: str | None, team: str | None,
-                resource_types: str | None, force: bool):
+                resource_types: str | None, force: bool) -> None:
     """Initialize configuration with interactive prompts (default) or flags
     
     Interactive mode (prompts for all values):
@@ -942,7 +943,7 @@ def config_init(cost_center: str | None, environment: str | None,
               help='Path to naming-values.yaml (default: .dpn/naming-values.yaml)')
 @click.option('--patterns-config', type=click.Path(exists=True),
               help='Path to naming-patterns.yaml (default: .dpn/naming-patterns.yaml)')
-def config_validate(values_config: str | None, patterns_config: str | None):
+def config_validate(values_config: str | None, patterns_config: str | None) -> None:
     """Validate configuration files against JSON schemas
     
     Checks both naming-values.yaml and naming-patterns.yaml for:
@@ -1049,7 +1050,7 @@ def config_validate(values_config: str | None, patterns_config: str | None):
 @click.option('--format', type=click.Choice(['table', 'json']), default='table',
               help='Output format')
 def config_show(values_config: str | None, patterns_config: str | None,
-                resource_type: str | None, format: str):
+                resource_type: str | None, format: str) -> None:
     """Display current configuration values
     
     Shows the effective configuration after merging:
@@ -1155,7 +1156,7 @@ def config_show(values_config: str | None, patterns_config: str | None,
 # =============================================================================
 
 @cli.command('recover')
-def recover():
+def recover() -> None:
     """Recover from failed transactions"""
 
     try:
@@ -1169,7 +1170,7 @@ def recover():
 
 
 @cli.command('status')
-def status():
+def status() -> None:
     """Show CLI status and configuration
     
     Displays system health including:

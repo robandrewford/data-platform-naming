@@ -14,7 +14,7 @@ from typing import Any
 # Import ConfigurationManager for type hints
 from .config.configuration_manager import ConfigurationManager
 from .constants import AWSResourceType, Environment, TableType
-from .exceptions import ValidationError, PatternError
+from .exceptions import PatternError, ValidationError
 
 
 @dataclass
@@ -65,7 +65,7 @@ class AWSNamingGenerator:
         self,
         config: AWSNamingConfig,
         configuration_manager: ConfigurationManager
-    ):
+    ) -> None:
         """
         Initialize AWS naming generator.
 
@@ -89,7 +89,7 @@ class AWSNamingGenerator:
         self._validate_config()
         self._validate_patterns_at_init()
 
-    def _validate_config(self):
+    def _validate_config(self) -> None:
         """Validate configuration parameters"""
         if self.config.environment not in [e.value for e in Environment]:
             raise ValidationError(

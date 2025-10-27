@@ -10,7 +10,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
+
+from data_platform_naming.types import (
+    ConfigValuesDict,
+    MetadataDict,
+    ResourceDefinitionDict,
+    ValueOverridesDict,
+)
 
 from .naming_patterns_loader import (
     NamingPatternsLoader,
@@ -161,8 +168,8 @@ class ConfigurationManager:
         self,
         resource_type: str,
         environment: str | None = None,
-        blueprint_metadata: dict[str, Any] | None = None,
-        value_overrides: dict[str, Any] | None = None
+        blueprint_metadata: MetadataDict | None = None,
+        value_overrides: ValueOverridesDict | None = None
     ) -> GeneratedName:
         """
         Generate a resource name by combining values and patterns.
@@ -228,9 +235,9 @@ class ConfigurationManager:
 
     def generate_names_for_blueprint(
         self,
-        resources: list[dict[str, Any]],
+        resources: list[ResourceDefinitionDict],
         environment: str | None = None,
-        blueprint_metadata: dict[str, Any] | None = None
+        blueprint_metadata: MetadataDict | None = None
     ) -> dict[str, GeneratedName]:
         """
         Generate names for all resources in a blueprint.
@@ -255,7 +262,7 @@ class ConfigurationManager:
             resource_type = resource["type"]
 
             # Merge blueprint metadata with resource metadata
-            resource_metadata = dict(blueprint_metadata or {})
+            resource_metadata: dict[str, Any] = dict(blueprint_metadata or {})
             if "metadata" in resource:
                 resource_metadata.update(resource["metadata"])
 
@@ -263,7 +270,7 @@ class ConfigurationManager:
                 result = self.generate_name(
                     resource_type=resource_type,
                     environment=environment,
-                    blueprint_metadata=resource_metadata if resource_metadata else None
+                    blueprint_metadata=resource_metadata if resource_metadata else None  # type: ignore[arg-type]
                 )
                 results[resource_id] = result
             except (PatternError, ConfigurationError) as e:

@@ -22,8 +22,8 @@ class ValidationResult(Enum):
 
 
 @dataclass
-class ValidationError:
-    """Validation error details"""
+class ValidationIssue:
+    """Validation issue details"""
     code: str
     message: str
     severity: ValidationResult
@@ -56,13 +56,13 @@ class AWSValidator:
     IAM_PATTERN = r'^[\w+=,.@-]+$'
 
     @staticmethod
-    def validate_s3_bucket(name: str) -> tuple[bool, list[ValidationError]]:
+    def validate_s3_bucket(name: str) -> tuple[bool, list[ValidationIssue]]:
         """Validate S3 bucket name"""
         errors = []
 
         # Length
         if len(name) < AWSValidator.S3_MIN_LENGTH:
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="S3_LENGTH_MIN",
                 message=f"Length {len(name)} < minimum {AWSValidator.S3_MIN_LENGTH}",
                 severity=ValidationResult.INVALID,
@@ -70,7 +70,7 @@ class AWSValidator:
             ))
 
         if len(name) > AWSValidator.S3_MAX_LENGTH:
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="S3_LENGTH_MAX",
                 message=f"Length {len(name)} > maximum {AWSValidator.S3_MAX_LENGTH}",
                 severity=ValidationResult.INVALID,
@@ -79,7 +79,7 @@ class AWSValidator:
 
         # Pattern
         if not re.match(AWSValidator.S3_PATTERN, name):
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="S3_PATTERN",
                 message="Must be lowercase alphanumeric with hyphens",
                 severity=ValidationResult.INVALID,
@@ -90,7 +90,7 @@ class AWSValidator:
         # Reserved prefixes
         for reserved in AWSValidator.S3_RESERVED:
             if name.startswith(reserved):
-                errors.append(ValidationError(
+                errors.append(ValidationIssue(
                     code="S3_RESERVED",
                     message=f"Cannot start with reserved prefix: {reserved}",
                     severity=ValidationResult.INVALID,
@@ -99,7 +99,7 @@ class AWSValidator:
 
         # IP address format
         if re.match(r'^\d+\.\d+\.\d+\.\d+$', name):
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="S3_IP_FORMAT",
                 message="Cannot resemble IP address",
                 severity=ValidationResult.INVALID,
@@ -108,7 +108,7 @@ class AWSValidator:
 
         # Consecutive hyphens
         if '--' in name:
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="S3_CONSECUTIVE_HYPHENS",
                 message="Cannot contain consecutive hyphens",
                 severity=ValidationResult.WARNING,
@@ -118,12 +118,12 @@ class AWSValidator:
         return len(errors) == 0, errors
 
     @staticmethod
-    def validate_glue_database(name: str) -> tuple[bool, list[ValidationError]]:
+    def validate_glue_database(name: str) -> tuple[bool, list[ValidationIssue]]:
         """Validate Glue database name"""
         errors = []
 
         if len(name) > AWSValidator.GLUE_DB_MAX_LENGTH:
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="GLUE_DB_LENGTH",
                 message=f"Length {len(name)} > maximum {AWSValidator.GLUE_DB_MAX_LENGTH}",
                 severity=ValidationResult.INVALID,
@@ -131,7 +131,7 @@ class AWSValidator:
             ))
 
         if not re.match(AWSValidator.GLUE_DB_PATTERN, name):
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="GLUE_DB_PATTERN",
                 message="Must be lowercase alphanumeric with underscores only",
                 severity=ValidationResult.INVALID,
@@ -142,12 +142,12 @@ class AWSValidator:
         return len(errors) == 0, errors
 
     @staticmethod
-    def validate_glue_table(name: str) -> tuple[bool, list[ValidationError]]:
+    def validate_glue_table(name: str) -> tuple[bool, list[ValidationIssue]]:
         """Validate Glue table name"""
         errors = []
 
         if len(name) > AWSValidator.GLUE_TABLE_MAX_LENGTH:
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="GLUE_TABLE_LENGTH",
                 message=f"Length {len(name)} > maximum {AWSValidator.GLUE_TABLE_MAX_LENGTH}",
                 severity=ValidationResult.INVALID,
@@ -155,7 +155,7 @@ class AWSValidator:
             ))
 
         if not re.match(AWSValidator.GLUE_TABLE_PATTERN, name):
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="GLUE_TABLE_PATTERN",
                 message="Must be lowercase alphanumeric with underscores only",
                 severity=ValidationResult.INVALID,
@@ -166,12 +166,12 @@ class AWSValidator:
         return len(errors) == 0, errors
 
     @staticmethod
-    def validate_lambda_function(name: str) -> tuple[bool, list[ValidationError]]:
+    def validate_lambda_function(name: str) -> tuple[bool, list[ValidationIssue]]:
         """Validate Lambda function name"""
         errors = []
 
         if len(name) > AWSValidator.LAMBDA_MAX_LENGTH:
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="LAMBDA_LENGTH",
                 message=f"Length {len(name)} > maximum {AWSValidator.LAMBDA_MAX_LENGTH}",
                 severity=ValidationResult.INVALID,
@@ -179,7 +179,7 @@ class AWSValidator:
             ))
 
         if not re.match(AWSValidator.LAMBDA_PATTERN, name):
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="LAMBDA_PATTERN",
                 message="Must be alphanumeric with hyphens and underscores",
                 severity=ValidationResult.INVALID,
@@ -189,12 +189,12 @@ class AWSValidator:
         return len(errors) == 0, errors
 
     @staticmethod
-    def validate_iam_role(name: str) -> tuple[bool, list[ValidationError]]:
+    def validate_iam_role(name: str) -> tuple[bool, list[ValidationIssue]]:
         """Validate IAM role name"""
         errors = []
 
         if len(name) > AWSValidator.IAM_ROLE_MAX_LENGTH:
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="IAM_ROLE_LENGTH",
                 message=f"Length {len(name)} > maximum {AWSValidator.IAM_ROLE_MAX_LENGTH}",
                 severity=ValidationResult.INVALID,
@@ -202,7 +202,7 @@ class AWSValidator:
             ))
 
         if not re.match(AWSValidator.IAM_PATTERN, name):
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="IAM_ROLE_PATTERN",
                 message="Must be alphanumeric with +=,.@-_ only",
                 severity=ValidationResult.INVALID,
@@ -232,12 +232,12 @@ class DatabricksValidator:
     TABLE_PATTERN = r'^[a-zA-Z0-9_]+$'
 
     @staticmethod
-    def validate_cluster(name: str) -> tuple[bool, list[ValidationError]]:
+    def validate_cluster(name: str) -> tuple[bool, list[ValidationIssue]]:
         """Validate Databricks cluster name"""
         errors = []
 
         if len(name) > DatabricksValidator.CLUSTER_MAX_LENGTH:
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="DBX_CLUSTER_LENGTH",
                 message=f"Length {len(name)} > maximum {DatabricksValidator.CLUSTER_MAX_LENGTH}",
                 severity=ValidationResult.INVALID,
@@ -245,7 +245,7 @@ class DatabricksValidator:
             ))
 
         if not re.match(DatabricksValidator.CLUSTER_PATTERN, name):
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="DBX_CLUSTER_PATTERN",
                 message="Must be alphanumeric with hyphens and underscores",
                 severity=ValidationResult.INVALID,
@@ -255,12 +255,12 @@ class DatabricksValidator:
         return len(errors) == 0, errors
 
     @staticmethod
-    def validate_job(name: str) -> tuple[bool, list[ValidationError]]:
+    def validate_job(name: str) -> tuple[bool, list[ValidationIssue]]:
         """Validate Databricks job name"""
         errors = []
 
         if len(name) > DatabricksValidator.JOB_MAX_LENGTH:
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="DBX_JOB_LENGTH",
                 message=f"Length {len(name)} > maximum {DatabricksValidator.JOB_MAX_LENGTH}",
                 severity=ValidationResult.INVALID,
@@ -268,7 +268,7 @@ class DatabricksValidator:
             ))
 
         if not re.match(DatabricksValidator.JOB_PATTERN, name):
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="DBX_JOB_PATTERN",
                 message="Must be alphanumeric with hyphens and underscores",
                 severity=ValidationResult.INVALID,
@@ -278,12 +278,12 @@ class DatabricksValidator:
         return len(errors) == 0, errors
 
     @staticmethod
-    def validate_catalog(name: str) -> tuple[bool, list[ValidationError]]:
+    def validate_catalog(name: str) -> tuple[bool, list[ValidationIssue]]:
         """Validate Unity Catalog catalog name"""
         errors = []
 
         if len(name) > DatabricksValidator.CATALOG_MAX_LENGTH:
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="UC_CATALOG_LENGTH",
                 message=f"Length {len(name)} > maximum {DatabricksValidator.CATALOG_MAX_LENGTH}",
                 severity=ValidationResult.INVALID,
@@ -291,7 +291,7 @@ class DatabricksValidator:
             ))
 
         if not re.match(DatabricksValidator.CATALOG_PATTERN, name):
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="UC_CATALOG_PATTERN",
                 message="Must be alphanumeric with underscores only",
                 severity=ValidationResult.INVALID,
@@ -302,12 +302,12 @@ class DatabricksValidator:
         return len(errors) == 0, errors
 
     @staticmethod
-    def validate_schema(name: str) -> tuple[bool, list[ValidationError]]:
+    def validate_schema(name: str) -> tuple[bool, list[ValidationIssue]]:
         """Validate Unity Catalog schema name"""
         errors = []
 
         if len(name) > DatabricksValidator.SCHEMA_MAX_LENGTH:
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="UC_SCHEMA_LENGTH",
                 message=f"Length {len(name)} > maximum {DatabricksValidator.SCHEMA_MAX_LENGTH}",
                 severity=ValidationResult.INVALID,
@@ -315,7 +315,7 @@ class DatabricksValidator:
             ))
 
         if not re.match(DatabricksValidator.SCHEMA_PATTERN, name):
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="UC_SCHEMA_PATTERN",
                 message="Must be alphanumeric with underscores only",
                 severity=ValidationResult.INVALID,
@@ -326,12 +326,12 @@ class DatabricksValidator:
         return len(errors) == 0, errors
 
     @staticmethod
-    def validate_table(name: str) -> tuple[bool, list[ValidationError]]:
+    def validate_table(name: str) -> tuple[bool, list[ValidationIssue]]:
         """Validate Unity Catalog table name"""
         errors = []
 
         if len(name) > DatabricksValidator.TABLE_MAX_LENGTH:
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="UC_TABLE_LENGTH",
                 message=f"Length {len(name)} > maximum {DatabricksValidator.TABLE_MAX_LENGTH}",
                 severity=ValidationResult.INVALID,
@@ -339,7 +339,7 @@ class DatabricksValidator:
             ))
 
         if not re.match(DatabricksValidator.TABLE_PATTERN, name):
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="UC_TABLE_PATTERN",
                 message="Must be alphanumeric with underscores only",
                 severity=ValidationResult.INVALID,
@@ -354,12 +354,12 @@ class ConventionValidator:
     """Naming convention compliance validation"""
 
     @staticmethod
-    def validate_environment(env: str) -> tuple[bool, list[ValidationError]]:
+    def validate_environment(env: str) -> tuple[bool, list[ValidationIssue]]:
         """Validate environment code"""
         valid_envs = [e.value for e in Environment]
 
         if env not in valid_envs:
-            return False, [ValidationError(
+            return False, [ValidationIssue(
                 code="ENV_INVALID",
                 message=f"Environment must be one of: {', '.join(valid_envs)}",
                 severity=ValidationResult.INVALID,
@@ -370,12 +370,12 @@ class ConventionValidator:
         return True, []
 
     @staticmethod
-    def validate_project_name(name: str) -> tuple[bool, list[ValidationError]]:
+    def validate_project_name(name: str) -> tuple[bool, list[ValidationIssue]]:
         """Validate project name format"""
         errors = []
 
         if not re.match(r'^[a-z0-9-]+$', name):
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="PROJECT_PATTERN",
                 message="Must be lowercase alphanumeric with hyphens",
                 severity=ValidationResult.INVALID,
@@ -384,7 +384,7 @@ class ConventionValidator:
             ))
 
         if len(name) > 32:
-            errors.append(ValidationError(
+            errors.append(ValidationIssue(
                 code="PROJECT_LENGTH",
                 message="Should be <= 32 characters for readability",
                 severity=ValidationResult.WARNING,
@@ -394,10 +394,10 @@ class ConventionValidator:
         return len(errors) == 0, errors
 
     @staticmethod
-    def validate_tag_value(value: str) -> tuple[bool, list[ValidationError]]:
+    def validate_tag_value(value: str) -> tuple[bool, list[ValidationIssue]]:
         """Validate AWS tag value"""
         if len(value) > 256:
-            return False, [ValidationError(
+            return False, [ValidationIssue(
                 code="TAG_LENGTH",
                 message="Tag value > 256 characters",
                 severity=ValidationResult.INVALID,

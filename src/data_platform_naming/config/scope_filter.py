@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import Any
 
 from ..exceptions import ValidationError
 
@@ -28,7 +28,7 @@ class ScopeConfig:
     mode: FilterMode
     patterns: list[str]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate patterns"""
         if not self.patterns:
             raise ValidationError(
@@ -98,7 +98,7 @@ class ScopeFilter:
         ]
 
     @staticmethod
-    def _wildcard_to_regex(pattern: str) -> re.Pattern:
+    def _wildcard_to_regex(pattern: str) -> re.Pattern[str]:
         """
         Convert wildcard pattern to compiled regex.
         
@@ -165,8 +165,8 @@ class ScopeFilter:
 
     def filter_resources(
         self,
-        resources: list[dict]
-    ) -> list[dict]:
+        resources: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """
         Filter a list of resources based on their types.
 

@@ -13,11 +13,17 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import jsonschema
 import yaml
 from jsonschema import ValidationError as JsonSchemaValidationError
+
+from data_platform_naming.types import (
+    ConfigValuesDict,
+    SchemaDict,
+    TransformationRulesDict,
+)
 
 # Import exceptions from naming_values_loader for consistency
 from .naming_values_loader import (
@@ -43,7 +49,7 @@ class NamingPattern:
         """Extract all {variable} placeholders from pattern"""
         return set(re.findall(r'\{([a-z_]+)\}', self.pattern))
 
-    def validate_variables(self, available_variables: dict[str, Any]) -> list[str]:
+    def validate_variables(self, available_variables: ConfigValuesDict | dict[str, Any]) -> list[str]:
         """
         Validate that all required variables are available.
 
@@ -58,7 +64,7 @@ class NamingPattern:
         missing = pattern_vars - available_keys
         return sorted(list(missing))
 
-    def format(self, values: dict[str, Any]) -> str:
+    def format(self, values: ConfigValuesDict | dict[str, Any]) -> str:
         """
         Format pattern with provided values.
 
@@ -300,13 +306,13 @@ class NamingPatternsLoader:
             values: Dictionary of variable values
 
         Returns:
-            Dictionary with transformations applied
+            Dictionary with transformations applied (compatible with ConfigValuesDict)
         """
         if self.config is None:
             raise ConfigurationError("No configuration loaded")
 
         # Make a copy to avoid modifying original
-        transformed = dict(values)
+        transformed: dict[str, Any] = dict(values)
         transformations = self.config.get("transformations", {})
 
         # Apply region mapping

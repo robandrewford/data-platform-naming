@@ -11,11 +11,17 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import jsonschema
 import yaml
 from jsonschema import ValidationError as JsonSchemaValidationError
+
+from data_platform_naming.types import (
+    ConfigValuesDict,
+    MetadataDict,
+    SchemaDict,
+)
 
 
 class ConfigurationError(Exception):
@@ -183,7 +189,7 @@ class NamingValuesLoader:
         self,
         resource_type: str,
         environment: str | None = None,
-        blueprint_metadata: dict[str, Any] | None = None
+        blueprint_metadata: MetadataDict | None = None
     ) -> NamingValues:
         """
         Get merged values for a specific resource type and environment.
