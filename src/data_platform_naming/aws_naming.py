@@ -9,11 +9,12 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import Enum
-# No imports needed with __future__ annotations
+from typing import Any
 
 # Import ConfigurationManager for type hints
 from .config.configuration_manager import ConfigurationManager
 from .constants import AWSResourceType, Environment
+from .exceptions import ValidationError, PatternError
 
 
 @dataclass
@@ -76,9 +77,10 @@ class AWSNamingGenerator:
             ValueError: If configuration_manager is None or required patterns missing
         """
         if configuration_manager is None:
-            raise ValueError(
-                "ConfigurationManager is required. "
-                "Legacy mode without ConfigurationManager is no longer supported."
+            raise ValidationError(
+                message="ConfigurationManager is required",
+                field="configuration_manager",
+                suggestion="Legacy mode without ConfigurationManager is no longer supported. Pass a ConfigurationManager instance."
             )
         
         self.config = config
@@ -90,10 +92,20 @@ class AWSNamingGenerator:
     def _validate_config(self):
         """Validate configuration parameters"""
         if self.config.environment not in [e.value for e in Environment]:
-            raise ValueError(f"Invalid environment: {self.config.environment}")
+            raise ValidationError(
+                message=f"Invalid environment: {self.config.environment}",
+                field="environment",
+                value=self.config.environment,
+                suggestion=f"Valid environments: {', '.join(e.value for e in Environment)}"
+            )
 
         if not re.match(r'^[a-z0-9-]+$', self.config.project):
-            raise ValueError(f"Invalid project name: {self.config.project}")
+            raise ValidationError(
+                message=f"Invalid project name: {self.config.project}",
+                field="project",
+                value=self.config.project,
+                suggestion="Project name must contain only lowercase letters, numbers, and hyphens"
+            )
 
     def _validate_patterns_at_init(self) -> None:
         """
@@ -141,8 +153,13 @@ class AWSNamingGenerator:
             errors.append("Invalid patterns:\n  " + "\n  ".join(invalid_patterns))
 
         if errors:
-            raise ValueError(
-                "Pattern validation failed:\n" + "\n".join(errors)
+            # Collect all missing resource types
+            missing_types = [rt for rt in required_resource_types 
+                           if any(rt in err for err in missing_patterns)]
+            raise PatternError(
+                message="Pattern validation failed: " + "; ".join(errors),
+                pattern="AWS resource patterns",
+                missing_variables=missing_types
             )
 
     def _generate_with_config(
@@ -195,9 +212,12 @@ class AWSNamingGenerator:
 
         # Validate the generated name
         if not result.is_valid:
-            raise ValueError(
-                f"Name validation failed for {resource_type}: "
-                f"{', '.join(result.validation_errors)}"
+            raise ValidationError(
+                message=f"Name validation failed for {resource_type}",
+                field="generated_name",
+                value=result.name,
+                suggestion=", ".join(result.validation_errors),
+                resource_type=resource_type
             )
 
         return result.name
@@ -282,7 +302,7 @@ class AWSNamingGenerator:
         self,
         domain: str,
         layer: str = "bronze",
-        metadata: Optional[dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
     ) -> str:
         """
         Generate Glue database name.
@@ -314,7 +334,7 @@ class AWSNamingGenerator:
         self,
         entity: str,
         table_type: str = "fact",
-        metadata: Optional[dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
     ) -> str:
         """
         Generate Glue table name.
@@ -346,7 +366,7 @@ class AWSNamingGenerator:
         self,
         database: str,
         source: str,
-        metadata: Optional[dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
     ) -> str:
         """
         Generate Glue crawler name.
@@ -379,7 +399,7 @@ class AWSNamingGenerator:
         domain: str,
         trigger: str,
         action: str,
-        metadata: Optional[dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
     ) -> str:
         """
         Generate Lambda function name.
@@ -413,7 +433,7 @@ class AWSNamingGenerator:
         self,
         service: str,
         purpose: str,
-        metadata: Optional[dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
     ) -> str:
         """
         Generate IAM role name.
@@ -445,7 +465,7 @@ class AWSNamingGenerator:
         self,
         service: str,
         purpose: str,
-        metadata: Optional[dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
     ) -> str:
         """
         Generate IAM policy name.
@@ -477,7 +497,7 @@ class AWSNamingGenerator:
         self,
         domain: str,
         source: str,
-        metadata: Optional[dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
     ) -> str:
         """
         Generate Kinesis stream name.
@@ -509,7 +529,7 @@ class AWSNamingGenerator:
         self,
         domain: str,
         destination: str,
-        metadata: Optional[dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
     ) -> str:
         """
         Generate Kinesis Firehose delivery stream name.
@@ -541,7 +561,7 @@ class AWSNamingGenerator:
         self,
         entity: str,
         purpose: str = "data",
-        metadata: Optional[dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
     ) -> str:
         """
         Generate DynamoDB table name.
@@ -573,7 +593,7 @@ class AWSNamingGenerator:
         self,
         event_type: str,
         purpose: str,
-        metadata: Optional[dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
     ) -> str:
         """
         Generate SNS topic name.
@@ -605,7 +625,7 @@ class AWSNamingGenerator:
         self,
         purpose: str,
         queue_type: str = "standard",
-        metadata: Optional[dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
     ) -> str:
         """
         Generate SQS queue name.
@@ -637,7 +657,7 @@ class AWSNamingGenerator:
         self,
         workflow: str,
         purpose: str,
-        metadata: Optional[dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
     ) -> str:
         """
         Generate Step Functions state machine name.

@@ -63,8 +63,8 @@ class ConfigurationManager:
 
     def __init__(
         self,
-        values_loader: Optional[NamingValuesLoader] = None,
-        patterns_loader: Optional[NamingPatternsLoader] = None
+        values_loader: NamingValuesLoader | None = None,
+        patterns_loader: NamingPatternsLoader | None = None
     ):
         """
         Initialize ConfigurationManager.
@@ -82,10 +82,10 @@ class ConfigurationManager:
 
     def load_configs(
         self,
-        values_path: Optional[Path] = None,
-        patterns_path: Optional[Path] = None,
-        values_dict: Optional[dict[str, Any]] = None,
-        patterns_dict: Optional[dict[str, Any]] = None
+        values_path: Path | None = None,
+        patterns_path: Path | None = None,
+        values_dict: dict[str, Any] | None = None,
+        patterns_dict: dict[str, Any] | None = None
     ) -> None:
         """
         Load both naming values and patterns configurations.
@@ -125,7 +125,7 @@ class ConfigurationManager:
         self._values_loaded = self._check_values_loader_has_data()
         self._patterns_loaded = self._check_patterns_loader_has_data()
 
-    def load_from_default_locations(self, base_dir: Optional[Path] = None) -> bool:
+    def load_from_default_locations(self, base_dir: Path | None = None) -> bool:
         """
         Load configurations from default locations.
         
@@ -160,9 +160,9 @@ class ConfigurationManager:
     def generate_name(
         self,
         resource_type: str,
-        environment: Optional[str] = None,
-        blueprint_metadata: Optional[dict[str, Any]] = None,
-        value_overrides: Optional[dict[str, Any]] = None
+        environment: str | None = None,
+        blueprint_metadata: dict[str, Any] | None = None,
+        value_overrides: dict[str, Any] | None = None
     ) -> GeneratedName:
         """
         Generate a resource name by combining values and patterns.
@@ -229,8 +229,8 @@ class ConfigurationManager:
     def generate_names_for_blueprint(
         self,
         resources: list[dict[str, Any]],
-        environment: Optional[str] = None,
-        blueprint_metadata: Optional[dict[str, Any]] = None
+        environment: str | None = None,
+        blueprint_metadata: dict[str, Any] | None = None
     ) -> dict[str, GeneratedName]:
         """
         Generate names for all resources in a blueprint.

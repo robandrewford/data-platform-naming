@@ -7,7 +7,7 @@ name = "data-platform-naming"
 version = "0.1.0"
 description = "Battle-tested AWS + Databricks resource naming automation with ACID transactions"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
     { name = "Your Name", email = "your.email@example.com" }
@@ -144,7 +144,7 @@ ignore = [
 "__init__.py" = ["F401"]
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false

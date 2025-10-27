@@ -82,7 +82,7 @@ class NamingValuesLoader:
         'dataplatform'
     """
 
-    def __init__(self, schema_path: Optional[Path] = None):
+    def __init__(self, schema_path: Path | None = None):
         """
         Initialize the NamingValuesLoader.
         
@@ -90,11 +90,11 @@ class NamingValuesLoader:
             schema_path: Optional path to JSON schema file.
                         If not provided, uses bundled schema.
         """
-        self.config: Optional[dict[str, Any]] = None
+        self.config: dict[str, Any] | None = None
         self.schema: dict[str, Any] = self._load_schema(schema_path)
-        self.config_path: Optional[Path] = None
+        self.config_path: Path | None = None
 
-    def _load_schema(self, schema_path: Optional[Path] = None) -> dict[str, Any]:
+    def _load_schema(self, schema_path: Path | None = None) -> dict[str, Any]:
         """Load the JSON schema for validation"""
         if schema_path is None:
             # Use bundled schema
@@ -182,8 +182,8 @@ class NamingValuesLoader:
     def get_values_for_resource(
         self,
         resource_type: str,
-        environment: Optional[str] = None,
-        blueprint_metadata: Optional[dict[str, Any]] = None
+        environment: str | None = None,
+        blueprint_metadata: dict[str, Any] | None = None
     ) -> NamingValues:
         """
         Get merged values for a specific resource type and environment.

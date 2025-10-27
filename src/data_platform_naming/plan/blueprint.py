@@ -227,7 +227,7 @@ class ParsedBlueprint:
     metadata: dict[str, Any]
     resources: list[ParsedResource]
     dependency_graph: dict[str, list[str]]
-    scope_config: Optional[dict[str, Any]] = None
+    scope_config: dict[str, Any] | None = None
 
     def get_execution_order(self) -> list[ParsedResource]:
         """Topological sort for dependency resolution"""
@@ -260,7 +260,7 @@ class BlueprintParser:
     def __init__(
         self,
         naming_generators: dict[str, Any],
-        configuration_manager: Optional[Any] = None
+        configuration_manager: Any | None = None
     ):
         """
         Args:

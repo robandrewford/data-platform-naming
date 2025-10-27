@@ -68,7 +68,7 @@ class ScopeFilter:
     def __init__(
         self,
         mode: FilterMode = FilterMode.INCLUDE,
-        patterns: Optional[list[str]] = None
+        patterns: list[str] | None = None
     ):
         """
         Initialize ScopeFilter.

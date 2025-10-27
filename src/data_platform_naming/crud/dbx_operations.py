@@ -6,9 +6,11 @@ Clusters, Jobs, Unity Catalog operations with rollback support
 
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 import requests
+
+from data_platform_naming.exceptions import DatabricksOperationError, ValidationError
 
 if TYPE_CHECKING:
     from .transaction_manager import Operation
@@ -16,20 +18,15 @@ if TYPE_CHECKING:
 @dataclass
 class DatabricksConfig:
     """Databricks connection configuration"""
-    host: Optional[str]  # https://your-workspace.cloud.databricks.com
-    token: Optional[str]
+    host: str | None  # https://your-workspace.cloud.databricks.com
+    token: str | None
 
     @property
-    def headers(self) -> Dict[str, str]:
+    def headers(self) -> dict[str, str]:
         return {
             'Authorization': f'Bearer {self.token}',
             'Content-Type': 'application/json'
         }
-
-
-class DatabricksAPIError(Exception):
-    """Databricks API error"""
-    pass
 
 
 class DatabricksClusterExecutor:
@@ -39,7 +36,7 @@ class DatabricksClusterExecutor:
         self.config = config
         self.base_url = f"{config.host}/api/2.0"
 
-    def create(self, operation: "Operation") -> Dict[str, Any]:
+    def create(self, operation: "Operation") -> dict[str, Any]:
         """Create cluster"""
         cluster_name = operation.resource_id
         params = operation.params
@@ -98,9 +95,16 @@ class DatabricksClusterExecutor:
             }
 
         except requests.exceptions.RequestException as e:
-            raise DatabricksAPIError(f"Cluster create failed: {str(e)}")
+            status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+            raise DatabricksOperationError(
+                message=f"Cluster creation failed: {str(e)}",
+                dbx_api_endpoint="/api/2.0/clusters/create",
+                http_status_code=status_code,
+                resource_type="cluster",
+                operation="create"
+            )
 
-    def read(self, operation: "Operation") -> Dict[str, Any]:
+    def read(self, operation: "Operation") -> dict[str, Any]:
         """Read cluster configuration"""
         cluster_id = operation.params.get('cluster_id')
 
@@ -119,9 +123,16 @@ class DatabricksClusterExecutor:
             return {'cluster': response.json()}
 
         except requests.exceptions.RequestException as e:
-            raise DatabricksAPIError(f"Cluster read failed: {str(e)}")
+            status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+            raise DatabricksOperationError(
+                message=f"Cluster read failed: {str(e)}",
+                dbx_api_endpoint="/api/2.0/clusters/get",
+                http_status_code=status_code,
+                resource_type="cluster",
+                operation="read"
+            )
 
-    def update(self, operation: "Operation") -> Dict[str, Any]:
+    def update(self, operation: "Operation") -> dict[str, Any]:
         """Update cluster configuration"""
         cluster_id = operation.params['cluster_id']
 
@@ -154,11 +165,18 @@ class DatabricksClusterExecutor:
             return {'rollback_data': current_state}
 
         except requests.exceptions.RequestException as e:
-            raise DatabricksAPIError(f"Cluster update failed: {str(e)}")
+            status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+            raise DatabricksOperationError(
+                message=f"Cluster update failed: {str(e)}",
+                dbx_api_endpoint="/api/2.0/clusters/edit",
+                http_status_code=status_code,
+                resource_type="cluster",
+                operation="update"
+            )
 
-    def delete(self, operation: "Operation") -> Dict[str, Any]:
+    def delete(self, operation: "Operation") -> dict[str, Any]:
         """Delete cluster"""
-        cluster_id: Optional[str] = operation.params.get('cluster_id')
+        cluster_id: str | None = operation.params.get('cluster_id')
         archive = operation.params.get('archive', False)
 
         if not cluster_id:
@@ -195,14 +213,26 @@ class DatabricksClusterExecutor:
             return {'rollback_data': current_state}
 
         except requests.exceptions.RequestException as e:
-            raise DatabricksAPIError(f"Cluster delete failed: {str(e)}")
+            status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+            raise DatabricksOperationError(
+                message=f"Cluster deletion failed: {str(e)}",
+                dbx_api_endpoint="/api/2.0/clusters/permanent-delete",
+                http_status_code=status_code,
+                resource_type="cluster",
+                operation="delete"
+            )
 
     def rollback(self, operation: "Operation") -> None:
         """Rollback cluster operation"""
         if operation.type.value == 'create':
             try:
                 if operation.rollback_data is None:
-                    raise ValueError("Rollback data is None for create operation")
+                    raise ValidationError(
+                        message="Rollback data is None for create operation",
+                        field="rollback_data",
+                        resource_type="cluster",
+                        operation="rollback"
+                    )
                 cluster_id = operation.rollback_data['cluster_id']
                 requests.post(
                     f"{self.base_url}/clusters/permanent-delete",
@@ -225,7 +255,12 @@ class DatabricksClusterExecutor:
             if cluster['cluster_name'] == name:
                 return str(cluster['cluster_id'])
 
-        raise DatabricksAPIError(f"Cluster not found: {name}")
+        raise DatabricksOperationError(
+            message=f"Cluster not found: {name}",
+            dbx_api_endpoint="/api/2.0/clusters/list",
+            resource_type="cluster",
+            operation="find_by_name"
+        )
 
     def _wait_for_cluster(self, cluster_id: str, target_state: str, timeout: int = 600):
         """Wait for cluster to reach target state"""
@@ -245,7 +280,12 @@ class DatabricksClusterExecutor:
 
             time.sleep(10)
 
-        raise DatabricksAPIError(f"Timeout waiting for cluster {target_state}")
+        raise DatabricksOperationError(
+            message=f"Timeout waiting for cluster {target_state}",
+            dbx_api_endpoint="/api/2.0/clusters/get",
+            resource_type="cluster",
+            operation="wait_for_state"
+        )
 
 
 class DatabricksJobExecutor:
@@ -255,7 +295,7 @@ class DatabricksJobExecutor:
         self.config = config
         self.base_url = f"{config.host}/api/2.1"
 
-    def create(self, operation: "Operation") -> Dict[str, Any]:
+    def create(self, operation: "Operation") -> dict[str, Any]:
         """Create job"""
         job_name = operation.resource_id
         params = operation.params
@@ -299,9 +339,16 @@ class DatabricksJobExecutor:
             }
 
         except requests.exceptions.RequestException as e:
-            raise DatabricksAPIError(f"Job create failed: {str(e)}")
+            status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+            raise DatabricksOperationError(
+                message=f"Job creation failed: {str(e)}",
+                dbx_api_endpoint="/api/2.1/jobs/create",
+                http_status_code=status_code,
+                resource_type="job",
+                operation="create"
+            )
 
-    def read(self, operation: "Operation") -> Dict[str, Any]:
+    def read(self, operation: "Operation") -> dict[str, Any]:
         """Read job configuration"""
         job_id = operation.params.get('job_id')
 
@@ -319,9 +366,16 @@ class DatabricksJobExecutor:
             return {'job': response.json()}
 
         except requests.exceptions.RequestException as e:
-            raise DatabricksAPIError(f"Job read failed: {str(e)}")
+            status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+            raise DatabricksOperationError(
+                message=f"Job read failed: {str(e)}",
+                dbx_api_endpoint="/api/2.1/jobs/get",
+                http_status_code=status_code,
+                resource_type="job",
+                operation="read"
+            )
 
-    def update(self, operation: "Operation") -> Dict[str, Any]:
+    def update(self, operation: "Operation") -> dict[str, Any]:
         """Update job configuration"""
         job_id = operation.params['job_id']
 
@@ -355,9 +409,16 @@ class DatabricksJobExecutor:
             return {'rollback_data': current_state}
 
         except requests.exceptions.RequestException as e:
-            raise DatabricksAPIError(f"Job update failed: {str(e)}")
+            status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+            raise DatabricksOperationError(
+                message=f"Job update failed: {str(e)}",
+                dbx_api_endpoint="/api/2.1/jobs/update",
+                http_status_code=status_code,
+                resource_type="job",
+                operation="update"
+            )
 
-    def delete(self, operation: "Operation") -> Dict[str, Any]:
+    def delete(self, operation: "Operation") -> dict[str, Any]:
         """Delete job"""
         job_id = operation.params.get('job_id')
 
@@ -378,14 +439,26 @@ class DatabricksJobExecutor:
             return {'rollback_data': current_state}
 
         except requests.exceptions.RequestException as e:
-            raise DatabricksAPIError(f"Job delete failed: {str(e)}")
+            status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+            raise DatabricksOperationError(
+                message=f"Job deletion failed: {str(e)}",
+                dbx_api_endpoint="/api/2.1/jobs/delete",
+                http_status_code=status_code,
+                resource_type="job",
+                operation="delete"
+            )
 
     def rollback(self, operation: "Operation") -> None:
         """Rollback job operation"""
         if operation.type.value == 'create':
             try:
                 if operation.rollback_data is None:
-                    raise ValueError("Rollback data is None for create operation")
+                    raise ValidationError(
+                        message="Rollback data is None for create operation",
+                        field="rollback_data",
+                        resource_type="job",
+                        operation="rollback"
+                    )
                 job_id = operation.rollback_data['job_id']
                 requests.post(
                     f"{self.base_url}/jobs/delete",
@@ -408,7 +481,12 @@ class DatabricksJobExecutor:
             if job['settings']['name'] == name:
                 return str(job['job_id'])
 
-        raise DatabricksAPIError(f"Job not found: {name}")
+        raise DatabricksOperationError(
+            message=f"Job not found: {name}",
+            dbx_api_endpoint="/api/2.1/jobs/list",
+            resource_type="job",
+            operation="find_by_name"
+        )
 
 
 class DatabricksUnityCatalogExecutor:
@@ -418,7 +496,7 @@ class DatabricksUnityCatalogExecutor:
         self.config = config
         self.base_url = f"{config.host}/api/2.1/unity-catalog"
 
-    def create_catalog(self, operation: "Operation") -> Dict[str, Any]:
+    def create_catalog(self, operation: "Operation") -> dict[str, Any]:
         """Create catalog"""
         catalog_name = operation.resource_id
         params = operation.params
@@ -447,9 +525,16 @@ class DatabricksUnityCatalogExecutor:
             }
 
         except requests.exceptions.RequestException as e:
-            raise DatabricksAPIError(f"Catalog create failed: {str(e)}")
+            status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+            raise DatabricksOperationError(
+                message=f"Catalog creation failed: {str(e)}",
+                dbx_api_endpoint="/api/2.1/unity-catalog/catalogs",
+                http_status_code=status_code,
+                resource_type="catalog",
+                operation="create"
+            )
 
-    def create_schema(self, operation: "Operation") -> Dict[str, Any]:
+    def create_schema(self, operation: "Operation") -> dict[str, Any]:
         """Create schema"""
         schema_name = operation.resource_id
         params = operation.params
@@ -480,9 +565,16 @@ class DatabricksUnityCatalogExecutor:
             }
 
         except requests.exceptions.RequestException as e:
-            raise DatabricksAPIError(f"Schema create failed: {str(e)}")
+            status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+            raise DatabricksOperationError(
+                message=f"Schema creation failed: {str(e)}",
+                dbx_api_endpoint="/api/2.1/unity-catalog/schemas",
+                http_status_code=status_code,
+                resource_type="schema",
+                operation="create"
+            )
 
-    def create_table(self, operation: "Operation") -> Dict[str, Any]:
+    def create_table(self, operation: "Operation") -> dict[str, Any]:
         """Create table"""
         table_name = operation.resource_id
         params = operation.params
@@ -520,9 +612,16 @@ class DatabricksUnityCatalogExecutor:
             }
 
         except requests.exceptions.RequestException as e:
-            raise DatabricksAPIError(f"Table create failed: {str(e)}")
+            status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+            raise DatabricksOperationError(
+                message=f"Table creation failed: {str(e)}",
+                dbx_api_endpoint="/api/2.1/unity-catalog/tables",
+                http_status_code=status_code,
+                resource_type="table",
+                operation="create"
+            )
 
-    def read_catalog(self, operation: "Operation") -> Dict[str, Any]:
+    def read_catalog(self, operation: "Operation") -> dict[str, Any]:
         """Read catalog"""
         catalog_name = operation.resource_id
 
@@ -536,9 +635,16 @@ class DatabricksUnityCatalogExecutor:
             return {'catalog': response.json()}
 
         except requests.exceptions.RequestException as e:
-            raise DatabricksAPIError(f"Catalog read failed: {str(e)}")
+            status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+            raise DatabricksOperationError(
+                message=f"Catalog read failed: {str(e)}",
+                dbx_api_endpoint=f"/api/2.1/unity-catalog/catalogs/{catalog_name}",
+                http_status_code=status_code,
+                resource_type="catalog",
+                operation="read"
+            )
 
-    def read_schema(self, operation: "Operation") -> Dict[str, Any]:
+    def read_schema(self, operation: "Operation") -> dict[str, Any]:
         """Read schema"""
         params = operation.params
         full_name = f"{params['catalog_name']}.{operation.resource_id}"
@@ -553,9 +659,16 @@ class DatabricksUnityCatalogExecutor:
             return {'schema': response.json()}
 
         except requests.exceptions.RequestException as e:
-            raise DatabricksAPIError(f"Schema read failed: {str(e)}")
+            status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+            raise DatabricksOperationError(
+                message=f"Schema read failed: {str(e)}",
+                dbx_api_endpoint=f"/api/2.1/unity-catalog/schemas/{full_name}",
+                http_status_code=status_code,
+                resource_type="schema",
+                operation="read"
+            )
 
-    def read_table(self, operation: "Operation") -> Dict[str, Any]:
+    def read_table(self, operation: "Operation") -> dict[str, Any]:
         """Read table"""
         params = operation.params
         full_name = f"{params['catalog_name']}.{params['schema_name']}.{operation.resource_id}"
@@ -570,9 +683,16 @@ class DatabricksUnityCatalogExecutor:
             return {'table': response.json()}
 
         except requests.exceptions.RequestException as e:
-            raise DatabricksAPIError(f"Table read failed: {str(e)}")
+            status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+            raise DatabricksOperationError(
+                message=f"Table read failed: {str(e)}",
+                dbx_api_endpoint=f"/api/2.1/unity-catalog/tables/{full_name}",
+                http_status_code=status_code,
+                resource_type="table",
+                operation="read"
+            )
 
-    def delete_catalog(self, operation: "Operation") -> Dict[str, Any]:
+    def delete_catalog(self, operation: "Operation") -> dict[str, Any]:
         """Delete catalog"""
         catalog_name = operation.resource_id
         force = operation.params.get('force', False)
@@ -591,9 +711,16 @@ class DatabricksUnityCatalogExecutor:
             return {'rollback_data': current_state}
 
         except requests.exceptions.RequestException as e:
-            raise DatabricksAPIError(f"Catalog delete failed: {str(e)}")
+            status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+            raise DatabricksOperationError(
+                message=f"Catalog deletion failed: {str(e)}",
+                dbx_api_endpoint=f"/api/2.1/unity-catalog/catalogs/{catalog_name}",
+                http_status_code=status_code,
+                resource_type="catalog",
+                operation="delete"
+            )
 
-    def delete_schema(self, operation: "Operation") -> Dict[str, Any]:
+    def delete_schema(self, operation: "Operation") -> dict[str, Any]:
         """Delete schema"""
         params = operation.params
         full_name = f"{params['catalog_name']}.{operation.resource_id}"
@@ -611,9 +738,16 @@ class DatabricksUnityCatalogExecutor:
             return {'rollback_data': current_state}
 
         except requests.exceptions.RequestException as e:
-            raise DatabricksAPIError(f"Schema delete failed: {str(e)}")
+            status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+            raise DatabricksOperationError(
+                message=f"Schema deletion failed: {str(e)}",
+                dbx_api_endpoint=f"/api/2.1/unity-catalog/schemas/{full_name}",
+                http_status_code=status_code,
+                resource_type="schema",
+                operation="delete"
+            )
 
-    def delete_table(self, operation: "Operation") -> Dict[str, Any]:
+    def delete_table(self, operation: "Operation") -> dict[str, Any]:
         """Delete table"""
         params = operation.params
         full_name = f"{params['catalog_name']}.{params['schema_name']}.{operation.resource_id}"
@@ -631,14 +765,26 @@ class DatabricksUnityCatalogExecutor:
             return {'rollback_data': current_state}
 
         except requests.exceptions.RequestException as e:
-            raise DatabricksAPIError(f"Table delete failed: {str(e)}")
+            status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
+            raise DatabricksOperationError(
+                message=f"Table deletion failed: {str(e)}",
+                dbx_api_endpoint=f"/api/2.1/unity-catalog/tables/{full_name}",
+                http_status_code=status_code,
+                resource_type="table",
+                operation="delete"
+            )
 
     def rollback_catalog(self, operation: "Operation") -> None:
         """Rollback catalog operation"""
         if operation.type.value == 'create':
             try:
                 if operation.rollback_data is None:
-                    raise ValueError("Rollback data is None for create operation")
+                    raise ValidationError(
+                        message="Rollback data is None for create operation",
+                        field="rollback_data",
+                        resource_type="catalog",
+                        operation="rollback"
+                    )
                 catalog_name = operation.rollback_data['catalog_name']
                 requests.delete(
                     f"{self.base_url}/catalogs/{catalog_name}",
@@ -653,7 +799,12 @@ class DatabricksUnityCatalogExecutor:
         if operation.type.value == 'create':
             try:
                 if operation.rollback_data is None:
-                    raise ValueError("Rollback data is None for create operation")
+                    raise ValidationError(
+                        message="Rollback data is None for create operation",
+                        field="rollback_data",
+                        resource_type="schema",
+                        operation="rollback"
+                    )
                 catalog_name = operation.rollback_data['catalog_name']
                 schema_name = operation.rollback_data['schema_name']
                 full_name = f"{catalog_name}.{schema_name}"
@@ -669,7 +820,12 @@ class DatabricksUnityCatalogExecutor:
         if operation.type.value == 'create':
             try:
                 if operation.rollback_data is None:
-                    raise ValueError("Rollback data is None for create operation")
+                    raise ValidationError(
+                        message="Rollback data is None for create operation",
+                        field="rollback_data",
+                        resource_type="table",
+                        operation="rollback"
+                    )
                 catalog_name = operation.rollback_data['catalog_name']
                 schema_name = operation.rollback_data['schema_name']
                 table_name = operation.rollback_data['table_name']
@@ -728,20 +884,35 @@ class DatabricksExecutorRegistry:
             }
         }
 
-    def execute(self, operation: "Operation") -> Dict[str, Any]:
+    def execute(self, operation: "Operation") -> dict[str, Any]:
         """Execute operation"""
         resource_type = operation.resource_type.value
         operation_type = operation.type.value
 
         if resource_type not in self.executors:
-            raise ValueError(f"Unsupported resource: {resource_type}")
+            raise ValidationError(
+                message=f"Unsupported resource type: {resource_type}",
+                field="resource_type",
+                value=resource_type,
+                suggestion="Supported types: " + ", ".join(self.executors.keys())
+            )
 
         if operation_type not in self.executors[resource_type]:
-            raise ValueError(f"Unsupported operation: {operation_type}")
+            raise ValidationError(
+                message=f"Unsupported operation: {operation_type} for {resource_type}",
+                field="operation_type",
+                value=operation_type,
+                suggestion="Supported operations: " + ", ".join(self.executors[resource_type].keys())
+            )
 
         result = self.executors[resource_type][operation_type](operation)
         if result is None:
-            raise ValueError(f"Executor returned None for {resource_type}.{operation_type}")
+            raise ValidationError(
+                message=f"Executor returned None for {resource_type}.{operation_type}",
+                field="result",
+                resource_type=resource_type,
+                operation=operation_type
+            )
         return result
 
     def rollback(self, operation: "Operation") -> None:

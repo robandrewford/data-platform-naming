@@ -101,7 +101,7 @@ class NamingPatternsLoader:
         '{project}-{purpose}-{layer}-{environment}-{region_short}'
     """
 
-    def __init__(self, schema_path: Optional[Path] = None):
+    def __init__(self, schema_path: Path | None = None):
         """
         Initialize the NamingPatternsLoader.
         
@@ -109,11 +109,11 @@ class NamingPatternsLoader:
             schema_path: Optional path to JSON schema file.
                         If not provided, uses bundled schema.
         """
-        self.config: Optional[dict[str, Any]] = None
+        self.config: dict[str, Any] | None = None
         self.schema: dict[str, Any] = self._load_schema(schema_path)
-        self.config_path: Optional[Path] = None
+        self.config_path: Path | None = None
 
-    def _load_schema(self, schema_path: Optional[Path] = None) -> dict[str, Any]:
+    def _load_schema(self, schema_path: Path | None = None) -> dict[str, Any]:
         """Load the JSON schema for validation"""
         if schema_path is None:
             # Use bundled schema
@@ -334,7 +334,7 @@ class NamingPatternsLoader:
 
         return transformed
 
-    def get_max_length(self, resource_type: str) -> Optional[int]:
+    def get_max_length(self, resource_type: str) -> int | None:
         """
         Get maximum length constraint for resource type.
         
@@ -349,9 +349,10 @@ class NamingPatternsLoader:
 
         validation = self.config.get("validation", {})
         max_lengths = validation.get("max_length", {})
-        return cast(Optional[int], max_lengths.get(resource_type))
+        result = max_lengths.get(resource_type)
+        return int(result) if result is not None else None
 
-    def get_allowed_chars_pattern(self, resource_type: str) -> Optional[str]:
+    def get_allowed_chars_pattern(self, resource_type: str) -> str | None:
         """
         Get allowed characters regex pattern for resource type.
         
@@ -366,7 +367,8 @@ class NamingPatternsLoader:
 
         validation = self.config.get("validation", {})
         allowed_chars = validation.get("allowed_chars", {})
-        return cast(Optional[str], allowed_chars.get(resource_type))
+        result = allowed_chars.get(resource_type)
+        return str(result) if result is not None else None
 
     def get_required_variables(self, resource_type: str) -> list[str]:
         """

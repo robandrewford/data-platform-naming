@@ -27,8 +27,8 @@ class ValidationError:
     code: str
     message: str
     severity: ValidationResult
-    field: Optional[str] = None
-    suggestion: Optional[str] = None
+    field: str | None = None
+    suggestion: str | None = None
 
 
 class AWSValidator:
