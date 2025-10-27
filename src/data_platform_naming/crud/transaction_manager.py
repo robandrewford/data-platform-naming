@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 from data_platform_naming.constants import AWSResourceType, DatabricksResourceType
+from data_platform_naming.types import OperationResultDict, RollbackDataDict
 from data_platform_naming.exceptions import (
     ConsistencyError,
     TransactionError,
@@ -78,9 +79,9 @@ class Operation:
     started_at: float | None = None
     completed_at: float | None = None
     error: str | None = None
-    rollback_data: dict | None = None
+    rollback_data: RollbackDataDict | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.created_at == 0.0:
             self.created_at = time.time()
 
@@ -101,21 +102,26 @@ class Transaction:
     committed_at: float | None = None
     rolled_back_at: float | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.created_at == 0.0:
             self.created_at = time.time()
+
+
+# Type aliases for callbacks (defined after Operation class)
+ExecutorCallback = Callable[[Operation], OperationResultDict]
+RollbackCallback = Callable[[Operation], None]
 
 
 class WriteAheadLog:
     """Write-Ahead Log for durability"""
 
-    def __init__(self, wal_dir: Path):
+    def __init__(self, wal_dir: Path) -> None:
         self.wal_dir = wal_dir
         self.wal_dir.mkdir(parents=True, exist_ok=True)
         self.lock_file = self.wal_dir / ".wal.lock"
 
     @contextmanager
-    def _lock(self):
+    def _lock(self) -> Any:
         """File-based lock for WAL isolation"""
         lock_fd = open(self.lock_file, 'w')
         try:
@@ -312,6 +318,11 @@ class StateStore:
         with self._lock:
             return resource_id in self.state
 
+    def list_all(self) -> dict[str, dict[str, Any]]:
+        """List all resources in state"""
+        with self._lock:
+            return self.state.copy()
+
 
 class ProgressTracker:
     """Real-time progress tracking with Rich"""
@@ -358,6 +369,10 @@ class ProgressTracker:
         """Display success"""
         self.console.print(f"[green]✓ {message}[/green]")
 
+    def warning(self, message: str) -> None:
+        """Display warning"""
+        self.console.print(f"[yellow]⚠ {message}[/yellow]")
+
 
 class TransactionManager:
     """ACID transaction manager for resource operations"""
@@ -371,13 +386,15 @@ class TransactionManager:
         self.console = Console()
 
         # Operation executors (injected)
-        self.executors: dict[AWSResourceType | DatabricksResourceType, Callable] = {}
-        self.rollback_handlers: dict[AWSResourceType | DatabricksResourceType, Callable] = {}
+        self.executors: dict[AWSResourceType | DatabricksResourceType, ExecutorCallback] = {}
+        self.rollback_handlers: dict[AWSResourceType | DatabricksResourceType, RollbackCallback] = {}
 
-    def register_executor(self,
-                         resource_type: AWSResourceType | DatabricksResourceType,
-                         executor: Callable,
-                         rollback_handler: Callable) -> None:
+    def register_executor(
+        self,
+        resource_type: AWSResourceType | DatabricksResourceType,
+        executor: ExecutorCallback,
+        rollback_handler: RollbackCallback
+    ) -> None:
         """Register operation executor and rollback handler"""
         self.executors[resource_type] = executor
         self.rollback_handlers[resource_type] = rollback_handler
@@ -417,7 +434,8 @@ class TransactionManager:
                     result = self._execute_operation(operation)
 
                     # Store rollback data
-                    operation.rollback_data = result.get('rollback_data')
+                    rollback = result.get('rollback_data')
+                    operation.rollback_data = cast(RollbackDataDict | None, rollback) if rollback else None
                     operation.status = OperationStatus.SUCCESS
                     operation.completed_at = time.time()
 
@@ -520,7 +538,7 @@ class TransactionManager:
                         operation="delete_postcondition"
                     )
 
-    def _execute_operation(self, operation: Operation) -> dict[str, Any]:
+    def _execute_operation(self, operation: Operation) -> OperationResultDict:
         """Execute single operation"""
         if operation.resource_type not in self.executors:
             raise ValidationError(
@@ -531,7 +549,7 @@ class TransactionManager:
             )
 
         executor = self.executors[operation.resource_type]
-        result = cast(dict[str, Any], executor(operation))
+        result = executor(operation)
 
         # Update state store
         if operation.type == OperationType.CREATE:
@@ -550,9 +568,11 @@ class TransactionManager:
 
         return result
 
-    def _rollback_transaction(self,
-                             transaction: Transaction,
-                             completed_operations: list[Operation]) -> None:
+    def _rollback_transaction(
+        self,
+        transaction: Transaction,
+        completed_operations: list[Operation]
+    ) -> None:
         """Rollback completed operations"""
         self.console.print("[yellow]Rolling back transaction...[/yellow]")
 
@@ -568,7 +588,7 @@ class TransactionManager:
                         self.state.delete(operation.resource_id)
                     elif operation.type == OperationType.DELETE:
                         if operation.rollback_data is not None:
-                            self.state.set(operation.resource_id, operation.rollback_data)
+                            self.state.set(operation.resource_id, cast(dict[str, Any], operation.rollback_data))
 
                     operation.status = OperationStatus.ROLLED_BACK
                     self.wal.write_operation(transaction.id, operation)
@@ -614,7 +634,7 @@ if __name__ == "__main__":
     # Initialize transaction manager
     tm = TransactionManager()
 
-    def mock_create_cluster(operation: Operation) -> dict:
+    def mock_create_cluster(operation: Operation) -> OperationResultDict:
         time.sleep(0.5)  # Simulate API call
         return {'rollback_data': {'cluster_id': operation.resource_id}}
 

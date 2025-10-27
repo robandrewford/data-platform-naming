@@ -13,6 +13,8 @@ from typing import Any, Optional
 
 import jsonschema
 
+from ..types import MetadataDict, ResourceDefinitionDict
+
 from ..constants import (
     Environment,
     TableType,
@@ -21,6 +23,18 @@ from ..constants import (
     DataClassification
 )
 from ..exceptions import ValidationError
+from ..validators import (
+    ValidationContext,
+    ValidationReport,
+    ValidationIssue,
+    ValidationResult,
+    validate_databricks_name,
+    validate_aws_name,
+)
+from ..constants import (
+    DatabricksResourceType,
+    AWSResourceType,
+)
 
 # JSON Schema Definition
 BLUEPRINT_SCHEMA = {
@@ -335,6 +349,218 @@ class BlueprintParser:
                 suggestion="Check blueprint against JSON schema"
             ) from e
 
+    def validate_blueprint(self, blueprint_path: Path) -> ValidationReport:
+        """
+        Validate blueprint using the new validators system.
+
+        Args:
+            blueprint_path: Path to blueprint JSON file
+
+        Returns:
+            ValidationReport with validation results
+        """
+        # Load blueprint
+        with open(blueprint_path) as f:
+            blueprint = json.load(f)
+
+        # Schema validation
+        try:
+            jsonschema.validate(instance=blueprint, schema=self.schema)
+        except jsonschema.ValidationError as e:
+            return ValidationReport(
+                is_valid=False,
+                issues=[ValidationIssue(
+                    code="BLUEPRINT_SCHEMA_INVALID",
+                    message=f"Blueprint schema validation failed: {e.message}",
+                    severity=ValidationResult.INVALID,
+                    field=e.json_path if hasattr(e, 'json_path') else None,
+                    context={'blueprint_path': str(blueprint_path)}
+                )],
+                context={'blueprint_path': str(blueprint_path)}
+            )
+
+        # Resource validation
+        issues: list[ValidationIssue] = []
+        metadata = blueprint['metadata']
+
+        # Validate AWS resources
+        if 'aws' in blueprint['resources']:
+            aws_issues = self._validate_aws_resources(
+                blueprint['resources']['aws'],
+                metadata
+            )
+            issues.extend(aws_issues)
+
+        # Validate Databricks resources
+        if 'databricks' in blueprint['resources']:
+            dbx_issues = self._validate_databricks_resources(
+                blueprint['resources']['databricks'],
+                metadata
+            )
+            issues.extend(dbx_issues)
+
+        # Determine if valid based on strict mode
+        is_valid = len([i for i in issues if i.severity == ValidationResult.INVALID]) == 0
+
+        return ValidationReport(
+            is_valid=is_valid,
+            issues=issues,
+            context={'blueprint_path': str(blueprint_path), 'metadata': metadata}
+        )
+
+    def _validate_aws_resources(self, aws_config: dict[str, Any], metadata: MetadataDict) -> list[ValidationIssue]:
+        """Validate AWS resources in blueprint"""
+        issues: list[ValidationIssue] = []
+
+        # Validate S3 buckets
+        for i, bucket_spec in enumerate(aws_config.get('s3_buckets', [])):
+            # Generate name and validate
+            if self.configuration_manager:
+                try:
+                    result = self.configuration_manager.generate_name(
+                        resource_type='aws_s3_bucket',
+                        environment=metadata['environment'],
+                        blueprint_metadata=metadata,
+                        value_overrides={'purpose': bucket_spec['purpose'], 'layer': bucket_spec['layer']}
+                    )
+
+                    if not result.is_valid:
+                        issues.extend([
+                            ValidationIssue(
+                                code="BLUEPRINT_S3_INVALID",
+                                message=f"S3 bucket validation failed: {', '.join(result.validation_errors)}",
+                                severity=ValidationResult.INVALID,
+                                resource_type='aws_s3_bucket',
+                                resource_name=result.name,
+                                context={'bucket_spec': bucket_spec, 'index': i}
+                            )
+                        ])
+                except Exception as e:
+                    issues.append(ValidationIssue(
+                        code="BLUEPRINT_S3_ERROR",
+                        message=f"S3 bucket generation failed: {str(e)}",
+                        severity=ValidationResult.INVALID,
+                        resource_type='aws_s3_bucket',
+                        context={'bucket_spec': bucket_spec, 'index': i}
+                    ))
+
+        # Validate Glue databases
+        for i, db_spec in enumerate(aws_config.get('glue_databases', [])):
+            if self.configuration_manager:
+                try:
+                    result = self.configuration_manager.generate_name(
+                        resource_type='aws_glue_database',
+                        environment=metadata['environment'],
+                        blueprint_metadata=metadata,
+                        value_overrides={'domain': db_spec['domain'], 'layer': db_spec['layer']}
+                    )
+
+                    if not result.is_valid:
+                        issues.extend([
+                            ValidationIssue(
+                                code="BLUEPRINT_GLUE_DB_INVALID",
+                                message=f"Glue database validation failed: {', '.join(result.validation_errors)}",
+                                severity=ValidationResult.INVALID,
+                                resource_type='aws_glue_database',
+                                resource_name=result.name,
+                                context={'db_spec': db_spec, 'index': i}
+                            )
+                        ])
+                except Exception as e:
+                    issues.append(ValidationIssue(
+                        code="BLUEPRINT_GLUE_DB_ERROR",
+                        message=f"Glue database generation failed: {str(e)}",
+                        severity=ValidationResult.INVALID,
+                        resource_type='aws_glue_database',
+                        context={'db_spec': db_spec, 'index': i}
+                    ))
+
+        return issues
+
+    def _validate_databricks_resources(self, dbx_config: dict[str, Any], metadata: MetadataDict) -> list[ValidationIssue]:
+        """Validate Databricks resources in blueprint"""
+        issues: list[ValidationIssue] = []
+
+        # Validate clusters
+        for i, cluster_spec in enumerate(dbx_config.get('clusters', [])):
+            if self.configuration_manager:
+                try:
+                    result = self.configuration_manager.generate_name(
+                        resource_type='dbx_cluster',
+                        environment=metadata['environment'],
+                        blueprint_metadata=metadata,
+                        value_overrides={
+                            'workload': cluster_spec['workload'],
+                            'cluster_type': cluster_spec['cluster_type']
+                        }
+                    )
+
+                    if not result.is_valid:
+                        issues.extend([
+                            ValidationIssue(
+                                code="BLUEPRINT_CLUSTER_INVALID",
+                                message=f"Cluster validation failed: {', '.join(result.validation_errors)}",
+                                severity=ValidationResult.INVALID,
+                                resource_type='dbx_cluster',
+                                resource_name=result.name,
+                                context={'cluster_spec': cluster_spec, 'index': i}
+                            )
+                        ])
+                except Exception as e:
+                    issues.append(ValidationIssue(
+                        code="BLUEPRINT_CLUSTER_ERROR",
+                        message=f"Cluster generation failed: {str(e)}",
+                        severity=ValidationResult.INVALID,
+                        resource_type='dbx_cluster',
+                        context={'cluster_spec': cluster_spec, 'index': i}
+                    ))
+
+        # Validate Unity Catalog
+        if 'unity_catalog' in dbx_config:
+            uc_issues = self._validate_unity_catalog_resources(
+                dbx_config['unity_catalog'],
+                metadata
+            )
+            issues.extend(uc_issues)
+
+        return issues
+
+    def _validate_unity_catalog_resources(self, uc_config: dict[str, Any], metadata: MetadataDict) -> list[ValidationIssue]:
+        """Validate Unity Catalog resources"""
+        issues: list[ValidationIssue] = []
+
+        for i, catalog_spec in enumerate(uc_config.get('catalogs', [])):
+            if self.configuration_manager:
+                try:
+                    result = self.configuration_manager.generate_name(
+                        resource_type='dbx_catalog',
+                        environment=metadata['environment'],
+                        blueprint_metadata=metadata,
+                        value_overrides={'catalog_type': catalog_spec['catalog_type']}
+                    )
+
+                    if not result.is_valid:
+                        issues.extend([
+                            ValidationIssue(
+                                code="BLUEPRINT_CATALOG_INVALID",
+                                message=f"Catalog validation failed: {', '.join(result.validation_errors)}",
+                                severity=ValidationResult.INVALID,
+                                resource_type='dbx_catalog',
+                                resource_name=result.name,
+                                context={'catalog_spec': catalog_spec, 'index': i}
+                            )
+                        ])
+                except Exception as e:
+                    issues.append(ValidationIssue(
+                        code="BLUEPRINT_CATALOG_ERROR",
+                        message=f"Catalog generation failed: {str(e)}",
+                        severity=ValidationResult.INVALID,
+                        resource_type='dbx_catalog',
+                        context={'catalog_spec': catalog_spec, 'index': i}
+                    ))
+
+        return issues
+
     def _apply_scope_filter(
         self,
         resources: list[ParsedResource],
@@ -365,7 +591,7 @@ class BlueprintParser:
 
         return filtered_resources
 
-    def _parse_aws(self, aws_config: dict, metadata: dict) -> list[ParsedResource]:
+    def _parse_aws(self, aws_config: dict[str, Any], metadata: dict[str, Any]) -> list[ParsedResource]:
         """Parse AWS resources"""
         resources = []
         aws_gen = self.naming_generators['aws']
@@ -444,7 +670,7 @@ class BlueprintParser:
 
         return resources
 
-    def _parse_databricks(self, dbx_config: dict, metadata: dict) -> list[ParsedResource]:
+    def _parse_databricks(self, dbx_config: dict[str, Any], metadata: dict[str, Any]) -> list[ParsedResource]:
         """Parse Databricks resources"""
         resources = []
         dbx_gen = self.naming_generators['databricks']
@@ -508,7 +734,7 @@ class BlueprintParser:
 
         return resources
 
-    def _parse_unity_catalog(self, uc_config: dict, metadata: dict) -> list[ParsedResource]:
+    def _parse_unity_catalog(self, uc_config: dict[str, Any], metadata: dict[str, Any]) -> list[ParsedResource]:
         """Parse Unity Catalog hierarchy"""
         resources = []
         dbx_gen = self.naming_generators['databricks']
@@ -573,7 +799,7 @@ class BlueprintParser:
 
         return resources
 
-    def _build_tags(self, metadata: dict) -> dict[str, str]:
+    def _build_tags(self, metadata: dict[str, Any]) -> dict[str, str]:
         """Build standard tags"""
         tags = {
             'Environment': metadata['environment'],
@@ -589,7 +815,7 @@ class BlueprintParser:
 
         return tags
 
-    def _build_lifecycle_rules(self, transition_days: int) -> list[dict]:
+    def _build_lifecycle_rules(self, transition_days: int) -> list[dict[str, Any]]:
         """Build S3 lifecycle rules"""
         return [{
             'Status': 'Enabled',

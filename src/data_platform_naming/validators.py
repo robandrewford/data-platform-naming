@@ -9,9 +9,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
-from .constants import Environment
+from .constants import AWSResourceType, DatabricksResourceType, Environment
 
 
 class ValidationResult(Enum):
@@ -29,6 +29,19 @@ class ValidationIssue:
     severity: ValidationResult
     field: str | None = None
     suggestion: str | None = None
+    resource_type: str | None = None
+    resource_name: str | None = None
+    context: dict[str, Any] | None = None
+
+    def __str__(self) -> str:
+        """String representation of validation issue"""
+        parts = [f"[{self.severity.value.upper()}] {self.code}"]
+        if self.resource_type and self.resource_name:
+            parts.append(f"{self.resource_type}:{self.resource_name}")
+        parts.append(self.message)
+        if self.suggestion:
+            parts.append(f"(Suggestion: {self.suggestion})")
+        return " - ".join(parts)
 
 
 class AWSValidator:
@@ -407,22 +420,405 @@ class ConventionValidator:
         return True, []
 
 
+@dataclass
+class ValidationReport:
+    """Comprehensive validation report"""
+    is_valid: bool
+    issues: list[ValidationIssue]
+    resource_type: str | None = None
+    resource_name: str | None = None
+    context: dict[str, Any] | None = None
+
+    @property
+    def errors(self) -> list[ValidationIssue]:
+        """Get only error-level issues"""
+        return [issue for issue in self.issues if issue.severity == ValidationResult.INVALID]
+
+    @property
+    def warnings(self) -> list[ValidationIssue]:
+        """Get only warning-level issues"""
+        return [issue for issue in self.issues if issue.severity == ValidationResult.WARNING]
+
+    @property
+    def has_errors(self) -> bool:
+        """Check if report has any errors"""
+        return len(self.errors) > 0
+
+    @property
+    def has_warnings(self) -> bool:
+        """Check if report has any warnings"""
+        return len(self.warnings) > 0
+
+    def __str__(self) -> str:
+        """String representation of validation report"""
+        status = "VALID" if self.is_valid else "INVALID"
+        parts = [f"Validation Report: {status}"]
+
+        if self.resource_type and self.resource_name:
+            parts.append(f"Resource: {self.resource_type}:{self.resource_name}")
+
+        if self.issues:
+            parts.append(f"Issues: {len(self.issues)} total")
+            if self.errors:
+                parts.append(f"Errors: {len(self.errors)}")
+            if self.warnings:
+                parts.append(f"Warnings: {len(self.warnings)}")
+
+        return " | ".join(parts)
+
+
+class ValidationContext:
+    """Unified validation context and orchestrator"""
+
+    def __init__(self, strict: bool = True):
+        """
+        Initialize validation context.
+
+        Args:
+            strict: If True, warnings are treated as failures (default: True)
+        """
+        self.strict = strict
+        self._validators: dict[str, Any] = {}
+
+    def register_validator(self, resource_type: str, validator_func: Any) -> None:
+        """Register a validator function for a resource type"""
+        self._validators[resource_type] = validator_func
+
+    def validate_name(
+        self,
+        resource_type: str,
+        name: str,
+        context: dict[str, Any] | None = None
+    ) -> ValidationReport:
+        """
+        Validate a resource name.
+
+        Args:
+            resource_type: Type of resource (e.g., 'dbx_cluster', 'aws_s3_bucket')
+            name: Name to validate
+            context: Additional context for validation
+
+        Returns:
+            ValidationReport with results
+        """
+        issues: list[ValidationIssue] = []
+
+        # Add context to all issues
+        issue_context = context or {}
+
+        # Get validator function
+        validator_func = self._validators.get(resource_type)
+        if validator_func is None:
+            issues.append(ValidationIssue(
+                code="VALIDATOR_NOT_FOUND",
+                message=f"No validator registered for resource type: {resource_type}",
+                severity=ValidationResult.INVALID,
+                resource_type=resource_type,
+                resource_name=name,
+                context=issue_context
+            ))
+        else:
+            # Run validation
+            try:
+                is_valid, validation_issues = validator_func(name)
+
+                # Enhance issues with context
+                for issue in validation_issues:
+                    issue.resource_type = resource_type
+                    issue.resource_name = name
+                    issue.context = issue_context
+                    issues.append(issue)
+
+                # If not valid, add a summary issue
+                if not is_valid:
+                    issues.append(ValidationIssue(
+                        code="VALIDATION_FAILED",
+                        message=f"Resource name '{name}' failed validation",
+                        severity=ValidationResult.INVALID,
+                        resource_type=resource_type,
+                        resource_name=name,
+                        context=issue_context
+                    ))
+
+            except Exception as e:
+                issues.append(ValidationIssue(
+                    code="VALIDATION_ERROR",
+                    message=f"Validation failed with error: {str(e)}",
+                    severity=ValidationResult.INVALID,
+                    resource_type=resource_type,
+                    resource_name=name,
+                    context=issue_context
+                ))
+
+        # Determine if valid based on strict mode
+        is_valid = len(issues) == 0
+        if self.strict and issues:
+            # In strict mode, any issue (including warnings) makes it invalid
+            is_valid = False
+
+        return ValidationReport(
+            is_valid=is_valid,
+            issues=issues,
+            resource_type=resource_type,
+            resource_name=name,
+            context=context
+        )
+
+    def validate_multiple(
+        self,
+        validations: list[tuple[str, str]],
+        context: dict[str, Any] | None = None
+    ) -> dict[str, ValidationReport]:
+        """
+        Validate multiple resource names.
+
+        Args:
+            validations: List of (resource_type, name) tuples
+            context: Additional context for validation
+
+        Returns:
+            Dictionary mapping resource identifiers to ValidationReports
+        """
+        results: dict[str, ValidationReport] = {}
+
+        for i, (resource_type, name) in enumerate(validations):
+            # Use index as identifier if no name provided
+            identifier = name or f"{resource_type}_{i}"
+            results[identifier] = self.validate_name(resource_type, name, context)
+
+        return results
+
+    def get_summary(self, reports: dict[str, ValidationReport]) -> dict[str, int]:
+        """Get validation summary statistics"""
+        total = len(reports)
+        valid = sum(1 for r in reports.values() if r.is_valid)
+        invalid = total - valid
+
+        return {
+            'total': total,
+            'valid': valid,
+            'invalid': invalid,
+            'error_count': sum(len(r.errors) for r in reports.values()),
+            'warning_count': sum(len(r.warnings) for r in reports.values())
+        }
+
+
+class ValidationPipeline:
+    """Pipeline for chaining multiple validators"""
+
+    def __init__(self, context: ValidationContext):
+        self.context = context
+
+    def validate_databricks_resource(
+        self,
+        resource_type: DatabricksResourceType,
+        name: str,
+        context: dict[str, Any] | None = None
+    ) -> ValidationReport:
+        """Validate a Databricks resource name"""
+        # Map DatabricksResourceType to validator key
+        validator_map = {
+            DatabricksResourceType.CLUSTER: 'dbx_cluster',
+            DatabricksResourceType.JOB: 'dbx_job',
+            DatabricksResourceType.CATALOG: 'dbx_catalog',
+            DatabricksResourceType.SCHEMA: 'dbx_schema',
+            DatabricksResourceType.TABLE: 'dbx_table',
+        }
+
+        validator_key = validator_map.get(resource_type)
+        if validator_key is None:
+            return ValidationReport(
+                is_valid=False,
+                issues=[ValidationIssue(
+                    code="UNSUPPORTED_RESOURCE_TYPE",
+                    message=f"Unsupported Databricks resource type: {resource_type}",
+                    severity=ValidationResult.INVALID,
+                    resource_type=resource_type.value,
+                    resource_name=name,
+                    context=context
+                )],
+                resource_type=resource_type.value,
+                resource_name=name,
+                context=context
+            )
+
+        return self.context.validate_name(validator_key, name, context)
+
+    def validate_aws_resource(
+        self,
+        resource_type: AWSResourceType,
+        name: str,
+        context: dict[str, Any] | None = None
+    ) -> ValidationReport:
+        """Validate an AWS resource name"""
+        # Map AWSResourceType to validator key
+        validator_map = {
+            AWSResourceType.S3_BUCKET: 'aws_s3_bucket',
+            AWSResourceType.GLUE_DATABASE: 'aws_glue_database',
+            AWSResourceType.GLUE_TABLE: 'aws_glue_table',
+            AWSResourceType.LAMBDA_FUNCTION: 'aws_lambda_function',
+            AWSResourceType.IAM_ROLE: 'aws_iam_role',
+        }
+
+        validator_key = validator_map.get(resource_type)
+        if validator_key is None:
+            return ValidationReport(
+                is_valid=False,
+                issues=[ValidationIssue(
+                    code="UNSUPPORTED_RESOURCE_TYPE",
+                    message=f"Unsupported AWS resource type: {resource_type}",
+                    severity=ValidationResult.INVALID,
+                    resource_type=resource_type.value,
+                    resource_name=name,
+                    context=context
+                )],
+                resource_type=resource_type.value,
+                resource_name=name,
+                context=context
+            )
+
+        return self.context.validate_name(validator_key, name, context)
+
+
+# Global validation context instance
+validation_context = ValidationContext(strict=True)
+
+# Register all validators
+validation_context.register_validator('aws_s3_bucket', AWSValidator.validate_s3_bucket)
+validation_context.register_validator('aws_glue_database', AWSValidator.validate_glue_database)
+validation_context.register_validator('aws_glue_table', AWSValidator.validate_glue_table)
+validation_context.register_validator('aws_lambda_function', AWSValidator.validate_lambda_function)
+validation_context.register_validator('aws_iam_role', AWSValidator.validate_iam_role)
+
+validation_context.register_validator('dbx_cluster', DatabricksValidator.validate_cluster)
+validation_context.register_validator('dbx_job', DatabricksValidator.validate_job)
+validation_context.register_validator('dbx_catalog', DatabricksValidator.validate_catalog)
+validation_context.register_validator('dbx_schema', DatabricksValidator.validate_schema)
+validation_context.register_validator('dbx_table', DatabricksValidator.validate_table)
+
+# Create pipeline instance
+validation_pipeline = ValidationPipeline(validation_context)
+
+
+def validate_resource_name(
+    resource_type: str,
+    name: str,
+    context: dict[str, Any] | None = None
+) -> ValidationReport:
+    """
+    Convenience function to validate a resource name.
+
+    Args:
+        resource_type: Type of resource (e.g., 'dbx_cluster', 'aws_s3_bucket')
+        name: Name to validate
+        context: Additional context for validation
+
+    Returns:
+        ValidationReport with results
+    """
+    return validation_context.validate_name(resource_type, name, context)
+
+
+def validate_databricks_name(
+    resource_type: DatabricksResourceType,
+    name: str,
+    context: dict[str, Any] | None = None
+) -> ValidationReport:
+    """
+    Convenience function to validate a Databricks resource name.
+
+    Args:
+        resource_type: Databricks resource type
+        name: Name to validate
+        context: Additional context for validation
+
+    Returns:
+        ValidationReport with results
+    """
+    return validation_pipeline.validate_databricks_resource(resource_type, name, context)
+
+
+def validate_aws_name(
+    resource_type: AWSResourceType,
+    name: str,
+    context: dict[str, Any] | None = None
+) -> ValidationReport:
+    """
+    Convenience function to validate an AWS resource name.
+
+    Args:
+        resource_type: AWS resource type
+        name: Name to validate
+        context: Additional context for validation
+
+    Returns:
+        ValidationReport with results
+    """
+    return validation_pipeline.validate_aws_resource(resource_type, name, context)
+
+
 # Example usage
 if __name__ == "__main__":
-    # AWS S3 validation
-    valid, errors = AWSValidator.validate_s3_bucket("dataplatform-raw-sales-prd-use1")
-    print(f"S3 Valid: {valid}")
-    for error in errors:
-        print(f"  {error.code}: {error.message}")
+    # Test unified validation system
+    print("=== Unified Validation System Demo ===\n")
 
-    # Glue database validation
-    valid, errors = AWSValidator.validate_glue_database("dataplatform_finance_gold_prd")
-    print(f"\nGlue DB Valid: {valid}")
+    # Test Databricks cluster validation
+    report = validate_databricks_name(
+        DatabricksResourceType.CLUSTER,
+        "dataplatform-etl-shared-prd"
+    )
+    print(f"Databricks Cluster: {report}")
+    if not report.is_valid:
+        for issue in report.issues:
+            print(f"  {issue}")
 
-    # Unity Catalog validation
-    valid, errors = DatabricksValidator.validate_catalog("dataplatform_main_prd")
-    print(f"\nUC Catalog Valid: {valid}")
+    # Test Unity Catalog table validation
+    report = validate_databricks_name(
+        DatabricksResourceType.TABLE,
+        "dim_customers"
+    )
+    print(f"\nUnity Catalog Table: {report}")
+    if not report.is_valid:
+        for issue in report.issues:
+            print(f"  {issue}")
 
-    # Convention validation
-    valid, errors = ConventionValidator.validate_environment("prd")
-    print(f"\nEnvironment Valid: {valid}")
+    # Test AWS S3 bucket validation
+    report = validate_aws_name(
+        AWSResourceType.S3_BUCKET,
+        "dataplatform-raw-prd-use1"
+    )
+    print(f"\nAWS S3 Bucket: {report}")
+    if not report.is_valid:
+        for issue in report.issues:
+            print(f"  {issue}")
+
+    # Test validation with context
+    context = {"environment": "prd", "project": "dataplatform"}
+    report = validate_databricks_name(
+        DatabricksResourceType.CATALOG,
+        "dataplatform_main_prd",
+        context
+    )
+    print(f"\nDatabricks Catalog with context: {report}")
+    if not report.is_valid:
+        for issue in report.issues:
+            print(f"  {issue}")
+
+    # Test multiple validations
+    validations = [
+        ('dbx_cluster', 'dataplatform-etl-shared-prd'),
+        ('dbx_catalog', 'dataplatform_main_prd'),
+        ('aws_s3_bucket', 'dataplatform-raw-prd-use1'),
+    ]
+
+    results = validation_context.validate_multiple(validations, context)
+    print("\n=== Multiple Validation Summary ===")
+    summary = validation_context.get_summary(results)
+    print(f"Total: {summary['total']}, Valid: {summary['valid']}, Invalid: {summary['invalid']}")
+    print(f"Errors: {summary['error_count']}, Warnings: {summary['warning_count']}")
+
+    for name, report in results.items():
+        print(f"\n{name}: {report}")
+        if not report.is_valid:
+            for issue in report.issues:
+                print(f"  {issue}")

@@ -6,11 +6,12 @@ Clusters, Jobs, Unity Catalog operations with rollback support
 
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 import requests
 
 from data_platform_naming.exceptions import DatabricksOperationError, ValidationError
+from data_platform_naming.types import OperationResultDict
 
 if TYPE_CHECKING:
     from .transaction_manager import Operation
@@ -32,11 +33,11 @@ class DatabricksConfig:
 class DatabricksClusterExecutor:
     """Databricks cluster operations"""
 
-    def __init__(self, config: DatabricksConfig):
+    def __init__(self, config: DatabricksConfig) -> None:
         self.config = config
         self.base_url = f"{config.host}/api/2.0"
 
-    def create(self, operation: "Operation") -> dict[str, Any]:
+    def create(self, operation: "Operation") -> OperationResultDict:
         """Create cluster"""
         cluster_name = operation.resource_id
         params = operation.params
@@ -104,7 +105,7 @@ class DatabricksClusterExecutor:
                 operation="create"
             )
 
-    def read(self, operation: "Operation") -> dict[str, Any]:
+    def read(self, operation: "Operation") -> OperationResultDict:
         """Read cluster configuration"""
         cluster_id = operation.params.get('cluster_id')
 
@@ -132,7 +133,7 @@ class DatabricksClusterExecutor:
                 operation="read"
             )
 
-    def update(self, operation: "Operation") -> dict[str, Any]:
+    def update(self, operation: "Operation") -> OperationResultDict:
         """Update cluster configuration"""
         cluster_id = operation.params['cluster_id']
 
@@ -162,7 +163,7 @@ class DatabricksClusterExecutor:
             )
             response.raise_for_status()
 
-            return {'rollback_data': current_state}
+            return {'rollback_data': current_state.get('cluster', {})}
 
         except requests.exceptions.RequestException as e:
             status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
@@ -174,7 +175,7 @@ class DatabricksClusterExecutor:
                 operation="update"
             )
 
-    def delete(self, operation: "Operation") -> dict[str, Any]:
+    def delete(self, operation: "Operation") -> OperationResultDict:
         """Delete cluster"""
         cluster_id: str | None = operation.params.get('cluster_id')
         archive = operation.params.get('archive', False)
@@ -210,7 +211,7 @@ class DatabricksClusterExecutor:
                 )
                 response.raise_for_status()
 
-            return {'rollback_data': current_state}
+            return {'rollback_data': current_state.get('cluster', {})}
 
         except requests.exceptions.RequestException as e:
             status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
@@ -262,7 +263,7 @@ class DatabricksClusterExecutor:
             operation="find_by_name"
         )
 
-    def _wait_for_cluster(self, cluster_id: str, target_state: str, timeout: int = 600):
+    def _wait_for_cluster(self, cluster_id: str, target_state: str, timeout: int = 600) -> None:
         """Wait for cluster to reach target state"""
         start_time = time.time()
 
@@ -291,11 +292,11 @@ class DatabricksClusterExecutor:
 class DatabricksJobExecutor:
     """Databricks job operations"""
 
-    def __init__(self, config: DatabricksConfig):
+    def __init__(self, config: DatabricksConfig) -> None:
         self.config = config
         self.base_url = f"{config.host}/api/2.1"
 
-    def create(self, operation: "Operation") -> dict[str, Any]:
+    def create(self, operation: "Operation") -> OperationResultDict:
         """Create job"""
         job_name = operation.resource_id
         params = operation.params
@@ -348,7 +349,7 @@ class DatabricksJobExecutor:
                 operation="create"
             )
 
-    def read(self, operation: "Operation") -> dict[str, Any]:
+    def read(self, operation: "Operation") -> OperationResultDict:
         """Read job configuration"""
         job_id = operation.params.get('job_id')
 
@@ -375,7 +376,7 @@ class DatabricksJobExecutor:
                 operation="read"
             )
 
-    def update(self, operation: "Operation") -> dict[str, Any]:
+    def update(self, operation: "Operation") -> OperationResultDict:
         """Update job configuration"""
         job_id = operation.params['job_id']
 
@@ -406,7 +407,7 @@ class DatabricksJobExecutor:
             )
             response.raise_for_status()
 
-            return {'rollback_data': current_state}
+            return {'rollback_data': current_state.get('job', {})}
 
         except requests.exceptions.RequestException as e:
             status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
@@ -418,7 +419,7 @@ class DatabricksJobExecutor:
                 operation="update"
             )
 
-    def delete(self, operation: "Operation") -> dict[str, Any]:
+    def delete(self, operation: "Operation") -> OperationResultDict:
         """Delete job"""
         job_id = operation.params.get('job_id')
 
@@ -436,7 +437,7 @@ class DatabricksJobExecutor:
             )
             response.raise_for_status()
 
-            return {'rollback_data': current_state}
+            return {'rollback_data': current_state.get('job', {})}
 
         except requests.exceptions.RequestException as e:
             status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
@@ -492,11 +493,11 @@ class DatabricksJobExecutor:
 class DatabricksUnityCatalogExecutor:
     """Unity Catalog operations"""
 
-    def __init__(self, config: DatabricksConfig):
+    def __init__(self, config: DatabricksConfig) -> None:
         self.config = config
         self.base_url = f"{config.host}/api/2.1/unity-catalog"
 
-    def create_catalog(self, operation: "Operation") -> dict[str, Any]:
+    def create_catalog(self, operation: "Operation") -> OperationResultDict:
         """Create catalog"""
         catalog_name = operation.resource_id
         params = operation.params
@@ -534,7 +535,7 @@ class DatabricksUnityCatalogExecutor:
                 operation="create"
             )
 
-    def create_schema(self, operation: "Operation") -> dict[str, Any]:
+    def create_schema(self, operation: "Operation") -> OperationResultDict:
         """Create schema"""
         schema_name = operation.resource_id
         params = operation.params
@@ -574,7 +575,7 @@ class DatabricksUnityCatalogExecutor:
                 operation="create"
             )
 
-    def create_table(self, operation: "Operation") -> dict[str, Any]:
+    def create_table(self, operation: "Operation") -> OperationResultDict:
         """Create table"""
         table_name = operation.resource_id
         params = operation.params
@@ -621,7 +622,7 @@ class DatabricksUnityCatalogExecutor:
                 operation="create"
             )
 
-    def read_catalog(self, operation: "Operation") -> dict[str, Any]:
+    def read_catalog(self, operation: "Operation") -> OperationResultDict:
         """Read catalog"""
         catalog_name = operation.resource_id
 
@@ -644,7 +645,7 @@ class DatabricksUnityCatalogExecutor:
                 operation="read"
             )
 
-    def read_schema(self, operation: "Operation") -> dict[str, Any]:
+    def read_schema(self, operation: "Operation") -> OperationResultDict:
         """Read schema"""
         params = operation.params
         full_name = f"{params['catalog_name']}.{operation.resource_id}"
@@ -668,7 +669,7 @@ class DatabricksUnityCatalogExecutor:
                 operation="read"
             )
 
-    def read_table(self, operation: "Operation") -> dict[str, Any]:
+    def read_table(self, operation: "Operation") -> OperationResultDict:
         """Read table"""
         params = operation.params
         full_name = f"{params['catalog_name']}.{params['schema_name']}.{operation.resource_id}"
@@ -692,7 +693,7 @@ class DatabricksUnityCatalogExecutor:
                 operation="read"
             )
 
-    def delete_catalog(self, operation: "Operation") -> dict[str, Any]:
+    def delete_catalog(self, operation: "Operation") -> OperationResultDict:
         """Delete catalog"""
         catalog_name = operation.resource_id
         force = operation.params.get('force', False)
@@ -708,7 +709,7 @@ class DatabricksUnityCatalogExecutor:
             )
             response.raise_for_status()
 
-            return {'rollback_data': current_state}
+            return {'rollback_data': current_state.get('catalog', {})}
 
         except requests.exceptions.RequestException as e:
             status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
@@ -720,7 +721,7 @@ class DatabricksUnityCatalogExecutor:
                 operation="delete"
             )
 
-    def delete_schema(self, operation: "Operation") -> dict[str, Any]:
+    def delete_schema(self, operation: "Operation") -> OperationResultDict:
         """Delete schema"""
         params = operation.params
         full_name = f"{params['catalog_name']}.{operation.resource_id}"
@@ -735,7 +736,7 @@ class DatabricksUnityCatalogExecutor:
             )
             response.raise_for_status()
 
-            return {'rollback_data': current_state}
+            return {'rollback_data': current_state.get('schema', {})}
 
         except requests.exceptions.RequestException as e:
             status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
@@ -747,7 +748,7 @@ class DatabricksUnityCatalogExecutor:
                 operation="delete"
             )
 
-    def delete_table(self, operation: "Operation") -> dict[str, Any]:
+    def delete_table(self, operation: "Operation") -> OperationResultDict:
         """Delete table"""
         params = operation.params
         full_name = f"{params['catalog_name']}.{params['schema_name']}.{operation.resource_id}"
@@ -762,7 +763,7 @@ class DatabricksUnityCatalogExecutor:
             )
             response.raise_for_status()
 
-            return {'rollback_data': current_state}
+            return {'rollback_data': current_state.get('table', {})}
 
         except requests.exceptions.RequestException as e:
             status_code = e.response.status_code if hasattr(e, 'response') and e.response else None
@@ -841,7 +842,7 @@ class DatabricksUnityCatalogExecutor:
 class DatabricksExecutorRegistry:
     """Central Databricks executor registry"""
 
-    def __init__(self, config: DatabricksConfig):
+    def __init__(self, config: DatabricksConfig) -> None:
         self.config = config
 
         self.cluster = DatabricksClusterExecutor(config)
@@ -849,7 +850,7 @@ class DatabricksExecutorRegistry:
         self.uc = DatabricksUnityCatalogExecutor(config)
 
         # Executor map
-        self.executors = {
+        self.executors: dict[str, dict[str, Callable[["Operation"], OperationResultDict | None]]] = {
             'dbx_cluster': {
                 'create': self.cluster.create,
                 'read': self.cluster.read,
@@ -884,7 +885,7 @@ class DatabricksExecutorRegistry:
             }
         }
 
-    def execute(self, operation: "Operation") -> dict[str, Any]:
+    def execute(self, operation: "Operation") -> OperationResultDict:
         """Execute operation"""
         resource_type = operation.resource_type.value
         operation_type = operation.type.value

@@ -18,6 +18,15 @@ from data_platform_naming.types import (
     ResourceDefinitionDict,
     ValueOverridesDict,
 )
+from data_platform_naming.validators import (
+    ValidationReport,
+    validate_databricks_name,
+    validate_aws_name,
+)
+from data_platform_naming.constants import (
+    DatabricksResourceType,
+    AWSResourceType,
+)
 
 from .naming_patterns_loader import (
     NamingPatternsLoader,
@@ -220,10 +229,13 @@ class ConfigurationManager:
         # Format pattern with values
         name = pattern.format(transformed_values)
 
-        # Validate name
-        validation_errors = self.patterns_loader.validate_name(
-            resource_type, name
-        )
+        # Validate name using new validators system
+        validation_report = self._validate_generated_name(resource_type, name, transformed_values)
+
+        # Convert validation report to legacy format for backward compatibility
+        validation_errors = []
+        if not validation_report.is_valid:
+            validation_errors = [str(issue) for issue in validation_report.issues]
 
         return GeneratedName(
             name=name,
@@ -232,6 +244,57 @@ class ConfigurationManager:
             values_used=transformed_values,
             validation_errors=validation_errors
         )
+
+    def _validate_generated_name(
+        self,
+        resource_type: str,
+        name: str,
+        values: dict[str, Any]
+    ) -> ValidationReport:
+        """
+        Validate a generated name using the new validators system.
+
+        Args:
+            resource_type: Resource type (e.g., 'dbx_cluster', 'aws_s3_bucket')
+            name: Generated name to validate
+            values: Values used to generate the name
+
+        Returns:
+            ValidationReport with validation results
+        """
+        # Map resource types to validators
+        databricks_types = {
+            'dbx_cluster': DatabricksResourceType.CLUSTER,
+            'dbx_job': DatabricksResourceType.JOB,
+            'dbx_catalog': DatabricksResourceType.CATALOG,
+            'dbx_schema': DatabricksResourceType.SCHEMA,
+            'dbx_table': DatabricksResourceType.TABLE,
+        }
+
+        aws_types = {
+            'aws_s3_bucket': AWSResourceType.S3_BUCKET,
+            'aws_glue_database': AWSResourceType.GLUE_DATABASE,
+            'aws_glue_table': AWSResourceType.GLUE_TABLE,
+            'aws_lambda_function': AWSResourceType.LAMBDA_FUNCTION,
+            'aws_iam_role': AWSResourceType.IAM_ROLE,
+        }
+
+        # Prepare context for validation
+        context = {
+            'environment': values.get('environment', ''),
+            'project': values.get('project', ''),
+            'values_used': values,
+        }
+
+        # Validate based on resource type
+        if resource_type in databricks_types:
+            return validate_databricks_name(databricks_types[resource_type], name, context)
+        elif resource_type in aws_types:
+            return validate_aws_name(aws_types[resource_type], name, context)
+        else:
+            # Fallback to generic validation
+            from data_platform_naming.validators import validate_resource_name
+            return validate_resource_name(resource_type, name, context)
 
     def generate_names_for_blueprint(
         self,
@@ -382,15 +445,20 @@ class ConfigurationManager:
         # Format
         name = pattern.format(transformed)
 
-        # Validate
-        errors = self.patterns_loader.validate_name(resource_type, name)
+        # Validate using new validators system
+        validation_report = self._validate_generated_name(resource_type, name, transformed)
+
+        # Convert validation report to legacy format for backward compatibility
+        validation_errors = []
+        if not validation_report.is_valid:
+            validation_errors = [str(issue) for issue in validation_report.issues]
 
         return GeneratedName(
             name=name,
             resource_type=resource_type,
             pattern_used=pattern.pattern,
             values_used=transformed,
-            validation_errors=errors
+            validation_errors=validation_errors
         )
 
     def _check_values_loader_has_data(self) -> bool:
