@@ -4,6 +4,8 @@ constants.py
 Global constants for AWS and Databricks naming conventions
 """
 
+from __future__ import annotations
+
 from enum import Enum
 
 
@@ -67,6 +69,40 @@ class DatabricksDataLayer(str, Enum):
     BRONZE = "bronze"
     SILVER = "silver"
     GOLD = "gold"
+
+
+class TableType(str, Enum):
+    """Data warehouse table types"""
+    FACT = "fact"
+    DIMENSION = "dim"
+    BRIDGE = "bridge"
+    STAGING = "staging"
+    REFERENCE = "reference"
+
+
+class ClusterType(str, Enum):
+    """Databricks cluster types"""
+    SHARED = "shared"
+    DEDICATED = "dedicated"
+    JOB = "job"
+
+
+class WorkloadType(str, Enum):
+    """Workload classifications"""
+    ETL = "etl"
+    ML = "ml"
+    ANALYTICS = "analytics"
+    STREAMING = "streaming"
+    BATCH = "batch"
+    API = "api"
+
+
+class DataClassification(str, Enum):
+    """Data sensitivity levels"""
+    PUBLIC = "public"
+    INTERNAL = "internal"
+    CONFIDENTIAL = "confidential"
+    RESTRICTED = "restricted"
 
 
 # =============================================================================
@@ -497,6 +533,10 @@ __all__ = [
     'DatabricksResourceType',
     'AWSDataLayer',
     'DatabricksDataLayer',
+    'TableType',
+    'ClusterType',
+    'WorkloadType',
+    'DataClassification',
 
     # Environments
     'ENVIRONMENTS',

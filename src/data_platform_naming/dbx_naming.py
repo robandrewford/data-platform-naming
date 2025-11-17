@@ -5,6 +5,8 @@ Automated naming convention generator for Databricks resources
 Integrates with existing AWS naming conventions
 """
 
+from __future__ import annotations
+
 import json
 import re
 from dataclasses import dataclass
@@ -13,26 +15,9 @@ from typing import Any, Optional
 
 # Import ConfigurationManager for config-based name generation
 from .config.configuration_manager import ConfigurationManager
-from .constants import Environment
-
-
-class DatabricksResourceType(Enum):
-    """Databricks resource types with naming patterns"""
-    WORKSPACE = "workspace"
-    CLUSTER = "cluster"
-    JOB = "job"
-    NOTEBOOK = "notebook"
-    REPO = "repo"
-    PIPELINE = "pipeline"
-    SQL_WAREHOUSE = "sql_warehouse"
-    CATALOG = "catalog"
-    SCHEMA = "schema"
-    TABLE = "table"
-    VOLUME = "volume"
-    SECRET_SCOPE = "secret_scope"
-    INSTANCE_POOL = "instance_pool"
-    POLICY = "policy"
-    TOKEN = "token"
+from .constants import Environment, DatabricksResourceType, TableType, ClusterType, DatabricksDataLayer
+from .exceptions import ValidationError, ConfigurationError, PatternError
+from .types import MetadataDict, ValueOverridesDict
 
 
 @dataclass
@@ -41,9 +26,9 @@ class DatabricksNamingConfig:
     environment: str  # dev, stg, prd
     project: str
     region: str  # us-east-1, eu-west-1, etc.
-    team: Optional[str] = None
-    cost_center: Optional[str] = None
-    data_classification: Optional[str] = None  # public, internal, confidential, restricted
+    team: str | None = None
+    cost_center: str | None = None
+    data_classification: str | None = None  # public, internal, confidential, restricted
 
 
 class DatabricksNamingGenerator:
@@ -65,7 +50,6 @@ class DatabricksNamingGenerator:
         DatabricksResourceType.SECRET_SCOPE: 128,
         DatabricksResourceType.INSTANCE_POOL: 100,
         DatabricksResourceType.POLICY: 100,
-        DatabricksResourceType.TOKEN: 100,
     }
 
     # Allowed characters per resource type
@@ -80,21 +64,21 @@ class DatabricksNamingGenerator:
         self,
         config: DatabricksNamingConfig,
         configuration_manager: ConfigurationManager
-    ):
+    ) -> None:
         """
-        Initialize Databricks naming generator.
+        Initializes the DatabricksNamingGenerator with configuration and validation.
 
         Args:
             config: Databricks naming configuration
-            configuration_manager: ConfigurationManager for pattern-based generation
+            configuration_manager: ConfigurationManager for config-based naming
 
         Raises:
-            ValueError: If configuration_manager is None or required patterns missing
+            ConfigurationError: If configuration_manager is None or required patterns missing
         """
         if configuration_manager is None:
-            raise ValueError(
-                "ConfigurationManager is required. "
-                "Legacy mode without ConfigurationManager is no longer supported."
+            raise ConfigurationError(
+                message="ConfigurationManager is required. Legacy mode without ConfigurationManager is no longer supported.",
+                config_key="configuration_manager"
             )
         
         self.config = config
@@ -102,35 +86,45 @@ class DatabricksNamingGenerator:
 
         self._validate_config()
 
-    def _validate_config(self):
+    def _validate_config(self) -> None:
         """Validate configuration parameters"""
         if self.config.environment not in [e.value for e in Environment]:
-            raise ValueError(f"Invalid environment: {self.config.environment}")
+            raise ValidationError(
+                message=f"Invalid environment: {self.config.environment}",
+                field="environment",
+                value=self.config.environment,
+                suggestion="Must be one of: dev, stg, prd"
+            )
 
         if not re.match(r'^[a-z0-9-]+$', self.config.project):
-            raise ValueError(f"Invalid project name: {self.config.project}")
+            raise ValidationError(
+                message=f"Invalid project name: {self.config.project}",
+                field="project",
+                value=self.config.project,
+                suggestion="Project name must contain only lowercase letters, numbers, and hyphens"
+            )
 
 
     def _generate_with_config(self,
                              resource_type: str,
                              method_params: dict[str, Any],
-                             metadata: Optional[dict[str, Any]] = None) -> str:
+                             metadata: MetadataDict | None = None) -> str:
         """
         Generate resource name using ConfigurationManager.
-        
+
         Args:
             resource_type: Databricks resource type (e.g., 'databricks_cluster')
             method_params: Parameters from the calling method
             metadata: Optional blueprint metadata for value precedence
-        
+
         Returns:
             Generated resource name
-        
+
         Raises:
-            ValueError: If name generation fails
+            PatternError: If name generation fails
         """
         # Merge config values with method params
-        values = {
+        values: ValueOverridesDict = {
             'environment': self.config.environment,
             'project': self.config.project,
             'region': self.config.region,
@@ -143,12 +137,12 @@ class DatabricksNamingGenerator:
         if self.config.data_classification:
             values['data_classification'] = self.config.data_classification
 
-        # Add method-specific parameters
-        values.update(method_params)
+        # Add method-specific parameters (cast needed as method_params could contain Any)
+        values.update(method_params)  # type: ignore
 
         # Add metadata if provided (highest precedence)
         if metadata:
-            values.update(metadata)
+            values.update(metadata)  # type: ignore
 
         # Generate name using ConfigurationManager
         result = self.configuration_manager.generate_name(
@@ -159,7 +153,12 @@ class DatabricksNamingGenerator:
         )
 
         if not result.is_valid:
-            raise ValueError(f"Generated invalid name: {', '.join(result.validation_errors)}")
+            raise PatternError(
+                message=f"Generated invalid name: {', '.join(result.validation_errors)}",
+                pattern=resource_type,
+                resource_type=resource_type,
+                operation="generate_name"
+            )
 
         return result.name
 
@@ -199,7 +198,7 @@ class DatabricksNamingGenerator:
 
     def generate_workspace_name(self,
                                purpose: str = "data",
-                               metadata: Optional[dict[str, Any]] = None) -> str:
+                               metadata: MetadataDict | None = None) -> str:
         """
         Generate Databricks workspace name.
 
@@ -221,16 +220,16 @@ class DatabricksNamingGenerator:
         """
         params = {'purpose': purpose}
         return self._generate_with_config(
-            resource_type='dbx_workspace',
+            resource_type=DatabricksResourceType.WORKSPACE.value,
             method_params=params,
             metadata=metadata
         )
 
     def generate_cluster_name(self,
                             workload: str,
-                            cluster_type: str = "shared",
-                            version: Optional[str] = None,
-                            metadata: Optional[dict[str, Any]] = None) -> str:
+                            cluster_type: str = ClusterType.SHARED.value,
+                            version: str | None = None,
+                            metadata: dict[str, Any] | None = None) -> str:
         """
         Generate Databricks cluster name.
         
@@ -260,7 +259,7 @@ class DatabricksNamingGenerator:
             params['version'] = version
 
         return self._generate_with_config(
-            resource_type='dbx_cluster',
+            resource_type=DatabricksResourceType.CLUSTER.value,
             method_params=params,
             metadata=metadata
         )
@@ -268,8 +267,8 @@ class DatabricksNamingGenerator:
     def generate_job_name(self,
                          job_type: str,
                          purpose: str,
-                         schedule: Optional[str] = None,
-                         metadata: Optional[dict[str, Any]] = None) -> str:
+                         schedule: str | None = None,
+                         metadata: dict[str, Any] | None = None) -> str:
         """
         Generate Databricks job name.
         
@@ -300,7 +299,7 @@ class DatabricksNamingGenerator:
             params['schedule'] = schedule
 
         return self._generate_with_config(
-            resource_type='dbx_job',
+            resource_type=DatabricksResourceType.JOB.value,
             method_params=params,
             metadata=metadata
         )
@@ -309,7 +308,7 @@ class DatabricksNamingGenerator:
                               domain: str,
                               purpose: str,
                               notebook_name: str,
-                              metadata: Optional[dict[str, Any]] = None) -> str:
+                              metadata: dict[str, Any] | None = None) -> str:
         """
         Generate Databricks notebook path.
         
@@ -338,14 +337,14 @@ class DatabricksNamingGenerator:
             'notebook_name': notebook_name,
         }
         return self._generate_with_config(
-            resource_type='dbx_notebook_path',
+            resource_type="dbx_notebook_path",  # Use pattern name, not enum value
             method_params=params,
             metadata=metadata
         )
 
     def generate_repo_name(self,
                           repo_purpose: str,
-                          metadata: Optional[dict[str, Any]] = None) -> str:
+                          metadata: dict[str, Any] | None = None) -> str:
         """
         Generate Git repo integration name.
         
@@ -368,7 +367,7 @@ class DatabricksNamingGenerator:
         """
         params = {'repo_purpose': repo_purpose}
         return self._generate_with_config(
-            resource_type='dbx_repo',
+            resource_type=DatabricksResourceType.REPO.value,
             method_params=params,
             metadata=metadata
         )
@@ -377,7 +376,7 @@ class DatabricksNamingGenerator:
                               source: str,
                               target: str,
                               pipeline_type: str = "dlt",
-                              metadata: Optional[dict[str, Any]] = None) -> str:
+                              metadata: dict[str, Any] | None = None) -> str:
         """
         Generate Delta Live Tables pipeline name.
         
@@ -406,7 +405,7 @@ class DatabricksNamingGenerator:
             'pipeline_type': pipeline_type,
         }
         return self._generate_with_config(
-            resource_type='dbx_pipeline',
+            resource_type=DatabricksResourceType.PIPELINE.value,
             method_params=params,
             metadata=metadata
         )
@@ -414,7 +413,7 @@ class DatabricksNamingGenerator:
     def generate_sql_warehouse_name(self,
                                    size: str = "medium",
                                    purpose: str = "analytics",
-                                   metadata: Optional[dict[str, Any]] = None) -> str:
+                                   metadata: dict[str, Any] | None = None) -> str:
         """
         Generate SQL warehouse name.
         
@@ -441,14 +440,14 @@ class DatabricksNamingGenerator:
             'purpose': purpose,
         }
         return self._generate_with_config(
-            resource_type='dbx_sql_warehouse',
+            resource_type=DatabricksResourceType.SQL_WAREHOUSE.value,
             method_params=params,
             metadata=metadata
         )
 
     def generate_catalog_name(self,
                              catalog_type: str = "main",
-                             metadata: Optional[dict[str, Any]] = None) -> str:
+                             metadata: dict[str, Any] | None = None) -> str:
         """
         Generate Unity Catalog catalog name.
         
@@ -471,15 +470,15 @@ class DatabricksNamingGenerator:
         """
         params = {'catalog_type': catalog_type}
         return self._generate_with_config(
-            resource_type='dbx_catalog',
+            resource_type=DatabricksResourceType.CATALOG.value,
             method_params=params,
             metadata=metadata
         )
 
     def generate_schema_name(self,
                            domain: str,
-                           layer: str = "bronze",
-                           metadata: Optional[dict[str, Any]] = None) -> str:
+                           layer: str = DatabricksDataLayer.BRONZE.value,
+                           metadata: dict[str, Any] | None = None) -> str:
         """
         Generate Unity Catalog schema name.
 
@@ -506,15 +505,15 @@ class DatabricksNamingGenerator:
             'layer': layer,
         }
         return self._generate_with_config(
-            resource_type='dbx_schema',
+            resource_type=DatabricksResourceType.SCHEMA.value,
             method_params=params,
             metadata=metadata
         )
 
     def generate_table_name(self,
                           entity: str,
-                          table_type: str = "fact",
-                          metadata: Optional[dict[str, Any]] = None) -> str:
+                          table_type: str = TableType.FACT.value,
+                          metadata: dict[str, Any] | None = None) -> str:
         """
         Generate Unity Catalog table name.
 
@@ -541,7 +540,7 @@ class DatabricksNamingGenerator:
             'table_type': table_type,
         }
         return self._generate_with_config(
-            resource_type='dbx_table',
+            resource_type=DatabricksResourceType.TABLE.value,
             method_params=params,
             metadata=metadata
         )
@@ -549,7 +548,7 @@ class DatabricksNamingGenerator:
     def generate_volume_name(self,
                            purpose: str,
                            data_type: str = "raw",
-                           metadata: Optional[dict[str, Any]] = None) -> str:
+                           metadata: dict[str, Any] | None = None) -> str:
         """
         Generate Unity Catalog volume name.
 
@@ -576,14 +575,14 @@ class DatabricksNamingGenerator:
             'data_type': data_type,
         }
         return self._generate_with_config(
-            resource_type='dbx_volume',
+            resource_type=DatabricksResourceType.VOLUME.value,
             method_params=params,
             metadata=metadata
         )
 
     def generate_secret_scope_name(self,
                                   purpose: str = "general",
-                                  metadata: Optional[dict[str, Any]] = None) -> str:
+                                  metadata: dict[str, Any] | None = None) -> str:
         """
         Generate secret scope name.
 
@@ -606,7 +605,7 @@ class DatabricksNamingGenerator:
         """
         params = {'purpose': purpose}
         return self._generate_with_config(
-            resource_type='dbx_secret_scope',
+            resource_type=DatabricksResourceType.SECRET_SCOPE.value,
             method_params=params,
             metadata=metadata
         )
@@ -614,7 +613,7 @@ class DatabricksNamingGenerator:
     def generate_instance_pool_name(self,
                                    node_type: str,
                                    purpose: str = "general",
-                                   metadata: Optional[dict[str, Any]] = None) -> str:
+                                   metadata: dict[str, Any] | None = None) -> str:
         """
         Generate instance pool name.
 
@@ -641,7 +640,7 @@ class DatabricksNamingGenerator:
             'purpose': purpose,
         }
         return self._generate_with_config(
-            resource_type='dbx_instance_pool',
+            resource_type=DatabricksResourceType.INSTANCE_POOL.value,
             method_params=params,
             metadata=metadata
         )
@@ -649,7 +648,7 @@ class DatabricksNamingGenerator:
     def generate_policy_name(self,
                            policy_type: str,
                            target: str = "cluster",
-                           metadata: Optional[dict[str, Any]] = None) -> str:
+                           metadata: dict[str, Any] | None = None) -> str:
         """
         Generate policy name.
 
@@ -676,14 +675,14 @@ class DatabricksNamingGenerator:
             'target': target,
         }
         return self._generate_with_config(
-            resource_type='dbx_policy',
+            resource_type=DatabricksResourceType.POLICY.value,
             method_params=params,
             metadata=metadata
         )
 
     def generate_standard_tags(self,
                               resource_type: DatabricksResourceType,
-                              additional_tags: Optional[dict[str, str]] = None) -> dict[str, str]:
+                              additional_tags: dict[str, str] | None = None) -> dict[str, str]:
         """Generate standard tags for Databricks resources"""
         tags = {
             "Environment": self.config.environment,
@@ -712,7 +711,7 @@ class DatabricksNamingGenerator:
                                      layer: str,
                                      entity: str,
                                      table_type: str = "fact",
-                                     metadata: Optional[dict[str, Any]] = None) -> str:
+                                     metadata: dict[str, Any] | None = None) -> str:
         """
         Generate fully qualified Unity Catalog table reference.
 
@@ -746,16 +745,16 @@ class DatabricksNamingGenerator:
 class DatabricksNamingCLI:
     """CLI interface for Databricks naming generator"""
 
-    def __init__(self):
-        self.generator: Optional[DatabricksNamingGenerator] = None
+    def __init__(self) -> None:
+        self.generator: DatabricksNamingGenerator | None = None
 
     def configure(self,
                  environment: str,
                  project: str,
                  region: str,
                  configuration_manager: ConfigurationManager,
-                 team: Optional[str] = None,
-                 cost_center: Optional[str] = None) -> None:
+                 team: str | None = None,
+                 cost_center: str | None = None) -> None:
         """Configure the naming generator"""
         config = DatabricksNamingConfig(
             environment=environment,
@@ -770,7 +769,10 @@ class DatabricksNamingCLI:
     def generate_workspace(self, purpose: str = "data") -> str:
         """Generate workspace name"""
         if not self.generator:
-            raise ValueError("Generator not configured. Run configure() first.")
+            raise ConfigurationError(
+                message="Generator not configured. Run configure() first.",
+                config_key="generator"
+            )
         assert self.generator is not None  # Type narrowing for mypy
         return self.generator.generate_workspace_name(purpose)
 
@@ -779,17 +781,23 @@ class DatabricksNamingCLI:
                         cluster_type: str = "shared") -> str:
         """Generate cluster name"""
         if not self.generator:
-            raise ValueError("Generator not configured. Run configure() first.")
+            raise ConfigurationError(
+                message="Generator not configured. Run configure() first.",
+                config_key="generator"
+            )
         assert self.generator is not None  # Type narrowing for mypy
         return self.generator.generate_cluster_name(workload, cluster_type)
 
     def generate_job(self,
                     job_type: str,
                     purpose: str,
-                    schedule: Optional[str] = None) -> str:
+                    schedule: str | None = None) -> str:
         """Generate job name"""
         if not self.generator:
-            raise ValueError("Generator not configured. Run configure() first.")
+            raise ConfigurationError(
+                message="Generator not configured. Run configure() first.",
+                config_key="generator"
+            )
         assert self.generator is not None  # Type narrowing for mypy
         return self.generator.generate_job_name(job_type, purpose, schedule)
 
@@ -800,7 +808,10 @@ class DatabricksNamingCLI:
                                     entity: str) -> dict[str, str]:
         """Generate complete Unity Catalog naming stack"""
         if not self.generator:
-            raise ValueError("Generator not configured. Run configure() first.")
+            raise ConfigurationError(
+                message="Generator not configured. Run configure() first.",
+                config_key="generator"
+            )
 
         return {
             "catalog": self.generator.generate_catalog_name(catalog_type),
@@ -814,7 +825,10 @@ class DatabricksNamingCLI:
     def export_naming_reference(self, output_file: str = "dbx_naming.json") -> None:
         """Export naming examples as JSON reference"""
         if not self.generator:
-            raise ValueError("Generator not configured. Run configure() first.")
+            raise ConfigurationError(
+                message="Generator not configured. Run configure() first.",
+                config_key="generator"
+            )
 
         reference = {
             "configuration": {

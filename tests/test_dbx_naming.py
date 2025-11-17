@@ -16,6 +16,7 @@ from data_platform_naming.dbx_naming import (
     DatabricksNamingGenerator,
     DatabricksResourceType,
 )
+from data_platform_naming.exceptions import ValidationError, ConfigurationError
 
 # ============================================================================
 # Test Fixtures
@@ -217,25 +218,25 @@ class TestDatabricksNamingGeneratorInit:
         assert generator.config == dbx_config
         assert generator.configuration_manager is config_manager
     def test_init_validates_environment(self, config_manager):
-        """Test that invalid environment raises ValueError"""
+        """Test that invalid environment raises ValidationError"""
         invalid_config = DatabricksNamingConfig(
             environment="invalid",
             project="test",
             region="us-east-1"
         )
 
-        with pytest.raises(ValueError, match="Invalid environment"):
+        with pytest.raises(ValidationError, match="Invalid environment"):
             DatabricksNamingGenerator(config=invalid_config, configuration_manager=config_manager)
 
     def test_init_validates_project_name(self, config_manager):
-        """Test that invalid project name raises ValueError"""
+        """Test that invalid project name raises ValidationError"""
         invalid_config = DatabricksNamingConfig(
             environment=Environment.DEV.value,
             project="Test_Project!",  # Invalid characters
             region="us-east-1"
         )
 
-        with pytest.raises(ValueError, match="Invalid project name"):
+        with pytest.raises(ValidationError, match="Invalid project name"):
             DatabricksNamingGenerator(config=invalid_config, configuration_manager=config_manager)
 
     def test_init_pattern_validation_success(self, dbx_config, config_manager):

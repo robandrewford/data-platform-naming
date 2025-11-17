@@ -6,9 +6,27 @@ This module provides a unified interface for managing naming configurations
 by coordinating between NamingValuesLoader and NamingPatternsLoader.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
+
+from data_platform_naming.types import (
+    ConfigValuesDict,
+    MetadataDict,
+    ResourceDefinitionDict,
+    ValueOverridesDict,
+)
+from data_platform_naming.validators import (
+    ValidationReport,
+    validate_databricks_name,
+    validate_aws_name,
+)
+from data_platform_naming.constants import (
+    DatabricksResourceType,
+    AWSResourceType,
+)
 
 from .naming_patterns_loader import (
     NamingPatternsLoader,
@@ -26,8 +44,8 @@ class GeneratedName:
     name: str
     resource_type: str
     pattern_used: str
-    values_used: Dict[str, Any]
-    validation_errors: List[str]
+    values_used: dict[str, Any]
+    validation_errors: list[str]
 
     @property
     def is_valid(self) -> bool:
@@ -61,8 +79,8 @@ class ConfigurationManager:
 
     def __init__(
         self,
-        values_loader: Optional[NamingValuesLoader] = None,
-        patterns_loader: Optional[NamingPatternsLoader] = None
+        values_loader: NamingValuesLoader | None = None,
+        patterns_loader: NamingPatternsLoader | None = None
     ):
         """
         Initialize ConfigurationManager.
@@ -80,10 +98,10 @@ class ConfigurationManager:
 
     def load_configs(
         self,
-        values_path: Optional[Path] = None,
-        patterns_path: Optional[Path] = None,
-        values_dict: Optional[Dict[str, Any]] = None,
-        patterns_dict: Optional[Dict[str, Any]] = None
+        values_path: Path | None = None,
+        patterns_path: Path | None = None,
+        values_dict: dict[str, Any] | None = None,
+        patterns_dict: dict[str, Any] | None = None
     ) -> None:
         """
         Load both naming values and patterns configurations.
@@ -123,7 +141,7 @@ class ConfigurationManager:
         self._values_loaded = self._check_values_loader_has_data()
         self._patterns_loaded = self._check_patterns_loader_has_data()
 
-    def load_from_default_locations(self, base_dir: Optional[Path] = None) -> bool:
+    def load_from_default_locations(self, base_dir: Path | None = None) -> bool:
         """
         Load configurations from default locations.
         
@@ -158,9 +176,9 @@ class ConfigurationManager:
     def generate_name(
         self,
         resource_type: str,
-        environment: Optional[str] = None,
-        blueprint_metadata: Optional[Dict[str, Any]] = None,
-        value_overrides: Optional[Dict[str, Any]] = None
+        environment: str | None = None,
+        blueprint_metadata: MetadataDict | None = None,
+        value_overrides: ValueOverridesDict | None = None
     ) -> GeneratedName:
         """
         Generate a resource name by combining values and patterns.
@@ -211,10 +229,13 @@ class ConfigurationManager:
         # Format pattern with values
         name = pattern.format(transformed_values)
 
-        # Validate name
-        validation_errors = self.patterns_loader.validate_name(
-            resource_type, name
-        )
+        # Validate name using new validators system
+        validation_report = self._validate_generated_name(resource_type, name, transformed_values)
+
+        # Convert validation report to legacy format for backward compatibility
+        validation_errors = []
+        if not validation_report.is_valid:
+            validation_errors = [str(issue) for issue in validation_report.issues]
 
         return GeneratedName(
             name=name,
@@ -224,36 +245,87 @@ class ConfigurationManager:
             validation_errors=validation_errors
         )
 
+    def _validate_generated_name(
+        self,
+        resource_type: str,
+        name: str,
+        values: dict[str, Any]
+    ) -> ValidationReport:
+        """
+        Validate a generated name using the new validators system.
+
+        Args:
+            resource_type: Resource type (e.g., 'dbx_cluster', 'aws_s3_bucket')
+            name: Generated name to validate
+            values: Values used to generate the name
+
+        Returns:
+            ValidationReport with validation results
+        """
+        # Map resource types to validators
+        databricks_types = {
+            'dbx_cluster': DatabricksResourceType.CLUSTER,
+            'dbx_job': DatabricksResourceType.JOB,
+            'dbx_catalog': DatabricksResourceType.CATALOG,
+            'dbx_schema': DatabricksResourceType.SCHEMA,
+            'dbx_table': DatabricksResourceType.TABLE,
+        }
+
+        aws_types = {
+            'aws_s3_bucket': AWSResourceType.S3_BUCKET,
+            'aws_glue_database': AWSResourceType.GLUE_DATABASE,
+            'aws_glue_table': AWSResourceType.GLUE_TABLE,
+            'aws_lambda_function': AWSResourceType.LAMBDA_FUNCTION,
+            'aws_iam_role': AWSResourceType.IAM_ROLE,
+        }
+
+        # Prepare context for validation
+        context = {
+            'environment': values.get('environment', ''),
+            'project': values.get('project', ''),
+            'values_used': values,
+        }
+
+        # Validate based on resource type
+        if resource_type in databricks_types:
+            return validate_databricks_name(databricks_types[resource_type], name, context)
+        elif resource_type in aws_types:
+            return validate_aws_name(aws_types[resource_type], name, context)
+        else:
+            # Fallback to generic validation
+            from data_platform_naming.validators import validate_resource_name
+            return validate_resource_name(resource_type, name, context)
+
     def generate_names_for_blueprint(
         self,
-        resources: List[Dict[str, Any]],
-        environment: Optional[str] = None,
-        blueprint_metadata: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, GeneratedName]:
+        resources: list[ResourceDefinitionDict],
+        environment: str | None = None,
+        blueprint_metadata: MetadataDict | None = None
+    ) -> dict[str, GeneratedName]:
         """
         Generate names for all resources in a blueprint.
-        
+
         Args:
             resources: List of resource definitions with 'type' field
             environment: Optional environment code
             blueprint_metadata: Optional blueprint-level metadata
-            
+
         Returns:
             Dictionary mapping resource IDs to GeneratedName objects
-            
+
         Raises:
             ConfigurationError: If configs not loaded
         """
         self._check_loaded()
 
-        results: Dict[str, GeneratedName] = {}
+        results: dict[str, GeneratedName] = {}
         for resource in resources:
             # Ensure resource_id is always a string
             resource_id = str(resource.get("id") or resource.get("type") or "unknown")
             resource_type = resource["type"]
 
             # Merge blueprint metadata with resource metadata
-            resource_metadata = dict(blueprint_metadata or {})
+            resource_metadata: dict[str, Any] = dict(blueprint_metadata or {})
             if "metadata" in resource:
                 resource_metadata.update(resource["metadata"])
 
@@ -261,7 +333,7 @@ class ConfigurationManager:
                 result = self.generate_name(
                     resource_type=resource_type,
                     environment=environment,
-                    blueprint_metadata=resource_metadata if resource_metadata else None
+                    blueprint_metadata=resource_metadata if resource_metadata else None  # type: ignore[arg-type]
                 )
                 results[resource_id] = result
             except (PatternError, ConfigurationError) as e:
@@ -276,15 +348,15 @@ class ConfigurationManager:
 
         return results
 
-    def validate_configuration(self) -> List[str]:
+    def validate_configuration(self) -> list[str]:
         """
         Validate the loaded configuration.
-        
+
         Checks:
         - All pattern variables have corresponding values
         - Required variables are defined
         - Patterns are valid
-        
+
         Returns:
             List of validation warnings/errors (empty if valid)
         """
@@ -324,20 +396,20 @@ class ConfigurationManager:
 
         return warnings
 
-    def get_available_resource_types(self) -> List[str]:
+    def get_available_resource_types(self) -> list[str]:
         """
         Get list of resource types that have both values and patterns defined.
-        
+
         Returns:
             List of resource type names
         """
         self._check_loaded()
         return self.patterns_loader.list_resource_types()
 
-    def get_available_environments(self) -> List[str]:
+    def get_available_environments(self) -> list[str]:
         """
         Get list of configured environments.
-        
+
         Returns:
             List of environment codes
         """
@@ -347,7 +419,7 @@ class ConfigurationManager:
     def preview_name(
         self,
         resource_type: str,
-        values: Dict[str, Any]
+        values: dict[str, Any]
     ) -> GeneratedName:
         """
         Preview a name with specific values (bypass value loading).
@@ -373,15 +445,20 @@ class ConfigurationManager:
         # Format
         name = pattern.format(transformed)
 
-        # Validate
-        errors = self.patterns_loader.validate_name(resource_type, name)
+        # Validate using new validators system
+        validation_report = self._validate_generated_name(resource_type, name, transformed)
+
+        # Convert validation report to legacy format for backward compatibility
+        validation_errors = []
+        if not validation_report.is_valid:
+            validation_errors = [str(issue) for issue in validation_report.issues]
 
         return GeneratedName(
             name=name,
             resource_type=resource_type,
             pattern_used=pattern.pattern,
             values_used=transformed,
-            validation_errors=errors
+            validation_errors=validation_errors
         )
 
     def _check_values_loader_has_data(self) -> bool:

@@ -6,33 +6,35 @@ S3, Glue, IAM operations with rollback support
 
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable
 
 import boto3
 from botocore.exceptions import ClientError
 
+from data_platform_naming.exceptions import AWSOperationError, ValidationError
+from data_platform_naming.types import OperationResultDict
+
 if TYPE_CHECKING:
     from .transaction_manager import Operation
-
 
 @dataclass
 class AWSOperationResult:
     """AWS operation result with rollback data"""
     success: bool
     resource_id: str
-    rollback_data: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    rollback_data: dict[str, Any] | None = None
+    error: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class AWSS3Executor:
     """S3 bucket operations"""
 
-    def __init__(self, session: Optional[boto3.Session] = None):
+    def __init__(self, session: boto3.Session | None = None) -> None:
         self.session = session or boto3.Session()
         self.s3 = self.session.client('s3')
 
-    def create(self, operation: "Operation") -> Dict[str, Any]:
+    def create(self, operation: "Operation") -> OperationResultDict:
         """Create S3 bucket"""
         bucket_name = operation.resource_id
         params = operation.params
@@ -107,9 +109,15 @@ class AWSS3Executor:
             }
 
         except ClientError as e:
-            raise RuntimeError(f"S3 create failed: {e.response['Error']['Message']}")
+            raise AWSOperationError(
+                message=f"S3 bucket creation failed: {e.response['Error']['Message']}",
+                aws_service="s3",
+                aws_error_code=e.response['Error']['Code'],
+                resource_type="s3_bucket",
+                operation="create"
+            )
 
-    def read(self, operation: "Operation") -> Dict[str, Any]:
+    def read(self, operation: "Operation") -> OperationResultDict:
         """Read S3 bucket configuration"""
         bucket_name = operation.resource_id
 
@@ -141,15 +149,22 @@ class AWSS3Executor:
             return {'config': config}
 
         except ClientError as e:
-            raise RuntimeError(f"S3 read failed: {e.response['Error']['Message']}")
+            raise AWSOperationError(
+                message=f"S3 bucket read failed: {e.response['Error']['Message']}",
+                aws_service="s3",
+                aws_error_code=e.response['Error']['Code'],
+                resource_type="s3_bucket",
+                operation="read"
+            )
 
-    def update(self, operation: "Operation") -> Dict[str, Any]:
+    def update(self, operation: "Operation") -> OperationResultDict:
         """Update S3 bucket configuration"""
         bucket_name = operation.resource_id
         params = operation.params
 
         # Store current state
-        current_state = self.read(operation)
+        current_state_result = self.read(operation)
+        current_config = current_state_result.get('config', {})
 
         try:
             # Update tags
@@ -169,18 +184,25 @@ class AWSS3Executor:
                     LifecycleConfiguration={'Rules': params['lifecycle_rules']}
                 )
 
-            return {'rollback_data': current_state}
+            return {'rollback_data': current_config}
 
         except ClientError as e:
-            raise RuntimeError(f"S3 update failed: {e.response['Error']['Message']}")
+            raise AWSOperationError(
+                message=f"S3 bucket update failed: {e.response['Error']['Message']}",
+                aws_service="s3",
+                aws_error_code=e.response['Error']['Code'],
+                resource_type="s3_bucket",
+                operation="update"
+            )
 
-    def delete(self, operation: "Operation") -> Dict[str, Any]:
+    def delete(self, operation: "Operation") -> OperationResultDict:
         """Delete S3 bucket"""
         bucket_name = operation.resource_id
         archive = operation.params.get('archive', False)
 
         # Store state before deletion
-        current_state = self.read(operation)
+        current_state_result = self.read(operation)
+        current_config = current_state_result.get('config', {})
 
         try:
             if archive:
@@ -192,7 +214,7 @@ class AWSS3Executor:
                         {'Key': 'ArchivedAt', 'Value': str(int(time.time()))}
                     ]}
                 )
-                return {'rollback_data': current_state}
+                return {'rollback_data': current_config}
 
             # Empty bucket first
             self._empty_bucket(bucket_name)
@@ -200,10 +222,16 @@ class AWSS3Executor:
             # Delete bucket
             self.s3.delete_bucket(Bucket=bucket_name)
 
-            return {'rollback_data': current_state}
+            return {'rollback_data': current_config}
 
         except ClientError as e:
-            raise RuntimeError(f"S3 delete failed: {e.response['Error']['Message']}")
+            raise AWSOperationError(
+                message=f"S3 bucket deletion failed: {e.response['Error']['Message']}",
+                aws_service="s3",
+                aws_error_code=e.response['Error']['Code'],
+                resource_type="s3_bucket",
+                operation="delete"
+            )
 
     def rollback(self, operation: "Operation") -> None:
         """Rollback S3 operation"""
@@ -211,7 +239,12 @@ class AWSS3Executor:
             # Delete created bucket
             try:
                 if operation.rollback_data is None:
-                    raise ValueError("Rollback data is None for create operation")
+                    raise ValidationError(
+                        message="Rollback data is None for create operation",
+                        field="rollback_data",
+                        resource_type="s3_bucket",
+                        operation="rollback"
+                    )
                 bucket_name = operation.rollback_data['bucket_name']
                 self._empty_bucket(bucket_name)
                 self.s3.delete_bucket(Bucket=bucket_name)
@@ -256,11 +289,11 @@ class AWSS3Executor:
 class AWSGlueExecutor:
     """Glue database and table operations"""
 
-    def __init__(self, session: Optional[boto3.Session] = None):
+    def __init__(self, session: boto3.Session | None = None) -> None:
         self.session = session or boto3.Session()
         self.glue = self.session.client('glue')
 
-    def create_database(self, operation: "Operation") -> Dict[str, Any]:
+    def create_database(self, operation: "Operation") -> OperationResultDict:
         """Create Glue database"""
         db_name = operation.resource_id
         params = operation.params
@@ -288,9 +321,15 @@ class AWSGlueExecutor:
             }
 
         except ClientError as e:
-            raise RuntimeError(f"Glue DB create failed: {e.response['Error']['Message']}")
+            raise AWSOperationError(
+                message=f"Glue database creation failed: {e.response['Error']['Message']}",
+                aws_service="glue",
+                aws_error_code=e.response['Error']['Code'],
+                resource_type="glue_database",
+                operation="create"
+            )
 
-    def create_table(self, operation: "Operation") -> Dict[str, Any]:
+    def create_table(self, operation: "Operation") -> OperationResultDict:
         """Create Glue table"""
         table_name = operation.resource_id
         params = operation.params
@@ -328,9 +367,15 @@ class AWSGlueExecutor:
             }
 
         except ClientError as e:
-            raise RuntimeError(f"Glue table create failed: {e.response['Error']['Message']}")
+            raise AWSOperationError(
+                message=f"Glue table creation failed: {e.response['Error']['Message']}",
+                aws_service="glue",
+                aws_error_code=e.response['Error']['Code'],
+                resource_type="glue_table",
+                operation="create"
+            )
 
-    def read_database(self, operation: "Operation") -> Dict[str, Any]:
+    def read_database(self, operation: "Operation") -> OperationResultDict:
         """Read Glue database"""
         db_name = operation.resource_id
 
@@ -339,9 +384,15 @@ class AWSGlueExecutor:
             return {'database': response['Database']}
 
         except ClientError as e:
-            raise RuntimeError(f"Glue DB read failed: {e.response['Error']['Message']}")
+            raise AWSOperationError(
+                message=f"Glue database read failed: {e.response['Error']['Message']}",
+                aws_service="glue",
+                aws_error_code=e.response['Error']['Code'],
+                resource_type="glue_database",
+                operation="read"
+            )
 
-    def read_table(self, operation: "Operation") -> Dict[str, Any]:
+    def read_table(self, operation: "Operation") -> OperationResultDict:
         """Read Glue table"""
         params = operation.params
 
@@ -353,45 +404,70 @@ class AWSGlueExecutor:
             return {'table': response['Table']}
 
         except ClientError as e:
-            raise RuntimeError(f"Glue table read failed: {e.response['Error']['Message']}")
+            raise AWSOperationError(
+                message=f"Glue table read failed: {e.response['Error']['Message']}",
+                aws_service="glue",
+                aws_error_code=e.response['Error']['Code'],
+                resource_type="glue_table",
+                operation="read"
+            )
 
-    def delete_database(self, operation: "Operation") -> Dict[str, Any]:
+    def delete_database(self, operation: "Operation") -> OperationResultDict:
         """Delete Glue database"""
         db_name = operation.resource_id
 
         # Store state
-        current_state = self.read_database(operation)
+        current_state_result = self.read_database(operation)
+        current_db = current_state_result.get('database', {})
 
         try:
             self.glue.delete_database(Name=db_name)
-            return {'rollback_data': current_state}
+            return {'rollback_data': current_db}
 
         except ClientError as e:
-            raise RuntimeError(f"Glue DB delete failed: {e.response['Error']['Message']}")
+            raise AWSOperationError(
+                message=f"Glue database deletion failed: {e.response['Error']['Message']}",
+                aws_service="glue",
+                aws_error_code=e.response['Error']['Code'],
+                resource_type="glue_database",
+                operation="delete"
+            )
 
-    def delete_table(self, operation: "Operation") -> Dict[str, Any]:
+    def delete_table(self, operation: "Operation") -> OperationResultDict:
         """Delete Glue table"""
         params = operation.params
 
         # Store state
-        current_state = self.read_table(operation)
+        current_state_result = self.read_table(operation)
+        current_table = current_state_result.get('table', {})
 
         try:
             self.glue.delete_table(
                 DatabaseName=params['database_name'],
                 Name=operation.resource_id
             )
-            return {'rollback_data': current_state}
+            return {'rollback_data': current_table}
 
         except ClientError as e:
-            raise RuntimeError(f"Glue table delete failed: {e.response['Error']['Message']}")
+            raise AWSOperationError(
+                message=f"Glue table deletion failed: {e.response['Error']['Message']}",
+                aws_service="glue",
+                aws_error_code=e.response['Error']['Code'],
+                resource_type="glue_table",
+                operation="delete"
+            )
 
     def rollback_database(self, operation: "Operation") -> None:
         """Rollback database operation"""
         if operation.type.value == 'create':
             try:
                 if operation.rollback_data is None:
-                    raise ValueError("Rollback data is None for create operation")
+                    raise ValidationError(
+                        message="Rollback data is None for create operation",
+                        field="rollback_data",
+                        resource_type="glue_database",
+                        operation="rollback"
+                    )
                 self.glue.delete_database(
                     Name=operation.rollback_data['database_name']
                 )
@@ -403,7 +479,12 @@ class AWSGlueExecutor:
         if operation.type.value == 'create':
             try:
                 if operation.rollback_data is None:
-                    raise ValueError("Rollback data is None for create operation")
+                    raise ValidationError(
+                        message="Rollback data is None for create operation",
+                        field="rollback_data",
+                        resource_type="glue_table",
+                        operation="rollback"
+                    )
                 self.glue.delete_table(
                     DatabaseName=operation.rollback_data['database_name'],
                     Name=operation.rollback_data['table_name']
@@ -415,14 +496,14 @@ class AWSGlueExecutor:
 class AWSExecutorRegistry:
     """Central AWS executor registry"""
 
-    def __init__(self, session: Optional[boto3.Session] = None):
+    def __init__(self, session: boto3.Session | None = None) -> None:
         self.session = session or boto3.Session()
 
         self.s3 = AWSS3Executor(self.session)
         self.glue = AWSGlueExecutor(self.session)
 
         # Executor map
-        self.executors = {
+        self.executors: dict[str, dict[str, Callable[["Operation"], OperationResultDict | None]]] = {
             'aws_s3_bucket': {
                 'create': self.s3.create,
                 'read': self.s3.read,
@@ -444,20 +525,35 @@ class AWSExecutorRegistry:
             }
         }
 
-    def execute(self, operation: "Operation") -> Dict[str, Any]:
+    def execute(self, operation: "Operation") -> OperationResultDict:
         """Execute operation"""
         resource_type = operation.resource_type.value
         operation_type = operation.type.value
 
         if resource_type not in self.executors:
-            raise ValueError(f"Unsupported resource: {resource_type}")
+            raise ValidationError(
+                message=f"Unsupported resource type: {resource_type}",
+                field="resource_type",
+                value=resource_type,
+                suggestion="Supported types: " + ", ".join(self.executors.keys())
+            )
 
         if operation_type not in self.executors[resource_type]:
-            raise ValueError(f"Unsupported operation: {operation_type}")
+            raise ValidationError(
+                message=f"Unsupported operation: {operation_type} for {resource_type}",
+                field="operation_type",
+                value=operation_type,
+                suggestion="Supported operations: " + ", ".join(self.executors[resource_type].keys())
+            )
 
         result = self.executors[resource_type][operation_type](operation)
         if result is None:
-            raise ValueError(f"Executor returned None for {resource_type}.{operation_type}")
+            raise ValidationError(
+                message=f"Executor returned None for {resource_type}.{operation_type}",
+                field="result",
+                resource_type=resource_type,
+                operation=operation_type
+            )
         return result
 
     def rollback(self, operation: "Operation") -> None:
@@ -472,8 +568,8 @@ class AWSExecutorRegistry:
 if __name__ == "__main__":
     import uuid
 
-    from ..constants import Environment
-    from .transaction_manager import Operation, OperationType, ResourceType
+    from ..constants import AWSResourceType, Environment
+    from .transaction_manager import Operation, OperationType
 
     registry = AWSExecutorRegistry()
 
@@ -481,7 +577,7 @@ if __name__ == "__main__":
     op = Operation(
         id=str(uuid.uuid4()),
         type=OperationType.CREATE,
-        resource_type=ResourceType.AWS_S3_BUCKET,
+        resource_type=AWSResourceType.S3_BUCKET,
         resource_id="dataplatform-raw-prd-useast1",
         params={
             'region': 'us-east-1',

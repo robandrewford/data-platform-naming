@@ -12,6 +12,7 @@ import pytest
 from data_platform_naming.aws_naming import AWSNamingConfig, AWSNamingGenerator
 from data_platform_naming.constants import Environment
 from data_platform_naming.dbx_naming import DatabricksNamingConfig, DatabricksNamingGenerator
+from data_platform_naming.exceptions import ValidationError
 from data_platform_naming.plan.blueprint import BlueprintParser
 
 
@@ -184,7 +185,7 @@ class TestBlueprintScopeValidation:
         temp_path = create_temp_blueprint(sample_blueprint)
         try:
             parser = BlueprintParser(naming_generators)
-            with pytest.raises(ValueError, match="Blueprint validation failed"):
+            with pytest.raises(ValidationError, match="Blueprint validation failed"):
                 parser.parse(temp_path)
         finally:
             temp_path.unlink()
@@ -198,7 +199,7 @@ class TestBlueprintScopeValidation:
         temp_path = create_temp_blueprint(sample_blueprint)
         try:
             parser = BlueprintParser(naming_generators)
-            with pytest.raises(ValueError, match="Blueprint validation failed"):
+            with pytest.raises(ValidationError, match="Blueprint validation failed"):
                 parser.parse(temp_path)
         finally:
             temp_path.unlink()
@@ -213,7 +214,7 @@ class TestBlueprintScopeValidation:
         temp_path = create_temp_blueprint(sample_blueprint)
         try:
             parser = BlueprintParser(naming_generators)
-            with pytest.raises(ValueError, match="Blueprint validation failed"):
+            with pytest.raises(ValidationError, match="Blueprint validation failed"):
                 parser.parse(temp_path)
         finally:
             temp_path.unlink()

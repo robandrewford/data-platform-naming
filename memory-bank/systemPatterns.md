@@ -1,637 +1,328 @@
 # System Patterns
 
+## Recent Architectural Evolution
+
+### Sprint 1: Simplification & Type Safety (Oct 2025)
+
+**Problem Identified**: Dual-mode complexity (use_config flag), 61 type errors, no input validation
+
+**Solutions**:
+
+1. **Removed Legacy Mode** (-162 lines)
+   - Made ConfigurationManager required
+   - Eliminated 27 try/except fallback blocks
+   - Learning: Single path > flexibility
+
+2. **Fixed Type Safety** (61 → 0 errors)
+   - TYPE_CHECKING guards, Optional handling, cast() ops
+   - Learning: Strong typing prevents error classes
+
+3. **Input Validation** (Whitelist approach)
+   - ALLOWED_OVERRIDE_KEYS, enum validation, regex
+   - Learning: Fail-fast improves UX
+
+**Impact**: Single code path, 100% mypy compliance, all CLI inputs validated
+
+### Sprint 2: Consistency & Error Context (In Progress - Oct 2025)
+
+**Status**: 53% Complete | **Started**: Oct 22, 2025
+
+**Strategy**:
+
+1. **Type-safe Enums** (Issue #4) - 50% complete
+   - Replace 50+ magic strings with enums
+   - Removed duplicate ResourceType enum
+   - Learning: Enum consolidation requires careful dependency tracking
+
+2. **Modern Type Hints** (Issue #5) - 0% complete
+   - Add `from __future__ import annotations` to 17 files
+   - Replace Dict/List with dict/list syntax
+   - Learning: Deferred to focus on exception hierarchy first
+
+3. **Exception Hierarchy** (Issue #7) - 65% complete
+   - 8 custom exception classes with rich context
+   - 59 replacements completed across 5 files
+   - 13 replacements remaining across 3 files
+   - Learning: Enhanced debugging worth the refactoring effort
+
+**Key Insights**:
+
+- **Tool Selection**: write_to_file more reliable than replace_in_file for large files (>1000 lines)
+- **Batch Operations**: Multiple SEARCH/REPLACE blocks in single call more efficient
+- **Import Ripple Effects**: Removing exports breaks consumers - must update in lockstep
+- **Pre-existing Design**: Well-designed exception hierarchy accelerated implementation
+- **Test Impact**: Exception changes require careful test assertion updates
+
+---
+
 ## System Architecture
 
 ### High-Level Components
 
-```md
-┌─────────────────────────────────────────────────────────┐
-│                        CLI Layer                         │
-│  (Click-based commands: plan, create, read, update,     │
-│   delete, recover, status)                              │
-└────────────────┬────────────────────────────────────────┘
-                 │
-┌────────────────▼────────────────────────────────────────┐
-│                   Blueprint Layer                        │
-│  • Blueprint parsing & validation (JSON Schema)          │
-│  • Name generation (AWS & DBX patterns)                  │
-│  • Dependency resolution                                 │
-│  • Preview mode                                          │
-└────────────────┬────────────────────────────────────────┘
-                 │
-┌────────────────▼────────────────────────────────────────┐
-│                Transaction Manager                       │
-│  • ACID guarantees                                       │
-│  • Write-Ahead Log (WAL)                                 │
-│  • Rollback mechanism                                    │
-│  • State management                                      │
-└────────────────┬────────────────────────────────────────┘
-                 │
-┌────────────────▼────────────────────────────────────────┐
-│                  CRUD Operations                         │
-│  ┌──────────────┐           ┌──────────────┐           │
-│  │ AWS Ops      │           │ DBX Ops      │           │
-│  │ • S3         │           │ • Clusters   │           │
-│  │ • Glue DB    │           │ • Jobs       │           │
-│  │ • Glue Table │           │ • UC 3-tier  │           │
-│  └──────────────┘           └──────────────┘           │
-└─────────────────────────────────────────────────────────┘
+```
+CLI Layer
+    ↓
+Blueprint Layer (parsing, validation, name generation)
+    ↓
+Transaction Manager (ACID, WAL, rollback)
+    ↓
+CRUD Operations (AWS & Databricks)
 ```
 
 ### Data Flow
 
-1. **Blueprint → Validation**
-   - JSON Schema enforcement
-   - Reference resolution
-   - Naming pattern validation
+1. **Blueprint → Validation**: Schema enforcement, reference resolution
+2. **Validation → Planning**: Dependency graph, execution order
+3. **Planning → Transaction**: WAL creation, file locking
+4. **Transaction → Execution**: Sequential operations, progress tracking
+5. **Execution → Completion**: Commit WAL or rollback
 
-2. **Validation → Planning**
-   - Dependency graph construction
-   - Execution order determination
-   - Preview generation
-
-3. **Planning → Transaction**
-   - Transaction initialization
-   - WAL entry creation
-   - File lock acquisition
-
-4. **Transaction → Execution**
-   - Sequential operation execution
-   - Progress tracking
-   - Error capture
-
-5. **Execution → Completion**
-   - Success: Commit WAL, release lock, update state
-   - Failure: Rollback operations, mark WAL, release lock
+---
 
 ## Key Technical Decisions
 
 ### 1. File-Based Transaction Management
 
-**Decision**: Use file-based Write-Ahead Log (WAL) instead of database
+**Decision**: WAL instead of database
 
-**Rationale**:
-- No external dependencies (database servers)
-- Simple deployment (single binary approach)
-- Portable across environments
-- Easy to inspect and debug (plain text files)
-- Sufficient for CLI tool use case
+**Rationale**: Simple, portable, sufficient for CLI tool
 
-**Trade-offs**:
-- Not suitable for high-concurrency scenarios
-- Manual file cleanup required
-- Limited query capabilities
-
-**Implementation**: `~/.dpn/wal/` directory with transaction files
+**Trade-offs**: Not for high-concurrency, manual cleanup required
 
 ### 2. Declarative Blueprint Format
 
-**Decision**: Use JSON with JSON Schema validation
+**Decision**: JSON with JSON Schema
 
-**Rationale**:
-- Human-readable and editable
-- Strong validation via JSON Schema
-- Wide tooling support (editors, validators)
-- Easy to version control
-- Can be generated programmatically
+**Rationale**: Strong validation, wide tooling support, version control
 
-**Trade-offs**:
-- More verbose than YAML
-- No native comments (use description fields)
-
-**Implementation**: `blueprint.py` handles parsing and validation
+**Trade-offs**: More verbose than YAML
 
 ### 3. Separate Platform Operations
 
-**Decision**: Distinct modules for AWS and Databricks operations
+**Decision**: Distinct AWS & Databricks modules
 
-**Rationale**:
-- Different API patterns and authentication
-- Independent error handling
-- Platform-specific retry logic
-- Easier to test in isolation
-- Clear separation of concerns
+**Rationale**: Different APIs, independent error handling, clear separation
 
-**Implementation**:
-- `aws_operations.py` - boto3-based operations
-- `dbx_operations.py` - databricks-sdk operations
+**Trade-offs**: Some code duplication
 
-### 4. Progressive Execution with Rollback
+### 4. Sequential Execution
 
-**Decision**: Execute operations sequentially with automatic rollback on failure
+**Decision**: Execute operations sequentially with rollback
 
-**Rationale**:
-- Simpler than distributed transactions
-- Clear error attribution
-- Predictable rollback order (reverse of execution)
-- User-friendly error messages
+**Rationale**: Simpler error handling, clear rollback order, predictable
 
-**Trade-offs**:
-- Slower than parallel execution
-- Partial rollback may leave system in inconsistent state (mitigated by idempotent operations)
-
-**Implementation**: `transaction_manager.py` with operation stack
+**Trade-offs**: Slower than parallel (acceptable for <100 resources)
 
 ### 5. CLI-First Interface
 
-**Decision**: Build as CLI tool first, not web service
+**Decision**: CLI tool, not web service
 
-**Rationale**:
-- Fits infrastructure-as-code workflows
-- Easy to integrate in CI/CD pipelines
-- No server infrastructure required
-- Direct credential access (AWS profiles, env vars)
+**Rationale**: IaC workflows, CI/CD integration, no server infrastructure
 
-**Future**: API server mode can wrap CLI commands
+**Future**: API server mode can wrap CLI
 
-## Configuration System Architecture (New - 60% Complete)
+---
 
-### High-Level Architecture
+## Configuration System Architecture
 
-```md
-┌─────────────────────────────────────────────────────────┐
-│                   Configuration Files                    │
-│  ┌──────────────────────┐  ┌──────────────────────┐    │
-│  │ naming-values.yaml   │  │ naming-patterns.yaml │    │
-│  │ • defaults           │  │ • patterns           │    │
-│  │ • environments       │  │ • transformations    │    │
-│  │ • resource_types     │  │ • validation         │    │
-│  └──────────────────────┘  └──────────────────────┘    │
-└────────────────┬──────────────────┬─────────────────────┘
-                 │                  │
-┌────────────────▼──────────────────▼─────────────────────┐
-│              ConfigurationManager                        │
-│  ┌──────────────────────┐  ┌──────────────────────┐    │
-│  │ NamingValuesLoader   │  │ NamingPatternsLoader │    │
-│  │ • Load YAML          │  │ • Load patterns      │    │
-│  │ • Merge precedence   │  │ • Apply transforms   │    │
-│  │ • Resolve values     │  │ • Validate names     │    │
-│  └──────────────────────┘  └──────────────────────┘    │
-│  ┌──────────────────────┐                               │
-│  │    ScopeFilter       │                               │
-│  │ • Include/exclude    │                               │
-│  │ • Wildcard matching  │                               │
-│  └──────────────────────┘                               │
-└────────────────┬────────────────────────────────────────┘
-                 │
-┌────────────────▼────────────────────────────────────────┐
-│            Name Generators (TODO)                        │
-│  ┌──────────────────────┐  ┌──────────────────────┐    │
-│  │ AWSNamingGenerator   │  │ DBXNamingGenerator   │    │
-│  │ • Use ConfigMgr      │  │ • Use ConfigMgr      │    │
-│  │ • Generate names     │  │ • Generate names     │    │
-│  └──────────────────────┘  └──────────────────────┘    │
-└─────────────────────────────────────────────────────────┘
+### High-Level
+
+```m
+Configuration Files (YAML)
+    ↓
+ConfigurationManager (orchestrator)
+    ↓ (NamingValuesLoader, NamingPatternsLoader, ScopeFilter)
+    ↓
+Name Generators (AWS & Databricks)
+    ↓
+Generated Names
 ```
 
-### Data Flow
+### Value Precedence
 
-1. **Configuration Loading**
-   - Load naming-values.yaml
-   - Load naming-patterns.yaml
-   - Validate against JSON schemas
-   - Build internal data structures
-
-2. **Value Resolution**
-   - Merge defaults → environments → resource_types → blueprint metadata
-   - Apply transformations (lowercase, region mapping, etc.)
-   - Create final value dictionary
-
-3. **Name Generation**
-   - Get pattern template for resource type
-   - Substitute {variables} with resolved values
-   - Validate generated name (length, chars, required vars)
-   - Return GeneratedName object with metadata
-
-4. **Scope Filtering**
-   - Apply include/exclude patterns
-   - Filter resources by type
-   - Support wildcards (aws_*, *_bucket)
-
-## New Design Patterns (Configuration System)
-
-### 1. Strategy Pattern (Configurable Naming)
-
-**Usage**: Different naming strategies based on configuration
-
-```python
-# Configurable name generation
-class ConfigurableNamingStrategy:
-    def __init__(self, config_manager: ConfigurationManager):
-        self.config_manager = config_manager
-    
-    def generate_name(self, resource_type: str, params: Dict) -> str:
-        # Get values from config
-        values = self.config_manager.get_values_for_resource(resource_type)
-        
-        # Get pattern template
-        pattern = self.config_manager.get_pattern_for_resource(resource_type)
-        
-        # Apply pattern with values
-        return pattern.format(**values, **params)
+```m
+defaults → environment → resource_type → blueprint metadata
 ```
 
-**Benefits**:
-- Naming logic externalized from code
-- Easy to customize per deployment
-- Single source of truth for naming rules
+---
 
-### 2. Composite Pattern (Configuration Hierarchy)
-
-**Usage**: Merge configurations with precedence
-
-```python
-# Configuration precedence
-defaults → environment_overrides → resource_type_overrides → blueprint_metadata
-
-# Example
-values = {}
-values.update(config.defaults)                    # 1. Global defaults
-values.update(config.environments[env])           # 2. Environment-specific
-values.update(config.overrides[resource_type])    # 3. Resource-type-specific
-values.update(blueprint.metadata)                 # 4. Blueprint (highest)
-```
-
-**Benefits**:
-- Flexible configuration inheritance
-- Override at any level
-- Clear precedence rules
-
-### 3. Template Method Pattern (Pattern Resolution)
-
-**Usage**: Define pattern resolution algorithm
-
-```python
-class PatternResolver:
-    def resolve(self, pattern: str, values: Dict) -> str:
-        # Template method
-        self._validate_variables(pattern, values)
-        transformed = self._apply_transformations(values)
-        name = pattern.format(**transformed)
-        return self._post_process(name)
-    
-    def _validate_variables(self, pattern, values):
-        # Hook: Check all {vars} exist
-        pass
-    
-    def _apply_transformations(self, values):
-        # Hook: Transform values (lowercase, region codes)
-        pass
-    
-    def _post_process(self, name):
-        # Hook: Sanitize, truncate
-        pass
-```
-
-**Benefits**:
-- Consistent name generation process
-- Extension points for custom logic
-- Validation at each step
-
-### 4. Filter Pattern (Scope Filtering)
-
-**Usage**: Filter resources by type with wildcards
-
-```python
-class ScopeFilter:
-    def filter(self, resources: List[Resource], 
-               scope_config: Dict) -> List[Resource]:
-        if scope_config.get("mode") == "include":
-            return [r for r in resources 
-                   if self._matches_any(r.type, scope_config["include"])]
-        else:
-            return [r for r in resources 
-                   if not self._matches_any(r.type, scope_config["exclude"])]
-    
-    def _matches_any(self, resource_type: str, 
-                    patterns: List[str]) -> bool:
-        import fnmatch
-        return any(fnmatch.fnmatch(resource_type, p) for p in patterns)
-```
-
-**Benefits**:
-- Selective resource processing
-- Wildcard pattern support
-- Include/exclude modes
-
-## Design Patterns
+## Design Patterns in Use
 
 ### 1. Command Pattern (CLI)
 
-**Usage**: Each CLI command (`create`, `read`, `update`, `delete`) is encapsulated
-
-```python
-# cli.py structure
-@click.group()
-def cli():
-    pass
-
-@cli.command()
-def create(blueprint, dry_run, aws_profile, dbx_host, dbx_token):
-    # Encapsulated create logic
-    pass
-
-@cli.command()
-def read(resource_id, resource_type, format):
-    # Encapsulated read logic
-    pass
-```
-
-**Benefits**:
-- Easy to add new commands
-- Clear separation of concerns
-- Testable in isolation
+Each CLI command encapsulated (`create`, `read`, `update`, `delete`)
 
 ### 2. Strategy Pattern (Platform Operations)
 
-**Usage**: Different strategies for AWS vs Databricks operations
-
-```python
-# Abstract interface
-class PlatformOperations:
-    def create_resource(self, config):
-        raise NotImplementedError
-    
-    def delete_resource(self, resource_id):
-        raise NotImplementedError
-
-# Concrete strategies
-class AWSOperations(PlatformOperations):
-    def create_resource(self, config):
-        # AWS-specific implementation
-        pass
-
-class DBXOperations(PlatformOperations):
-    def create_resource(self, config):
-        # Databricks-specific implementation
-        pass
-```
-
-**Benefits**:
-- Easy to add new platforms (Azure, GCP)
-- Platform-specific logic isolated
-- Common interface for transaction manager
+Different strategies for AWS vs Databricks with common interface
 
 ### 3. Template Method Pattern (Transaction Flow)
 
-**Usage**: Transaction manager defines skeleton, operations fill in details
-
-```python
-class TransactionManager:
-    def execute_transaction(self, operations):
-        self._begin()
-        try:
-            for op in operations:
-                self._execute_operation(op)  # Hook method
-            self._commit()
-        except Exception:
-            self._rollback()
-```
-
-**Benefits**:
-- Consistent transaction handling
-- Operation-specific logic in subclasses
-- Clear extension points
+TransactionManager defines skeleton, operations fill in details
 
 ### 4. Builder Pattern (Blueprint Construction)
 
-**Usage**: Fluent interface for building blueprints
-
-```python
-blueprint = (
-    BlueprintBuilder()
-    .with_metadata(env="prd", project="platform")
-    .add_s3_bucket(purpose="raw", layer="raw")
-    .add_glue_database(domain="finance", layer="gold")
-    .build()
-)
-```
-
-**Benefits**:
-- Readable blueprint creation
-- Progressive disclosure
-- Validation at build time
+Fluent interface for building blueprints
 
 ### 5. Repository Pattern (State Management)
 
-**Usage**: Abstract state storage and retrieval
+Abstract state storage and retrieval
 
-```python
-class StateRepository:
-    def save_resource(self, resource):
-        pass
-    
-    def get_resource(self, resource_id):
-        pass
-    
-    def list_resources(self, filters):
-        pass
-```
+### 6. Strategy Pattern (Configuration)
 
-**Benefits**:
-- Storage implementation can change
-- Easy to test with mock repository
-- Clear data access layer
+Configurable naming strategies based on YAML files
 
-## Component Relationships
+### 7. Composite Pattern (Configuration Hierarchy)
 
-### Blueprint → Name Generators
+Merge configurations with clear precedence
 
-```
-Blueprint (JSON)
-    ↓ parsed by
-BlueprintParser
-    ↓ uses
-AWSNaming / DBXNaming
-    ↓ generates
-Resource Names (validated)
-```
+### 8. Filter Pattern (Scope Filtering)
 
-**Key Points**:
-- Name generators are stateless
-- Validators ensure format compliance
-- References resolved during parsing
+Filter resources by type with wildcard support
 
-### Transaction Manager → Operations
-
-```
-TransactionManager
-    ↓ creates
-Transaction (with WAL)
-    ↓ executes
-Operations (AWS/DBX)
-    ↓ reports to
-ProgressTracker
-    ↓ updates
-State Repository
-```
-
-**Key Points**:
-- Transaction owns the WAL lifecycle
-- Operations are atomic and reversible
-- Progress tracked for user feedback
-- State persisted for inspection
-
-### CLI → All Layers
-
-```
-CLI Command
-    ↓ loads
-Blueprint
-    ↓ validates
-Schema + Validators
-    ↓ initiates
-Transaction
-    ↓ executes
-Platform Operations
-    ↓ returns
-Results + State
-```
-
-**Key Points**:
-- CLI orchestrates but doesn't implement logic
-- Each layer has clear responsibility
-- Errors bubble up with context
+---
 
 ## Critical Implementation Paths
 
 ### Path 1: Create Resources (Happy Path)
 
-1. **Parse Blueprint**
-   - Load JSON file
-   - Validate against schema
-   - Resolve references
-
-2. **Generate Names**
-   - Apply naming patterns
-   - Validate format
-   - Check for conflicts
-
-3. **Plan Execution**
-   - Build dependency graph
-   - Determine execution order
-   - Show preview (if requested)
-
-4. **Execute Transaction**
-   - Initialize WAL
-   - Acquire file lock
-   - Execute operations sequentially
-   - Track progress
-   - Commit WAL
-   - Release lock
-
-5. **Update State**
-   - Persist resource metadata
-   - Record timestamps
-   - Return success status
+1. Parse blueprint (validate schema, resolve references)
+2. Generate names (apply patterns, validate)
+3. Plan execution (build dependency graph)
+4. Execute transaction (WAL, lock, operations, commit)
+5. Update state (persist metadata, timestamps)
 
 ### Path 2: Rollback on Failure
 
-1. **Operation Fails**
-   - Capture exception
-   - Log error details
-   - Mark current operation as failed
-
-2. **Initiate Rollback**
-   - Reverse operation list
-   - Execute rollback for each completed operation
-   - Track rollback progress
-
-3. **Complete Rollback**
-   - Mark WAL as rolled back
-   - Release file lock
-   - Update state with rollback info
-   - Return error with recovery guidance
+1. Operation fails (capture exception, mark failed)
+2. Initiate rollback (reverse operation list)
+3. Complete rollback (mark WAL, release lock, update state)
 
 ### Path 3: Recovery from Crash
 
-1. **Detect Incomplete Transaction**
-   - Scan WAL directory
-   - Find uncommitted transaction files
-   - Check file timestamps
-
-2. **Analyze State**
-   - Determine which operations completed
-   - Identify partial operations
-   - Assess system state
-
-3. **Execute Recovery**
-   - Rollback partial operations
-   - Clean up temporary resources
-   - Mark WAL as recovered
-   - Log recovery actions
+1. Detect incomplete transaction (scan WAL)
+2. Analyze state (determine completed ops)
+3. Execute recovery (rollback partial ops, cleanup)
 
 ### Path 4: Preview Mode
 
-1. **Parse Blueprint** (same as create)
+1. Parse blueprint (same as create)
+2. Generate names (same as create)
+3. Simulate execution (**skip API calls**)
+4. Display results (table/JSON format)
 
-2. **Generate Names** (same as create)
-
-3. **Simulate Execution**
-   - Build operation list
-   - Generate preview output
-   - Show naming results
-   - **Skip actual API calls**
-
-4. **Display Results**
-   - Table format with all names
-   - JSON export option
-   - Validation warnings
+---
 
 ## Error Handling Strategy
 
 ### Validation Errors (Fail Fast)
+
 - Caught during blueprint parsing
-- Clear error messages with line numbers
+- Clear line-numbered messages
 - No API calls made
-- Easy to fix and retry
 
 ### API Errors (Retry with Backoff)
-- Transient errors: Retry with exponential backoff
-- Permanent errors: Fail and rollback
-- Rate limiting: Respect retry-after headers
-- Authentication: Clear error, no retry
+
+- Transient: exponential backoff
+- Permanent: fail and rollback
+- Rate limiting: respect retry-after headers
 
 ### System Errors (Crash Recovery)
+
 - File lock prevents concurrent transactions
 - WAL enables recovery after crash
 - Idempotent operations allow safe retry
-- Manual recovery tools available
+
+---
 
 ## Performance Considerations
 
 ### Batch Operations
+
 - Single API call per resource type when possible
 - Minimize round trips
-- Use async operations where available (future)
 
 ### Caching
+
 - Cache AWS region data
 - Cache Databricks cluster types
-- Invalidate on error or explicit refresh
+- Invalidate on error or refresh
 
 ### Progress Feedback
-- Real-time updates using rich progress bars
+
+- Real-time rich progress bars
 - Estimated completion time
 - Clear error messages
-- Cancelable operations (future)
+
+---
+
+## Component Relationships
+
+### Blueprint → Generators
+
+```m
+Blueprint (JSON)
+    ↓ (BlueprintParser)
+GeneratedNames (validated)
+    ↓ (Transaction)
+PlatformOperations
+```
+
+### Transaction → Operations
+
+```m
+TransactionManager
+    ↓ (creates)
+Transaction (with WAL)
+    ↓ (executes)
+Operations (AWS/DBX)
+    ↓ (updates)
+State Repository
+```
+
+### CLI → All Layers
+
+```m
+CLI Command
+    ↓ (loads)
+Blueprint
+    ↓ (validates)
+Schema + Validators
+    ↓ (initiates)
+Transaction
+    ↓ (executes)
+Platform Operations
+```
+
+---
+
+## Naming Conventions
+
+```python
+AWS S3: {project}-{purpose}-{layer}-{env}-{region}
+AWS Glue: {project}_{domain}_{layer}_{env}
+Databricks Cluster: {project}-{workload}-{type}-{env}
+Unity Catalog: {project}_{type}_{env}.{domain}_{layer}.{type}_{entity}
+```
+
+---
 
 ## Testing Strategy
 
 ### Unit Tests
+
 - Name generators with various inputs
 - Validators with edge cases
 - Transaction manager with mock operations
-- CLI commands with mock dependencies
 
 ### Integration Tests
+
 - Full blueprint processing
 - Transaction commit and rollback
 - State persistence and recovery
-- Error handling paths
 
 ### End-to-End Tests (Manual)
-- Real AWS and Databricks accounts (test environments)
+
+- Real AWS/DBX accounts (test environments)
 - Multi-environment deployments
 - Disaster recovery scenarios
-- Performance benchmarks

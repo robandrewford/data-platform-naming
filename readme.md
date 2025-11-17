@@ -237,7 +237,7 @@ dpn --help
 
 ## Features
 
-### Automated Naming
+### Automated Naming Conventions
 
 - **AWS**: S3, Glue (databases/tables)
 - **Databricks**: Clusters, Jobs, Unity Catalog (3-tier)

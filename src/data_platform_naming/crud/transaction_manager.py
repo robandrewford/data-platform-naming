@@ -4,6 +4,8 @@ ACID Transaction Manager for Data Platform Resource Operations
 Ensures Atomicity, Consistency, Isolation, Durability
 """
 
+from __future__ import annotations
+
 import fcntl
 import json
 import threading
@@ -13,15 +15,37 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
+
+from data_platform_naming.constants import AWSResourceType, DatabricksResourceType
+from data_platform_naming.types import OperationResultDict, RollbackDataDict
+from data_platform_naming.exceptions import (
+    ConsistencyError,
+    TransactionError,
+    ValidationError,
+)
 
 if TYPE_CHECKING:
     from rich.console import Console
-    from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TextColumn, TimeElapsedColumn
+    from rich.progress import (
+        BarColumn,
+        Progress,
+        SpinnerColumn,
+        TaskID,
+        TextColumn,
+        TimeElapsedColumn,
+    )
     from rich.progress import Progress as ProgressType
 else:
     from rich.console import Console
-    from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TextColumn, TimeElapsedColumn
+    from rich.progress import (
+        BarColumn,
+        Progress,
+        SpinnerColumn,
+        TaskID,
+        TextColumn,
+        TimeElapsedColumn,
+    )
     ProgressType = Progress
 
 
@@ -42,39 +66,26 @@ class OperationStatus(Enum):
     ROLLED_BACK = "rolled_back"
 
 
-class ResourceType(Enum):
-    """Supported resource types"""
-    AWS_S3_BUCKET = "aws_s3_bucket"
-    AWS_GLUE_DATABASE = "aws_glue_database"
-    AWS_GLUE_TABLE = "aws_glue_table"
-    DBX_WORKSPACE = "dbx_workspace"
-    DBX_CLUSTER = "dbx_cluster"
-    DBX_JOB = "dbx_job"
-    DBX_CATALOG = "dbx_catalog"
-    DBX_SCHEMA = "dbx_schema"
-    DBX_TABLE = "dbx_table"
-
-
 @dataclass
 class Operation:
     """Single CRUD operation"""
     id: str
     type: OperationType
-    resource_type: ResourceType
+    resource_type: AWSResourceType | DatabricksResourceType
     resource_id: str
-    params: Dict[str, Any]
+    params: dict[str, Any]
     status: OperationStatus = OperationStatus.PENDING
     created_at: float = 0.0
-    started_at: Optional[float] = None
-    completed_at: Optional[float] = None
-    error: Optional[str] = None
-    rollback_data: Optional[Dict] = None
+    started_at: float | None = None
+    completed_at: float | None = None
+    error: str | None = None
+    rollback_data: RollbackDataDict | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.created_at == 0.0:
             self.created_at = time.time()
 
-    def duration(self) -> Optional[float]:
+    def duration(self) -> float | None:
         """Calculate operation duration"""
         if self.started_at is not None and self.completed_at is not None:
             return self.completed_at - self.started_at
@@ -85,27 +96,32 @@ class Operation:
 class Transaction:
     """ACID transaction containing multiple operations"""
     id: str
-    operations: List[Operation]
+    operations: list[Operation]
     status: OperationStatus = OperationStatus.PENDING
     created_at: float = 0.0
-    committed_at: Optional[float] = None
-    rolled_back_at: Optional[float] = None
+    committed_at: float | None = None
+    rolled_back_at: float | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.created_at == 0.0:
             self.created_at = time.time()
+
+
+# Type aliases for callbacks (defined after Operation class)
+ExecutorCallback = Callable[[Operation], OperationResultDict]
+RollbackCallback = Callable[[Operation], None]
 
 
 class WriteAheadLog:
     """Write-Ahead Log for durability"""
 
-    def __init__(self, wal_dir: Path):
+    def __init__(self, wal_dir: Path) -> None:
         self.wal_dir = wal_dir
         self.wal_dir.mkdir(parents=True, exist_ok=True)
         self.lock_file = self.wal_dir / ".wal.lock"
 
     @contextmanager
-    def _lock(self):
+    def _lock(self) -> Any:
         """File-based lock for WAL isolation"""
         lock_fd = open(self.lock_file, 'w')
         try:
@@ -127,7 +143,11 @@ class WriteAheadLog:
         with self._lock():
             wal_file = self.wal_dir / f"{tx_id}.wal"
             if not wal_file.exists():
-                raise ValueError(f"Transaction {tx_id} not found in WAL")
+                raise TransactionError(
+                    message=f"Transaction {tx_id} not found in WAL",
+                    transaction_id=tx_id,
+                    operation="write_operation"
+                )
 
             with open(wal_file) as f:
                 tx_data = json.load(f)
@@ -171,7 +191,7 @@ class WriteAheadLog:
             with open(rollback_file, 'w') as f:
                 json.dump(tx_data, f, indent=2)
 
-    def recover_transactions(self) -> List[Transaction]:
+    def recover_transactions(self) -> list[Transaction]:
         """Recover uncommitted transactions from WAL"""
         uncommitted = []
 
@@ -191,7 +211,7 @@ class WriteAheadLog:
 
         return uncommitted
 
-    def _serialize_transaction(self, tx: Transaction) -> Dict[str, Any]:
+    def _serialize_transaction(self, tx: Transaction) -> dict[str, Any]:
         """Serialize transaction to JSON"""
         return {
             'id': tx.id,
@@ -202,7 +222,7 @@ class WriteAheadLog:
             'operations': [self._serialize_operation(op) for op in tx.operations]
         }
 
-    def _serialize_operation(self, op: Operation) -> Dict[str, Any]:
+    def _serialize_operation(self, op: Operation) -> dict[str, Any]:
         """Serialize operation to JSON"""
         return {
             'id': op.id,
@@ -218,7 +238,7 @@ class WriteAheadLog:
             'rollback_data': op.rollback_data
         }
 
-    def _deserialize_transaction(self, data: Dict[str, Any]) -> Transaction:
+    def _deserialize_transaction(self, data: dict[str, Any]) -> Transaction:
         """Deserialize transaction from JSON"""
         return Transaction(
             id=data['id'],
@@ -229,12 +249,19 @@ class WriteAheadLog:
             operations=[self._deserialize_operation(op) for op in data['operations']]
         )
 
-    def _deserialize_operation(self, data: Dict[str, Any]) -> Operation:
+    def _deserialize_operation(self, data: dict[str, Any]) -> Operation:
         """Deserialize operation from JSON"""
+        # Parse resource type from string value
+        resource_type_str = data['resource_type']
+        try:
+            resource_type: AWSResourceType | DatabricksResourceType = AWSResourceType(resource_type_str)
+        except ValueError:
+            resource_type = DatabricksResourceType(resource_type_str)
+
         return Operation(
             id=data['id'],
             type=OperationType(data['type']),
-            resource_type=ResourceType(data['resource_type']),
+            resource_type=resource_type,
             resource_id=data['resource_id'],
             params=data['params'],
             status=OperationStatus(data['status']),
@@ -253,14 +280,14 @@ class StateStore:
         self.state_dir = state_dir
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.state_file = self.state_dir / "state.json"
-        self.state: Dict[str, Dict[str, Any]] = self._load_state()
+        self.state: dict[str, dict[str, Any]] = self._load_state()
         self._lock = threading.Lock()
 
-    def _load_state(self) -> Dict[str, Dict[str, Any]]:
+    def _load_state(self) -> dict[str, dict[str, Any]]:
         """Load state from disk"""
         if self.state_file.exists():
             with open(self.state_file) as f:
-                return cast(Dict[str, Dict[str, Any]], json.load(f))
+                return cast(dict[str, dict[str, Any]], json.load(f))
         return {}
 
     def _persist_state(self) -> None:
@@ -268,12 +295,12 @@ class StateStore:
         with open(self.state_file, 'w') as f:
             json.dump(self.state, f, indent=2)
 
-    def get(self, resource_id: str) -> Optional[Dict[str, Any]]:
+    def get(self, resource_id: str) -> dict[str, Any] | None:
         """Get resource state"""
         with self._lock:
             return self.state.get(resource_id)
 
-    def set(self, resource_id: str, state: Dict[str, Any]) -> None:
+    def set(self, resource_id: str, state: dict[str, Any]) -> None:
         """Set resource state"""
         with self._lock:
             self.state[resource_id] = state
@@ -291,11 +318,16 @@ class StateStore:
         with self._lock:
             return resource_id in self.state
 
+    def list_all(self) -> dict[str, dict[str, Any]]:
+        """List all resources in state"""
+        with self._lock:
+            return self.state.copy()
+
 
 class ProgressTracker:
     """Real-time progress tracking with Rich"""
 
-    def __init__(self, console: Optional["Console"] = None):
+    def __init__(self, console: "Console | None" = None):
         self.console = console or Console()
         self.progress: "ProgressType" = Progress(
             SpinnerColumn(),
@@ -305,8 +337,8 @@ class ProgressTracker:
             TimeElapsedColumn(),
             console=self.console
         )
-        self.task_id: Optional["TaskID"] = None
-        self.start_time: Optional[float] = None
+        self.task_id: "TaskID | None" = None
+        self.start_time: float | None = None
 
     def start(self, total: int, description: str = "Processing") -> None:
         """Start progress tracking"""
@@ -337,6 +369,10 @@ class ProgressTracker:
         """Display success"""
         self.console.print(f"[green]✓ {message}[/green]")
 
+    def warning(self, message: str) -> None:
+        """Display warning"""
+        self.console.print(f"[yellow]⚠ {message}[/yellow]")
+
 
 class TransactionManager:
     """ACID transaction manager for resource operations"""
@@ -350,18 +386,20 @@ class TransactionManager:
         self.console = Console()
 
         # Operation executors (injected)
-        self.executors: Dict[ResourceType, Callable] = {}
-        self.rollback_handlers: Dict[ResourceType, Callable] = {}
+        self.executors: dict[AWSResourceType | DatabricksResourceType, ExecutorCallback] = {}
+        self.rollback_handlers: dict[AWSResourceType | DatabricksResourceType, RollbackCallback] = {}
 
-    def register_executor(self,
-                         resource_type: ResourceType,
-                         executor: Callable,
-                         rollback_handler: Callable) -> None:
+    def register_executor(
+        self,
+        resource_type: AWSResourceType | DatabricksResourceType,
+        executor: ExecutorCallback,
+        rollback_handler: RollbackCallback
+    ) -> None:
         """Register operation executor and rollback handler"""
         self.executors[resource_type] = executor
         self.rollback_handlers[resource_type] = rollback_handler
 
-    def begin_transaction(self, operations: List[Operation]) -> Transaction:
+    def begin_transaction(self, operations: list[Operation]) -> Transaction:
         """Begin new transaction"""
         tx = Transaction(
             id=str(uuid.uuid4()),
@@ -378,7 +416,7 @@ class TransactionManager:
         tracker = ProgressTracker(self.console)
         tracker.start(len(transaction.operations), "Executing transaction")
 
-        completed_operations: List[Operation] = []
+        completed_operations: list[Operation] = []
 
         try:
             # Validate pre-conditions (Consistency)
@@ -396,7 +434,8 @@ class TransactionManager:
                     result = self._execute_operation(operation)
 
                     # Store rollback data
-                    operation.rollback_data = result.get('rollback_data')
+                    rollback = result.get('rollback_data')
+                    operation.rollback_data = cast(RollbackDataDict | None, rollback) if rollback else None
                     operation.status = OperationStatus.SUCCESS
                     operation.completed_at = time.time()
 
@@ -410,9 +449,12 @@ class TransactionManager:
                     self.wal.write_operation(transaction.id, operation)
 
                     raise TransactionError(
-                        f"Operation failed: {operation.id}",
-                        operation=operation,
-                        completed_operations=completed_operations
+                        message=f"Operation failed: {operation.type.value} on {operation.resource_id}",
+                        transaction_id=transaction.id,
+                        failed_operation=operation.resource_id,
+                        completed_operations=[op.resource_id for op in completed_operations],
+                        resource_type=operation.resource_type.value,
+                        operation=operation.type.value
                     )
 
             # Validate post-conditions (Consistency)
@@ -430,8 +472,13 @@ class TransactionManager:
 
         except TransactionError as e:
             # Rollback (Atomicity)
-            tracker.error(f"Transaction failed: {e.message}")
-            self._rollback_transaction(transaction, e.completed_operations)
+            tracker.error(f"Transaction failed: {str(e)}")
+            # Extract completed operations from the exception context
+            completed_ops_from_error = [
+                op for op in transaction.operations
+                if op.resource_id in (e.completed_operations or [])
+            ]
+            self._rollback_transaction(transaction, completed_ops_from_error)
             tracker.error(f"Transaction {transaction.id} rolled back")
             return False
 
@@ -448,14 +495,22 @@ class TransactionManager:
                 # Resource must not exist
                 if self.state.exists(operation.resource_id):
                     raise ConsistencyError(
-                        f"Resource already exists: {operation.resource_id}"
+                        message=f"Resource already exists: {operation.resource_id}",
+                        expected_state="not exists",
+                        actual_state="exists",
+                        resource_type=operation.resource_type.value,
+                        operation="create_precondition"
                     )
 
             elif operation.type in [OperationType.UPDATE, OperationType.DELETE]:
                 # Resource must exist
                 if not self.state.exists(operation.resource_id):
                     raise ConsistencyError(
-                        f"Resource not found: {operation.resource_id}"
+                        message=f"Resource not found: {operation.resource_id}",
+                        expected_state="exists",
+                        actual_state="not exists",
+                        resource_type=operation.resource_type.value,
+                        operation=f"{operation.type.value}_precondition"
                     )
 
     def _validate_postconditions(self, transaction: Transaction) -> None:
@@ -465,25 +520,36 @@ class TransactionManager:
                 # Resource must exist
                 if not self.state.exists(operation.resource_id):
                     raise ConsistencyError(
-                        f"Resource creation failed: {operation.resource_id}"
+                        message=f"Resource creation failed: {operation.resource_id}",
+                        expected_state="exists",
+                        actual_state="not exists",
+                        resource_type=operation.resource_type.value,
+                        operation="create_postcondition"
                     )
 
             elif operation.type == OperationType.DELETE:
                 # Resource must not exist
                 if self.state.exists(operation.resource_id):
                     raise ConsistencyError(
-                        f"Resource deletion failed: {operation.resource_id}"
+                        message=f"Resource deletion failed: {operation.resource_id}",
+                        expected_state="not exists",
+                        actual_state="exists",
+                        resource_type=operation.resource_type.value,
+                        operation="delete_postcondition"
                     )
 
-    def _execute_operation(self, operation: Operation) -> Dict[str, Any]:
+    def _execute_operation(self, operation: Operation) -> OperationResultDict:
         """Execute single operation"""
         if operation.resource_type not in self.executors:
-            raise ValueError(
-                f"No executor registered for {operation.resource_type.value}"
+            raise ValidationError(
+                message=f"No executor registered for {operation.resource_type.value}",
+                field="resource_type",
+                value=operation.resource_type.value,
+                suggestion="Register an executor using register_executor() before executing operations"
             )
 
         executor = self.executors[operation.resource_type]
-        result = cast(Dict[str, Any], executor(operation))
+        result = executor(operation)
 
         # Update state store
         if operation.type == OperationType.CREATE:
@@ -502,9 +568,11 @@ class TransactionManager:
 
         return result
 
-    def _rollback_transaction(self,
-                             transaction: Transaction,
-                             completed_operations: List[Operation]) -> None:
+    def _rollback_transaction(
+        self,
+        transaction: Transaction,
+        completed_operations: list[Operation]
+    ) -> None:
         """Rollback completed operations"""
         self.console.print("[yellow]Rolling back transaction...[/yellow]")
 
@@ -520,7 +588,7 @@ class TransactionManager:
                         self.state.delete(operation.resource_id)
                     elif operation.type == OperationType.DELETE:
                         if operation.rollback_data is not None:
-                            self.state.set(operation.resource_id, operation.rollback_data)
+                            self.state.set(operation.resource_id, cast(dict[str, Any], operation.rollback_data))
 
                     operation.status = OperationStatus.ROLLED_BACK
                     self.wal.write_operation(transaction.id, operation)
@@ -559,19 +627,6 @@ class TransactionManager:
         self.console.print("[green]Recovery complete[/green]")
 
 
-class TransactionError(Exception):
-    """Transaction execution error"""
-
-    def __init__(self, message: str, operation: Operation, completed_operations: List[Operation]):
-        super().__init__(message)
-        self.message = message
-        self.operation = operation
-        self.completed_operations = completed_operations
-
-
-class ConsistencyError(Exception):
-    """Consistency validation error"""
-    pass
 
 
 # Example usage
@@ -579,8 +634,7 @@ if __name__ == "__main__":
     # Initialize transaction manager
     tm = TransactionManager()
 
-    # Mock executors
-    def mock_create_cluster(operation: Operation) -> Dict:
+    def mock_create_cluster(operation: Operation) -> OperationResultDict:
         time.sleep(0.5)  # Simulate API call
         return {'rollback_data': {'cluster_id': operation.resource_id}}
 
@@ -590,7 +644,7 @@ if __name__ == "__main__":
 
     # Register executors
     tm.register_executor(
-        ResourceType.DBX_CLUSTER,
+        DatabricksResourceType.CLUSTER,
         mock_create_cluster,
         mock_rollback_cluster
     )
@@ -600,14 +654,14 @@ if __name__ == "__main__":
         Operation(
             id=str(uuid.uuid4()),
             type=OperationType.CREATE,
-            resource_type=ResourceType.DBX_CLUSTER,
+            resource_type=DatabricksResourceType.CLUSTER,
             resource_id="dataplatform-etl-shared-prd",
             params={'node_type': 'i3.xlarge', 'autoscale': {'min': 2, 'max': 8}}
         ),
         Operation(
             id=str(uuid.uuid4()),
             type=OperationType.CREATE,
-            resource_type=ResourceType.DBX_CLUSTER,
+            resource_type=DatabricksResourceType.CLUSTER,
             resource_id="dataplatform-ml-dedicated-prd",
             params={'node_type': 'g4dn.xlarge', 'workers': 4}
         )
