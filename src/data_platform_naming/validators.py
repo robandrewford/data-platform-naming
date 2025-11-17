@@ -68,6 +68,31 @@ class AWSValidator:
     IAM_POLICY_MAX_LENGTH = 128
     IAM_PATTERN = r'^[\w+=,.@-]+$'
 
+    # Kinesis constraints
+    KINESIS_STREAM_MAX_LENGTH = 128
+    KINESIS_FIREHOSE_MAX_LENGTH = 64
+    KINESIS_PATTERN = r'^[a-zA-Z0-9_.-]+$'
+
+    # DynamoDB constraints
+    DYNAMODB_MAX_LENGTH = 255
+    DYNAMODB_PATTERN = r'^[a-zA-Z0-9_.-]+$'
+
+    # SNS constraints
+    SNS_MAX_LENGTH = 256
+    SNS_PATTERN = r'^[a-zA-Z0-9_-]+$'
+
+    # SQS constraints
+    SQS_MAX_LENGTH = 80
+    SQS_PATTERN = r'^[a-zA-Z0-9_-]+$'
+
+    # Step Functions constraints
+    STEP_FUNCTION_MAX_LENGTH = 80
+    STEP_FUNCTION_PATTERN = r'^[a-zA-Z0-9_-]+$'
+
+    # Glue Crawler constraints (allows hyphens unlike DB/Table)
+    GLUE_CRAWLER_MAX_LENGTH = 255
+    GLUE_CRAWLER_PATTERN = r'^[a-zA-Z0-9_-]+$'
+
     @staticmethod
     def validate_s3_bucket(name: str) -> tuple[bool, list[ValidationIssue]]:
         """Validate S3 bucket name"""
@@ -224,6 +249,190 @@ class AWSValidator:
 
         return len(errors) == 0, errors
 
+    @staticmethod
+    def validate_iam_policy(name: str) -> tuple[bool, list[ValidationIssue]]:
+        """Validate IAM policy name"""
+        errors = []
+
+        if len(name) > AWSValidator.IAM_POLICY_MAX_LENGTH:
+            errors.append(ValidationIssue(
+                code="IAM_POLICY_LENGTH",
+                message=f"Length {len(name)} > maximum {AWSValidator.IAM_POLICY_MAX_LENGTH}",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        if not re.match(AWSValidator.IAM_PATTERN, name):
+            errors.append(ValidationIssue(
+                code="IAM_POLICY_PATTERN",
+                message="Must be alphanumeric with +=,.@-_ only",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        return len(errors) == 0, errors
+
+    @staticmethod
+    def validate_glue_crawler(name: str) -> tuple[bool, list[ValidationIssue]]:
+        """Validate Glue crawler name"""
+        errors = []
+
+        if len(name) > AWSValidator.GLUE_CRAWLER_MAX_LENGTH:
+            errors.append(ValidationIssue(
+                code="GLUE_CRAWLER_LENGTH",
+                message=f"Length {len(name)} > maximum {AWSValidator.GLUE_CRAWLER_MAX_LENGTH}",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        if not re.match(AWSValidator.GLUE_CRAWLER_PATTERN, name):
+            errors.append(ValidationIssue(
+                code="GLUE_CRAWLER_PATTERN",
+                message="Must be alphanumeric with hyphens and underscores",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        return len(errors) == 0, errors
+
+    @staticmethod
+    def validate_kinesis_stream(name: str) -> tuple[bool, list[ValidationIssue]]:
+        """Validate Kinesis stream name"""
+        errors = []
+
+        if len(name) > AWSValidator.KINESIS_STREAM_MAX_LENGTH:
+            errors.append(ValidationIssue(
+                code="KINESIS_STREAM_LENGTH",
+                message=f"Length {len(name)} > maximum {AWSValidator.KINESIS_STREAM_MAX_LENGTH}",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        if not re.match(AWSValidator.KINESIS_PATTERN, name):
+            errors.append(ValidationIssue(
+                code="KINESIS_STREAM_PATTERN",
+                message="Must be alphanumeric with hyphens, underscores, and dots",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        return len(errors) == 0, errors
+
+    @staticmethod
+    def validate_kinesis_firehose(name: str) -> tuple[bool, list[ValidationIssue]]:
+        """Validate Kinesis Firehose name"""
+        errors = []
+
+        if len(name) > AWSValidator.KINESIS_FIREHOSE_MAX_LENGTH:
+            errors.append(ValidationIssue(
+                code="KINESIS_FIREHOSE_LENGTH",
+                message=f"Length {len(name)} > maximum {AWSValidator.KINESIS_FIREHOSE_MAX_LENGTH}",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        if not re.match(AWSValidator.KINESIS_PATTERN, name):
+            errors.append(ValidationIssue(
+                code="KINESIS_FIREHOSE_PATTERN",
+                message="Must be alphanumeric with hyphens, underscores, and dots",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        return len(errors) == 0, errors
+
+    @staticmethod
+    def validate_dynamodb_table(name: str) -> tuple[bool, list[ValidationIssue]]:
+        """Validate DynamoDB table name"""
+        errors = []
+
+        if len(name) > AWSValidator.DYNAMODB_MAX_LENGTH:
+            errors.append(ValidationIssue(
+                code="DYNAMODB_TABLE_LENGTH",
+                message=f"Length {len(name)} > maximum {AWSValidator.DYNAMODB_MAX_LENGTH}",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        if not re.match(AWSValidator.DYNAMODB_PATTERN, name):
+            errors.append(ValidationIssue(
+                code="DYNAMODB_TABLE_PATTERN",
+                message="Must be alphanumeric with hyphens, underscores, and dots",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        return len(errors) == 0, errors
+
+    @staticmethod
+    def validate_sns_topic(name: str) -> tuple[bool, list[ValidationIssue]]:
+        """Validate SNS topic name"""
+        errors = []
+
+        if len(name) > AWSValidator.SNS_MAX_LENGTH:
+            errors.append(ValidationIssue(
+                code="SNS_TOPIC_LENGTH",
+                message=f"Length {len(name)} > maximum {AWSValidator.SNS_MAX_LENGTH}",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        if not re.match(AWSValidator.SNS_PATTERN, name):
+            errors.append(ValidationIssue(
+                code="SNS_TOPIC_PATTERN",
+                message="Must be alphanumeric with hyphens and underscores",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        return len(errors) == 0, errors
+
+    @staticmethod
+    def validate_sqs_queue(name: str) -> tuple[bool, list[ValidationIssue]]:
+        """Validate SQS queue name"""
+        errors = []
+
+        if len(name) > AWSValidator.SQS_MAX_LENGTH:
+            errors.append(ValidationIssue(
+                code="SQS_QUEUE_LENGTH",
+                message=f"Length {len(name)} > maximum {AWSValidator.SQS_MAX_LENGTH}",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        if not re.match(AWSValidator.SQS_PATTERN, name):
+            errors.append(ValidationIssue(
+                code="SQS_QUEUE_PATTERN",
+                message="Must be alphanumeric with hyphens and underscores",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        return len(errors) == 0, errors
+
+    @staticmethod
+    def validate_step_function(name: str) -> tuple[bool, list[ValidationIssue]]:
+        """Validate Step Function name"""
+        errors = []
+
+        if len(name) > AWSValidator.STEP_FUNCTION_MAX_LENGTH:
+            errors.append(ValidationIssue(
+                code="STEP_FUNCTION_LENGTH",
+                message=f"Length {len(name)} > maximum {AWSValidator.STEP_FUNCTION_MAX_LENGTH}",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        if not re.match(AWSValidator.STEP_FUNCTION_PATTERN, name):
+            errors.append(ValidationIssue(
+                code="STEP_FUNCTION_PATTERN",
+                message="Must be alphanumeric with hyphens and underscores",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        return len(errors) == 0, errors
+
 
 class DatabricksValidator:
     """Databricks resource name validation"""
@@ -243,6 +452,42 @@ class DatabricksValidator:
     SCHEMA_PATTERN = r'^[a-zA-Z0-9_]+$'
     TABLE_MAX_LENGTH = 255
     TABLE_PATTERN = r'^[a-zA-Z0-9_]+$'
+
+    # Workspace constraints
+    WORKSPACE_MAX_LENGTH = 64
+    WORKSPACE_PATTERN = r'^[a-zA-Z0-9_-]+$'
+
+    # SQL Warehouse constraints
+    SQL_WAREHOUSE_MAX_LENGTH = 64
+    SQL_WAREHOUSE_PATTERN = r'^[a-zA-Z0-9_-]+$'
+
+    # Pipeline constraints
+    PIPELINE_MAX_LENGTH = 100
+    PIPELINE_PATTERN = r'^[a-zA-Z0-9_-]+$'
+
+    # Notebook constraints
+    NOTEBOOK_MAX_LENGTH = 256
+    NOTEBOOK_PATTERN = r'^[a-zA-Z0-9_/.-]+$'
+
+    # Repo constraints
+    REPO_MAX_LENGTH = 100
+    REPO_PATTERN = r'^[a-zA-Z0-9_-]+$'
+
+    # Volume constraints
+    VOLUME_MAX_LENGTH = 255
+    VOLUME_PATTERN = r'^[a-zA-Z0-9_]+$'
+
+    # Secret Scope constraints
+    SECRET_SCOPE_MAX_LENGTH = 128
+    SECRET_SCOPE_PATTERN = r'^[a-zA-Z0-9_-]+$'
+
+    # Instance Pool constraints
+    INSTANCE_POOL_MAX_LENGTH = 100
+    INSTANCE_POOL_PATTERN = r'^[a-zA-Z0-9_-]+$'
+
+    # Policy constraints
+    POLICY_MAX_LENGTH = 100
+    POLICY_PATTERN = r'^[a-zA-Z0-9_-]+$'
 
     @staticmethod
     def validate_cluster(name: str) -> tuple[bool, list[ValidationIssue]]:
@@ -358,6 +603,214 @@ class DatabricksValidator:
                 severity=ValidationResult.INVALID,
                 field="name",
                 suggestion=name.replace('-', '_')
+            ))
+
+        return len(errors) == 0, errors
+
+    @staticmethod
+    def validate_workspace(name: str) -> tuple[bool, list[ValidationIssue]]:
+        """Validate Databricks workspace name"""
+        errors = []
+
+        if len(name) > DatabricksValidator.WORKSPACE_MAX_LENGTH:
+            errors.append(ValidationIssue(
+                code="DBX_WORKSPACE_LENGTH",
+                message=f"Length {len(name)} > maximum {DatabricksValidator.WORKSPACE_MAX_LENGTH}",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        if not re.match(DatabricksValidator.WORKSPACE_PATTERN, name):
+            errors.append(ValidationIssue(
+                code="DBX_WORKSPACE_PATTERN",
+                message="Must be alphanumeric with hyphens and underscores",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        return len(errors) == 0, errors
+
+    @staticmethod
+    def validate_sql_warehouse(name: str) -> tuple[bool, list[ValidationIssue]]:
+        """Validate Databricks SQL Warehouse name"""
+        errors = []
+
+        if len(name) > DatabricksValidator.SQL_WAREHOUSE_MAX_LENGTH:
+            errors.append(ValidationIssue(
+                code="DBX_SQL_WAREHOUSE_LENGTH",
+                message=f"Length {len(name)} > maximum {DatabricksValidator.SQL_WAREHOUSE_MAX_LENGTH}",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        if not re.match(DatabricksValidator.SQL_WAREHOUSE_PATTERN, name):
+            errors.append(ValidationIssue(
+                code="DBX_SQL_WAREHOUSE_PATTERN",
+                message="Must be alphanumeric with hyphens and underscores",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        return len(errors) == 0, errors
+
+    @staticmethod
+    def validate_pipeline(name: str) -> tuple[bool, list[ValidationIssue]]:
+        """Validate Databricks pipeline name"""
+        errors = []
+
+        if len(name) > DatabricksValidator.PIPELINE_MAX_LENGTH:
+            errors.append(ValidationIssue(
+                code="DBX_PIPELINE_LENGTH",
+                message=f"Length {len(name)} > maximum {DatabricksValidator.PIPELINE_MAX_LENGTH}",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        if not re.match(DatabricksValidator.PIPELINE_PATTERN, name):
+            errors.append(ValidationIssue(
+                code="DBX_PIPELINE_PATTERN",
+                message="Must be alphanumeric with hyphens and underscores",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        return len(errors) == 0, errors
+
+    @staticmethod
+    def validate_notebook_path(name: str) -> tuple[bool, list[ValidationIssue]]:
+        """Validate Databricks notebook path"""
+        errors = []
+
+        if len(name) > DatabricksValidator.NOTEBOOK_MAX_LENGTH:
+            errors.append(ValidationIssue(
+                code="DBX_NOTEBOOK_LENGTH",
+                message=f"Length {len(name)} > maximum {DatabricksValidator.NOTEBOOK_MAX_LENGTH}",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        if not re.match(DatabricksValidator.NOTEBOOK_PATTERN, name):
+            errors.append(ValidationIssue(
+                code="DBX_NOTEBOOK_PATTERN",
+                message="Must be alphanumeric with hyphens, underscores, slashes, and dots",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        return len(errors) == 0, errors
+
+    @staticmethod
+    def validate_repo(name: str) -> tuple[bool, list[ValidationIssue]]:
+        """Validate Databricks repo name"""
+        errors = []
+
+        if len(name) > DatabricksValidator.REPO_MAX_LENGTH:
+            errors.append(ValidationIssue(
+                code="DBX_REPO_LENGTH",
+                message=f"Length {len(name)} > maximum {DatabricksValidator.REPO_MAX_LENGTH}",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        if not re.match(DatabricksValidator.REPO_PATTERN, name):
+            errors.append(ValidationIssue(
+                code="DBX_REPO_PATTERN",
+                message="Must be alphanumeric with hyphens and underscores",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        return len(errors) == 0, errors
+
+    @staticmethod
+    def validate_volume(name: str) -> tuple[bool, list[ValidationIssue]]:
+        """Validate Databricks volume name"""
+        errors = []
+
+        if len(name) > DatabricksValidator.VOLUME_MAX_LENGTH:
+            errors.append(ValidationIssue(
+                code="DBX_VOLUME_LENGTH",
+                message=f"Length {len(name)} > maximum {DatabricksValidator.VOLUME_MAX_LENGTH}",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        if not re.match(DatabricksValidator.VOLUME_PATTERN, name):
+            errors.append(ValidationIssue(
+                code="DBX_VOLUME_PATTERN",
+                message="Must be alphanumeric with underscores only",
+                severity=ValidationResult.INVALID,
+                field="name",
+                suggestion=name.replace('-', '_')
+            ))
+
+        return len(errors) == 0, errors
+
+    @staticmethod
+    def validate_secret_scope(name: str) -> tuple[bool, list[ValidationIssue]]:
+        """Validate Databricks secret scope name"""
+        errors = []
+
+        if len(name) > DatabricksValidator.SECRET_SCOPE_MAX_LENGTH:
+            errors.append(ValidationIssue(
+                code="DBX_SECRET_SCOPE_LENGTH",
+                message=f"Length {len(name)} > maximum {DatabricksValidator.SECRET_SCOPE_MAX_LENGTH}",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        if not re.match(DatabricksValidator.SECRET_SCOPE_PATTERN, name):
+            errors.append(ValidationIssue(
+                code="DBX_SECRET_SCOPE_PATTERN",
+                message="Must be alphanumeric with hyphens and underscores",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        return len(errors) == 0, errors
+
+    @staticmethod
+    def validate_instance_pool(name: str) -> tuple[bool, list[ValidationIssue]]:
+        """Validate Databricks instance pool name"""
+        errors = []
+
+        if len(name) > DatabricksValidator.INSTANCE_POOL_MAX_LENGTH:
+            errors.append(ValidationIssue(
+                code="DBX_INSTANCE_POOL_LENGTH",
+                message=f"Length {len(name)} > maximum {DatabricksValidator.INSTANCE_POOL_MAX_LENGTH}",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        if not re.match(DatabricksValidator.INSTANCE_POOL_PATTERN, name):
+            errors.append(ValidationIssue(
+                code="DBX_INSTANCE_POOL_PATTERN",
+                message="Must be alphanumeric with hyphens and underscores",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        return len(errors) == 0, errors
+
+    @staticmethod
+    def validate_policy(name: str) -> tuple[bool, list[ValidationIssue]]:
+        """Validate Databricks policy name"""
+        errors = []
+
+        if len(name) > DatabricksValidator.POLICY_MAX_LENGTH:
+            errors.append(ValidationIssue(
+                code="DBX_POLICY_LENGTH",
+                message=f"Length {len(name)} > maximum {DatabricksValidator.POLICY_MAX_LENGTH}",
+                severity=ValidationResult.INVALID,
+                field="name"
+            ))
+
+        if not re.match(DatabricksValidator.POLICY_PATTERN, name):
+            errors.append(ValidationIssue(
+                code="DBX_POLICY_PATTERN",
+                message="Must be alphanumeric with hyphens and underscores",
+                severity=ValidationResult.INVALID,
+                field="name"
             ))
 
         return len(errors) == 0, errors
@@ -684,17 +1137,37 @@ class ValidationPipeline:
 validation_context = ValidationContext(strict=True)
 
 # Register all validators
+# AWS validators
 validation_context.register_validator('aws_s3_bucket', AWSValidator.validate_s3_bucket)
 validation_context.register_validator('aws_glue_database', AWSValidator.validate_glue_database)
 validation_context.register_validator('aws_glue_table', AWSValidator.validate_glue_table)
+validation_context.register_validator('aws_glue_crawler', AWSValidator.validate_glue_crawler)
 validation_context.register_validator('aws_lambda_function', AWSValidator.validate_lambda_function)
 validation_context.register_validator('aws_iam_role', AWSValidator.validate_iam_role)
+validation_context.register_validator('aws_iam_policy', AWSValidator.validate_iam_policy)
+validation_context.register_validator('aws_kinesis_stream', AWSValidator.validate_kinesis_stream)
+validation_context.register_validator('aws_kinesis_firehose', AWSValidator.validate_kinesis_firehose)
+validation_context.register_validator('aws_dynamodb_table', AWSValidator.validate_dynamodb_table)
+validation_context.register_validator('aws_sns_topic', AWSValidator.validate_sns_topic)
+validation_context.register_validator('aws_sqs_queue', AWSValidator.validate_sqs_queue)
+validation_context.register_validator('aws_step_function', AWSValidator.validate_step_function)
 
+# Databricks validators
 validation_context.register_validator('dbx_cluster', DatabricksValidator.validate_cluster)
 validation_context.register_validator('dbx_job', DatabricksValidator.validate_job)
 validation_context.register_validator('dbx_catalog', DatabricksValidator.validate_catalog)
 validation_context.register_validator('dbx_schema', DatabricksValidator.validate_schema)
 validation_context.register_validator('dbx_table', DatabricksValidator.validate_table)
+validation_context.register_validator('dbx_workspace', DatabricksValidator.validate_workspace)
+validation_context.register_validator('dbx_sql_warehouse', DatabricksValidator.validate_sql_warehouse)
+validation_context.register_validator('dbx_pipeline', DatabricksValidator.validate_pipeline)
+validation_context.register_validator('dbx_notebook_path', DatabricksValidator.validate_notebook_path)
+validation_context.register_validator('dbx_notebook', DatabricksValidator.validate_notebook_path)  # Alias for enum value
+validation_context.register_validator('dbx_repo', DatabricksValidator.validate_repo)
+validation_context.register_validator('dbx_volume', DatabricksValidator.validate_volume)
+validation_context.register_validator('dbx_secret_scope', DatabricksValidator.validate_secret_scope)
+validation_context.register_validator('dbx_instance_pool', DatabricksValidator.validate_instance_pool)
+validation_context.register_validator('dbx_policy', DatabricksValidator.validate_policy)
 
 # Create pipeline instance
 validation_pipeline = ValidationPipeline(validation_context)

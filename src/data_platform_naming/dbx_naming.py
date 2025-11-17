@@ -17,6 +17,7 @@ from typing import Any, Optional
 from .config.configuration_manager import ConfigurationManager
 from .constants import Environment, DatabricksResourceType, TableType, ClusterType, DatabricksDataLayer
 from .exceptions import ValidationError, ConfigurationError, PatternError
+from .types import MetadataDict, ValueOverridesDict
 
 
 @dataclass
@@ -65,14 +66,14 @@ class DatabricksNamingGenerator:
         configuration_manager: ConfigurationManager
     ) -> None:
         """
-        Initialize Databricks naming generator.
+        Initializes the DatabricksNamingGenerator with configuration and validation.
 
         Args:
             config: Databricks naming configuration
-            configuration_manager: ConfigurationManager for pattern-based generation
+            configuration_manager: ConfigurationManager for config-based naming
 
         Raises:
-            ValueError: If configuration_manager is None or required patterns missing
+            ConfigurationError: If configuration_manager is None or required patterns missing
         """
         if configuration_manager is None:
             raise ConfigurationError(
@@ -107,23 +108,23 @@ class DatabricksNamingGenerator:
     def _generate_with_config(self,
                              resource_type: str,
                              method_params: dict[str, Any],
-                             metadata: dict[str, Any] | None = None) -> str:
+                             metadata: MetadataDict | None = None) -> str:
         """
         Generate resource name using ConfigurationManager.
-        
+
         Args:
             resource_type: Databricks resource type (e.g., 'databricks_cluster')
             method_params: Parameters from the calling method
             metadata: Optional blueprint metadata for value precedence
-        
+
         Returns:
             Generated resource name
-        
+
         Raises:
-            ValueError: If name generation fails
+            PatternError: If name generation fails
         """
         # Merge config values with method params
-        values = {
+        values: ValueOverridesDict = {
             'environment': self.config.environment,
             'project': self.config.project,
             'region': self.config.region,
@@ -136,12 +137,12 @@ class DatabricksNamingGenerator:
         if self.config.data_classification:
             values['data_classification'] = self.config.data_classification
 
-        # Add method-specific parameters
-        values.update(method_params)
+        # Add method-specific parameters (cast needed as method_params could contain Any)
+        values.update(method_params)  # type: ignore
 
         # Add metadata if provided (highest precedence)
         if metadata:
-            values.update(metadata)
+            values.update(metadata)  # type: ignore
 
         # Generate name using ConfigurationManager
         result = self.configuration_manager.generate_name(
@@ -197,7 +198,7 @@ class DatabricksNamingGenerator:
 
     def generate_workspace_name(self,
                                purpose: str = "data",
-                               metadata: dict[str, Any] | None = None) -> str:
+                               metadata: MetadataDict | None = None) -> str:
         """
         Generate Databricks workspace name.
 
@@ -336,7 +337,7 @@ class DatabricksNamingGenerator:
             'notebook_name': notebook_name,
         }
         return self._generate_with_config(
-            resource_type=DatabricksResourceType.NOTEBOOK.value,
+            resource_type="dbx_notebook_path",  # Use pattern name, not enum value
             method_params=params,
             metadata=metadata
         )

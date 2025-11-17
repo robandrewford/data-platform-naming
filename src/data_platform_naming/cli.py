@@ -894,8 +894,9 @@ def config_init(cost_center: str | None, environment: str | None,
                 console.print(f"  - {patterns_path.name}")
             
             if not click.confirm('\nThese changes will overwrite existing files. Continue?', default=False):
-                console.print("[yellow]No changes were made to the naming-values.yaml file[/yellow]")
-                sys.exit(0)
+                console.print("\n[red]✗[/red] Initialization cancelled.")
+                console.print("[yellow]Tip: Use --force to overwrite without prompting.[/yellow]")
+                raise SystemExit(1)
 
         # Load and customize naming-values.yaml
         example_values = example_dir / 'naming-values.yaml'

@@ -184,7 +184,7 @@ class TestConfigInit:
             ])
 
             assert result.exit_code == 1
-            assert "already" in result.output and "exists" in result.output
+            assert "already" in result.output and "exist" in result.output
 
             # With --force should succeed
             result = runner.invoke(cli, [
@@ -220,7 +220,7 @@ class TestConfigInit:
             ])
 
         assert result.exit_code == 1
-        assert "already" in result.output and "exists" in result.output
+        assert "already" in result.output and "exist" in result.output
         assert "force" in result.output.lower()
 
 

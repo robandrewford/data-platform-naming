@@ -371,7 +371,7 @@ class TestAWSNamingGeneratorS3:
         )
 
         # Should raise ValidationError because name exceeds max length
-        with pytest.raises(ValidationError, match="Name validation failed.*exceeds maximum length"):
+        with pytest.raises(ValidationError, match="Name validation failed.*Length.*>.*maximum"):
             generator.generate_s3_bucket_name(purpose="data", layer="raw")
 
 
