@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(superpowers:finishing-a-development-branch)",
+      "Bash(pytest:*)",
+      "Skill(superpowers:systematic-debugging)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)",
+      "Bash(git stash:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
