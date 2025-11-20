@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any
 
 # Import ConfigurationManager for type hints
@@ -82,7 +81,7 @@ class AWSNamingGenerator:
                 field="configuration_manager",
                 suggestion="Legacy mode without ConfigurationManager is no longer supported. Pass a ConfigurationManager instance."
             )
-        
+
         self.config = config
         self.configuration_manager = configuration_manager
 
@@ -111,7 +110,7 @@ class AWSNamingGenerator:
         """
         Validate that all AWS resource patterns are available in ConfigurationManager.
         Called at initialization when use_config=True.
-        
+
         Raises:
             ValueError: If any required patterns are missing or invalid
         """
@@ -154,7 +153,7 @@ class AWSNamingGenerator:
 
         if errors:
             # Collect all missing resource types
-            missing_types = [rt for rt in required_resource_types 
+            missing_types = [rt for rt in required_resource_types
                            if any(rt in err for err in missing_patterns)]
             raise PatternError(
                 message="Pattern validation failed: " + "; ".join(errors),
@@ -170,15 +169,15 @@ class AWSNamingGenerator:
     ) -> str:
         """
         Generate name using ConfigurationManager.
-        
+
         Args:
             resource_type: AWS resource type (e.g., 'aws_s3_bucket')
             values: Dictionary of values to use for pattern substitution
             metadata: Optional blueprint metadata for additional context
-        
+
         Returns:
             Generated resource name
-        
+
         Raises:
             ValueError: If name generation or validation fails
         """
@@ -206,8 +205,8 @@ class AWSNamingGenerator:
         result = self.configuration_manager.generate_name(
             resource_type=resource_type,
             environment=self.config.environment,
-            blueprint_metadata=metadata,
-            value_overrides=merged_values
+            blueprint_metadata=metadata,  # type: ignore
+            value_overrides=merged_values  # type: ignore
         )
 
         # Validate the generated name
@@ -272,19 +271,19 @@ class AWSNamingGenerator:
     ) -> str:
         """
         Generate S3 bucket name.
-        
+
         Pattern: {project}-{layer}-{purpose}-{env}-{region}
         Example: dataplatform-raw-sales-prd-use1
-        
+
         Args:
             purpose: Bucket purpose (e.g., 'sales-data', 'logs')
             layer: Data layer ('raw', 'processed', 'curated')
             include_hash: Whether to include hash suffix for uniqueness
             metadata: Optional blueprint metadata for additional context
-        
+
         Returns:
             Generated S3 bucket name
-        
+
         Raises:
             ValueError: If name generation fails
         """
@@ -306,18 +305,18 @@ class AWSNamingGenerator:
     ) -> str:
         """
         Generate Glue database name.
-        
+
         Pattern: {project}_{domain}_{layer}_{env}
         Example: dataplatform_finance_gold_prd
-        
+
         Args:
             domain: Data domain (e.g., 'finance', 'sales', 'marketing')
             layer: Data layer ('bronze', 'silver', 'gold')
             metadata: Optional blueprint metadata for additional context
-        
+
         Returns:
             Generated Glue database name
-        
+
         Raises:
             ValueError: If name generation fails
         """
@@ -338,18 +337,18 @@ class AWSNamingGenerator:
     ) -> str:
         """
         Generate Glue table name.
-        
+
         Pattern: {type}_{entity}
         Example: fact_sales, dim_customer
-        
+
         Args:
             entity: Business entity name (e.g., 'sales', 'customers')
             table_type: Table type ('fact', 'dim', 'bridge')
             metadata: Optional blueprint metadata for additional context
-        
+
         Returns:
             Generated Glue table name
-        
+
         Raises:
             ValueError: If name generation fails
         """
@@ -370,18 +369,18 @@ class AWSNamingGenerator:
     ) -> str:
         """
         Generate Glue crawler name.
-        
+
         Pattern: {project}-{env}-crawler-{database}-{source}
         Example: dataplatform-prd-crawler-sales-s3
-        
+
         Args:
             database: Database name
             source: Source system identifier (e.g., 's3', 'rds')
             metadata: Optional blueprint metadata for additional context
-        
+
         Returns:
             Generated Glue crawler name
-        
+
         Raises:
             ValueError: If name generation fails
         """
@@ -403,19 +402,19 @@ class AWSNamingGenerator:
     ) -> str:
         """
         Generate Lambda function name.
-        
+
         Pattern: {project}-{env}-{domain}-{trigger}-{action}
         Example: dataplatform-prd-sales-s3-process
-        
+
         Args:
             domain: Data domain (e.g., 'sales', 'customer')
             trigger: Trigger source (e.g., 's3', 'api', 'kinesis')
             action: Action performed (e.g., 'process', 'transform', 'validate')
             metadata: Optional blueprint metadata for additional context
-        
+
         Returns:
             Generated Lambda function name
-        
+
         Raises:
             ValueError: If name generation fails
         """
@@ -437,18 +436,18 @@ class AWSNamingGenerator:
     ) -> str:
         """
         Generate IAM role name.
-        
+
         Pattern: {project}-{env}-{service}-{purpose}-role
         Example: dataplatform-prd-lambda-process-role
-        
+
         Args:
             service: AWS service (e.g., 'lambda', 'glue', 'emr')
             purpose: Purpose of the role (e.g., 'execution', 'process')
             metadata: Optional blueprint metadata for additional context
-        
+
         Returns:
             Generated IAM role name
-        
+
         Raises:
             ValueError: If name generation fails
         """
@@ -469,18 +468,18 @@ class AWSNamingGenerator:
     ) -> str:
         """
         Generate IAM policy name.
-        
+
         Pattern: {project}-{env}-{service}-{purpose}-policy
         Example: dataplatform-prd-s3-read-policy
-        
+
         Args:
             service: AWS service (e.g., 's3', 'dynamodb', 'sqs')
             purpose: Purpose of policy (e.g., 'read', 'write', 'read-write')
             metadata: Optional blueprint metadata for additional context
-        
+
         Returns:
             Generated IAM policy name
-        
+
         Raises:
             ValueError: If name generation fails
         """
@@ -501,18 +500,18 @@ class AWSNamingGenerator:
     ) -> str:
         """
         Generate Kinesis stream name.
-        
+
         Pattern: {project}-{env}-{domain}-{source}-stream
         Example: dataplatform-prd-sales-api-stream
-        
+
         Args:
             domain: Data domain (e.g., 'sales', 'events')
             source: Source identifier (e.g., 'api', 'iot', 'web')
             metadata: Optional blueprint metadata for additional context
-        
+
         Returns:
             Generated Kinesis stream name
-        
+
         Raises:
             ValueError: If name generation fails
         """
@@ -533,18 +532,18 @@ class AWSNamingGenerator:
     ) -> str:
         """
         Generate Kinesis Firehose delivery stream name.
-        
+
         Pattern: {project}-{env}-{domain}-to-{destination}
         Example: dataplatform-prd-sales-to-s3
-        
+
         Args:
             domain: Data domain (e.g., 'sales', 'logs')
             destination: Destination service (e.g., 's3', 'redshift', 'elasticsearch')
             metadata: Optional blueprint metadata for additional context
-        
+
         Returns:
             Generated Kinesis Firehose name
-        
+
         Raises:
             ValueError: If name generation fails
         """
@@ -565,18 +564,18 @@ class AWSNamingGenerator:
     ) -> str:
         """
         Generate DynamoDB table name.
-        
+
         Pattern: {project}-{env}-{entity}-{purpose}
         Example: dataplatform-prd-customer-profile
-        
+
         Args:
             entity: Business entity (e.g., 'customer', 'order')
             purpose: Table purpose (e.g., 'data', 'profile', 'cache')
             metadata: Optional blueprint metadata for additional context
-        
+
         Returns:
             Generated DynamoDB table name
-        
+
         Raises:
             ValueError: If name generation fails
         """
@@ -597,18 +596,18 @@ class AWSNamingGenerator:
     ) -> str:
         """
         Generate SNS topic name.
-        
+
         Pattern: {project}-{env}-{event_type}-{purpose}
         Example: dataplatform-prd-data-processed
-        
+
         Args:
             event_type: Type of event (e.g., 'data', 'alert', 'notification')
             purpose: Purpose description (e.g., 'processed', 'failed', 'completed')
             metadata: Optional blueprint metadata for additional context
-        
+
         Returns:
             Generated SNS topic name
-        
+
         Raises:
             ValueError: If name generation fails
         """
@@ -629,18 +628,18 @@ class AWSNamingGenerator:
     ) -> str:
         """
         Generate SQS queue name.
-        
+
         Pattern: {project}-{env}-{purpose}-{type}
         Example: dataplatform-prd-processing-fifo
-        
+
         Args:
             purpose: Queue purpose (e.g., 'processing', 'dlq', 'events')
             queue_type: Queue type ('standard' or 'fifo')
             metadata: Optional blueprint metadata for additional context
-        
+
         Returns:
             Generated SQS queue name
-        
+
         Raises:
             ValueError: If name generation fails
         """
@@ -661,18 +660,18 @@ class AWSNamingGenerator:
     ) -> str:
         """
         Generate Step Functions state machine name.
-        
+
         Pattern: {project}-{env}-{workflow}-{purpose}
         Example: dataplatform-prd-etl-orchestration
-        
+
         Args:
             workflow: Workflow identifier (e.g., 'etl', 'ml', 'data-pipeline')
             purpose: Purpose description (e.g., 'orchestration', 'coordination')
             metadata: Optional blueprint metadata for additional context
-        
+
         Returns:
             Generated Step Function name
-        
+
         Raises:
             ValueError: If name generation fails
         """
@@ -691,7 +690,7 @@ class AWSNamingGenerator:
         """Generate standard tags for AWS resources"""
         # Strip 'aws_' prefix from resource type for cleaner tags
         resource_type_tag = resource_type.value.replace('aws_', '')
-        
+
         tags = {
             "Environment": self.config.environment,
             "Project": self.config.project,
@@ -714,7 +713,7 @@ class AWSNamingGenerator:
 # Example usage
 if __name__ == "__main__":
     from pathlib import Path
-    
+
     config = AWSNamingConfig(
         environment="prd",
         project="dataplatform",

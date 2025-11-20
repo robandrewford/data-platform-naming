@@ -10,7 +10,6 @@ Tests the full user workflow:
 """
 
 import json
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -44,7 +43,7 @@ def example_configs(tmp_path):
     # Create structure: tmp_path/src/data_platform_naming/cli.py and tmp_path/examples/configs/
     src_dir = tmp_path / "src" / "data_platform_naming"
     src_dir.mkdir(parents=True)
-    
+
     example_dir = tmp_path / "examples" / "configs"
     example_dir.mkdir(parents=True)
 
@@ -134,7 +133,7 @@ class TestConfigInit:
                 "--project", "testproject",
                 "--environment", Environment.DEV.value,
                 "--region", "us-east-1"
-            ])
+            ], input="\n".join(["engineering", "data-platform", "all"]))
 
         assert result.exit_code == 0
         assert "Created:" in result.output
@@ -152,7 +151,7 @@ class TestConfigInit:
                 "--project", "oncology",
                 "--environment", Environment.PRD.value,
                 "--region", "us-west-2"
-            ])
+            ], input="\n".join(["engineering", "data-platform", "all"]))
 
         assert result.exit_code == 0
 
@@ -173,7 +172,7 @@ class TestConfigInit:
                 "--project", "testproject",
                 "--environment", Environment.DEV.value,
                 "--region", "us-east-1"
-            ])
+            ], input="\n".join(["engineering", "data-platform", "all"]))
 
             # Second init without force should fail
             result = runner.invoke(cli, [
@@ -181,7 +180,7 @@ class TestConfigInit:
                 "--project", "newproject",
                 "--environment", Environment.PRD.value,
                 "--region", "us-west-2"
-            ])
+            ], input="\n".join(["engineering", "data-platform", "all"]))
 
             assert result.exit_code == 1
             assert "already" in result.output and "exist" in result.output
@@ -193,7 +192,7 @@ class TestConfigInit:
                 "--environment", Environment.PRD.value,
                 "--region", "us-west-2",
                 "--force"
-            ])
+            ], input="\n".join(["engineering", "data-platform", "all"]))
 
             assert result.exit_code == 0
 
@@ -217,7 +216,7 @@ class TestConfigInit:
                 "--project", "testproject",
                 "--environment", Environment.DEV.value,
                 "--region", "us-east-1"
-            ])
+            ], input="\n".join(["engineering", "data-platform", "all", "n"]))
 
         assert result.exit_code == 1
         assert "already" in result.output and "exist" in result.output
@@ -283,20 +282,20 @@ class TestConfigValidate:
         # Create schema directory structure: temp_home/src/data_platform_naming/
         src_dir = temp_home / "src" / "data_platform_naming"
         src_dir.mkdir(parents=True)
-        
+
         # Create schemas at: temp_home/schemas/ (3 levels up from src/data_platform_naming/cli.py)
         schema_dir = temp_home / "schemas"
         schema_dir.mkdir()
-        
+
         # Create minimal schemas
         values_schema = {"type": "object"}
         with open(schema_dir / "naming-values-schema.json", "w") as f:
             json.dump(values_schema, f)
-        
+
         patterns_schema = {"type": "object"}
         with open(schema_dir / "naming-patterns-schema.json", "w") as f:
             json.dump(patterns_schema, f)
-        
+
         # Mock __file__ to point to our temp structure
         cli_file = src_dir / "cli.py"
         with patch("data_platform_naming.cli.__file__", str(cli_file)):
@@ -546,14 +545,14 @@ class TestFullWorkflow:
                 "--project", "workflow-test",
                 "--environment", Environment.DEV.value,
                 "--region", "us-east-1"
-            ])
+            ], input="\n".join(["engineering", "data-platform", "all"]))
             assert result.exit_code == 0
 
         # Step 2: Validate
         # Create schema directory structure matching what CLI expects
         src_dir = temp_home / "src" / "data_platform_naming"
         src_dir.mkdir(parents=True, exist_ok=True)
-        
+
         schema_dir = temp_home / "schemas"
         schema_dir.mkdir(parents=True, exist_ok=True)
 

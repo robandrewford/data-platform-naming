@@ -238,7 +238,7 @@ class TestAWSNamingGeneratorInit:
     def test_init_pattern_validation_success(self, aws_config, config_manager):
         """Test that pattern validation succeeds with all required patterns"""
         # Should not raise an error
-        generator = AWSNamingGenerator(
+        AWSNamingGenerator(
             config=aws_config,
             configuration_manager=config_manager
         )

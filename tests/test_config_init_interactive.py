@@ -4,15 +4,14 @@ Comprehensive tests for interactive config init command.
 Tests both interactive prompts and non-interactive flag modes.
 """
 
-import json
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 import yaml
 from click.testing import CliRunner
 
-from data_platform_naming.cli import cli, _parse_resource_type_selection
+from data_platform_naming.cli import _parse_resource_type_selection, cli
 
 
 @pytest.fixture
@@ -134,12 +133,13 @@ class TestInteractiveMode:
         # Mock the example directory path
         with patch("data_platform_naming.cli.Path") as mock_path_cls:
             def path_side_effect(arg):
-                if "__file__" in str(arg):
-                    # Return mock file location
-                    return Path(example_configs.parent.parent) / "cli.py"
+                if str(arg).endswith("cli.py"):
+                    # Return mock file location deep enough for .parent.parent.parent to work
+                    return example_configs.parent.parent / "src" / "data_platform_naming" / "cli.py"
                 return Path(arg)
-            
+
             mock_path_cls.side_effect = path_side_effect
+            mock_path_cls.cwd.return_value = temp_project
 
             # Provide inputs for all prompts
             inputs = [
@@ -155,7 +155,7 @@ class TestInteractiveMode:
 
         assert result.exit_code == 0
         assert "Created:" in result.output
-        
+
         # Check files were created
         dpn_dir = temp_project / ".dpn"
         assert dpn_dir.exists()
@@ -165,7 +165,7 @@ class TestInteractiveMode:
         # Check values were customized
         with open(dpn_dir / "naming-values.yaml") as f:
             values = yaml.safe_load(f)
-        
+
         assert values["defaults"]["project"] == "oncology"
         assert values["defaults"]["environment"] == "prd"
         assert values["defaults"]["region"] == "us-west-2"
@@ -176,11 +176,12 @@ class TestInteractiveMode:
         """Test interactive mode with default values."""
         with patch("data_platform_naming.cli.Path") as mock_path_cls:
             def path_side_effect(arg):
-                if "__file__" in str(arg):
-                    return Path(example_configs.parent.parent) / "cli.py"
+                if str(arg).endswith("cli.py"):
+                    return example_configs.parent.parent / "src" / "data_platform_naming" / "cli.py"
                 return Path(arg)
-            
+
             mock_path_cls.side_effect = path_side_effect
+            mock_path_cls.cwd.return_value = temp_project
 
             # Just press enter for defaults, except project (required)
             inputs = [
@@ -198,7 +199,7 @@ class TestInteractiveMode:
 
         with open(temp_project / ".dpn" / "naming-values.yaml") as f:
             values = yaml.safe_load(f)
-        
+
         assert values["defaults"]["project"] == "testproj"
         assert values["defaults"]["environment"] == "dev"
         assert values["defaults"]["cost_center"] == "engineering"
@@ -211,11 +212,12 @@ class TestNonInteractiveMode:
         """Test fully non-interactive with all flags."""
         with patch("data_platform_naming.cli.Path") as mock_path_cls:
             def path_side_effect(arg):
-                if "__file__" in str(arg):
-                    return Path(example_configs.parent.parent) / "cli.py"
+                if str(arg).endswith("cli.py"):
+                    return example_configs.parent.parent / "src" / "data_platform_naming" / "cli.py"
                 return Path(arg)
-            
+
             mock_path_cls.side_effect = path_side_effect
+            mock_path_cls.cwd.return_value = temp_project
 
             result = runner.invoke(cli, [
                 "config", "init",
@@ -233,7 +235,7 @@ class TestNonInteractiveMode:
 
         with open(temp_project / ".dpn" / "naming-values.yaml") as f:
             values = yaml.safe_load(f)
-        
+
         assert values["defaults"]["project"] == "analytics"
         assert values["defaults"]["environment"] == "prd"
         assert values["defaults"]["region"] == "us-west-2"
@@ -244,11 +246,12 @@ class TestNonInteractiveMode:
         """Test partial flags prompts for missing values."""
         with patch("data_platform_naming.cli.Path") as mock_path_cls:
             def path_side_effect(arg):
-                if "__file__" in str(arg):
-                    return Path(example_configs.parent.parent) / "cli.py"
+                if str(arg).endswith("cli.py"):
+                    return example_configs.parent.parent / "src" / "data_platform_naming" / "cli.py"
                 return Path(arg)
-            
+
             mock_path_cls.side_effect = path_side_effect
+            mock_path_cls.cwd.return_value = temp_project
 
             # Provide some flags, let others be prompted
             inputs = [
@@ -268,7 +271,7 @@ class TestNonInteractiveMode:
 
         with open(temp_project / ".dpn" / "naming-values.yaml") as f:
             values = yaml.safe_load(f)
-        
+
         assert values["defaults"]["project"] == "testproj"
         assert values["defaults"]["environment"] == "prd"  # From flag
         assert values["defaults"]["team"] == "data-platform"  # From flag
@@ -281,11 +284,12 @@ class TestResourceTypeSelection:
         """Test selecting specific resource types."""
         with patch("data_platform_naming.cli.Path") as mock_path_cls:
             def path_side_effect(arg):
-                if "__file__" in str(arg):
-                    return Path(example_configs.parent.parent) / "cli.py"
+                if str(arg).endswith("cli.py"):
+                    return example_configs.parent.parent / "src" / "data_platform_naming" / "cli.py"
                 return Path(arg)
-            
+
             mock_path_cls.side_effect = path_side_effect
+            mock_path_cls.cwd.return_value = temp_project
 
             result = runner.invoke(cli, [
                 "config", "init",
@@ -294,7 +298,7 @@ class TestResourceTypeSelection:
                 "--region", "us-east-1",
                 "--team", "test-team",
                 "--cost-center", "test-center",
-                "--resource-types", "1,3",
+                "--resource-types", "2,3",
                 "--force"
             ])
 
@@ -302,7 +306,7 @@ class TestResourceTypeSelection:
 
         with open(temp_project / ".dpn" / "naming-values.yaml") as f:
             values = yaml.safe_load(f)
-        
+
         # Should have 2 resource types
         assert len(values["resource_types"]) == 2
         assert "aws_s3_bucket" in values["resource_types"]
@@ -312,11 +316,12 @@ class TestResourceTypeSelection:
         """Test selecting range of resource types."""
         with patch("data_platform_naming.cli.Path") as mock_path_cls:
             def path_side_effect(arg):
-                if "__file__" in str(arg):
-                    return Path(example_configs.parent.parent) / "cli.py"
+                if str(arg).endswith("cli.py"):
+                    return example_configs.parent.parent / "src" / "data_platform_naming" / "cli.py"
                 return Path(arg)
-            
+
             mock_path_cls.side_effect = path_side_effect
+            mock_path_cls.cwd.return_value = temp_project
 
             result = runner.invoke(cli, [
                 "config", "init",
@@ -333,7 +338,7 @@ class TestResourceTypeSelection:
 
         with open(temp_project / ".dpn" / "naming-values.yaml") as f:
             values = yaml.safe_load(f)
-        
+
         # Should have 3 resource types (indices 1,2,3)
         assert len(values["resource_types"]) == 3
 
@@ -341,11 +346,12 @@ class TestResourceTypeSelection:
         """Test selecting all resource types."""
         with patch("data_platform_naming.cli.Path") as mock_path_cls:
             def path_side_effect(arg):
-                if "__file__" in str(arg):
-                    return Path(example_configs.parent.parent) / "cli.py"
+                if str(arg).endswith("cli.py"):
+                    return example_configs.parent.parent / "src" / "data_platform_naming" / "cli.py"
                 return Path(arg)
-            
+
             mock_path_cls.side_effect = path_side_effect
+            mock_path_cls.cwd.return_value = temp_project
 
             result = runner.invoke(cli, [
                 "config", "init",
@@ -362,7 +368,7 @@ class TestResourceTypeSelection:
 
         with open(temp_project / ".dpn" / "naming-values.yaml") as f:
             values = yaml.safe_load(f)
-        
+
         # Should have all 5 resource types from patterns
         assert len(values["resource_types"]) == 5
 
@@ -374,11 +380,12 @@ class TestOverwriteConfirmation:
         """Test no confirmation prompt when files don't exist."""
         with patch("data_platform_naming.cli.Path") as mock_path_cls:
             def path_side_effect(arg):
-                if "__file__" in str(arg):
-                    return Path(example_configs.parent.parent) / "cli.py"
+                if str(arg).endswith("cli.py"):
+                    return example_configs.parent.parent / "src" / "data_platform_naming" / "cli.py"
                 return Path(arg)
-            
+
             mock_path_cls.side_effect = path_side_effect
+            mock_path_cls.cwd.return_value = temp_project
 
             result = runner.invoke(cli, [
                 "config", "init",
@@ -398,11 +405,12 @@ class TestOverwriteConfirmation:
         """Test Y confirmation overwrites files."""
         with patch("data_platform_naming.cli.Path") as mock_path_cls:
             def path_side_effect(arg):
-                if "__file__" in str(arg):
-                    return Path(example_configs.parent.parent) / "cli.py"
+                if str(arg).endswith("cli.py"):
+                    return example_configs.parent.parent / "src" / "data_platform_naming" / "cli.py"
                 return Path(arg)
-            
+
             mock_path_cls.side_effect = path_side_effect
+            mock_path_cls.cwd.return_value = temp_project
 
             # Create existing files first
             dpn_dir = temp_project / ".dpn"
@@ -427,18 +435,19 @@ class TestOverwriteConfirmation:
         # Check file was overwritten
         with open(dpn_dir / "naming-values.yaml") as f:
             values = yaml.safe_load(f)
-        
+
         assert values["defaults"]["project"] == "newproj"
 
     def test_confirmation_no_cancels(self, runner, temp_project, example_configs):
         """Test N confirmation cancels operation."""
         with patch("data_platform_naming.cli.Path") as mock_path_cls:
             def path_side_effect(arg):
-                if "__file__" in str(arg):
-                    return Path(example_configs.parent.parent) / "cli.py"
+                if str(arg).endswith("cli.py"):
+                    return example_configs.parent.parent / "src" / "data_platform_naming" / "cli.py"
                 return Path(arg)
-            
+
             mock_path_cls.side_effect = path_side_effect
+            mock_path_cls.cwd.return_value = temp_project
 
             # Create existing files
             dpn_dir = temp_project / ".dpn"
@@ -457,8 +466,8 @@ class TestOverwriteConfirmation:
 
             result = runner.invoke(cli, ["config", "init"], input="\n".join(inputs))
 
-        assert result.exit_code == 0
-        assert "No changes were made" in result.output
+        assert result.exit_code == 1
+        assert "Initialization cancelled" in result.output
 
         # Check file was NOT overwritten
         content = (dpn_dir / "naming-values.yaml").read_text()
@@ -468,11 +477,12 @@ class TestOverwriteConfirmation:
         """Test --force flag skips confirmation prompt."""
         with patch("data_platform_naming.cli.Path") as mock_path_cls:
             def path_side_effect(arg):
-                if "__file__" in str(arg):
-                    return Path(example_configs.parent.parent) / "cli.py"
+                if str(arg).endswith("cli.py"):
+                    return example_configs.parent.parent / "src" / "data_platform_naming" / "cli.py"
                 return Path(arg)
-            
+
             mock_path_cls.side_effect = path_side_effect
+            mock_path_cls.cwd.return_value = temp_project
 
             # Create existing files
             dpn_dir = temp_project / ".dpn"
@@ -496,7 +506,7 @@ class TestOverwriteConfirmation:
         # Check file was overwritten
         with open(dpn_dir / "naming-values.yaml") as f:
             values = yaml.safe_load(f)
-        
+
         assert values["defaults"]["project"] == "forced"
 
 
@@ -507,11 +517,12 @@ class TestValidStructure:
         """Test generated YAML has correct structure."""
         with patch("data_platform_naming.cli.Path") as mock_path_cls:
             def path_side_effect(arg):
-                if "__file__" in str(arg):
-                    return Path(example_configs.parent.parent) / "cli.py"
+                if str(arg).endswith("cli.py"):
+                    return example_configs.parent.parent / "src" / "data_platform_naming" / "cli.py"
                 return Path(arg)
-            
+
             mock_path_cls.side_effect = path_side_effect
+            mock_path_cls.cwd.return_value = temp_project
 
             result = runner.invoke(cli, [
                 "config", "init",
@@ -529,7 +540,7 @@ class TestValidStructure:
         # Load and validate structure
         with open(temp_project / ".dpn" / "naming-values.yaml") as f:
             values = yaml.safe_load(f)
-        
+
         # Check top-level structure
         assert "version" in values
         assert "defaults" in values
@@ -544,18 +555,19 @@ class TestValidStructure:
         assert "team" in values["defaults"]
 
         # Check resource_types are dicts
-        for rt, config in values["resource_types"].items():
+        for _rt, config in values["resource_types"].items():
             assert isinstance(config, dict)
 
     def test_resource_types_populated_correctly(self, runner, temp_project, example_configs):
         """Test resource_types section is correctly populated."""
         with patch("data_platform_naming.cli.Path") as mock_path_cls:
             def path_side_effect(arg):
-                if "__file__" in str(arg):
-                    return Path(example_configs.parent.parent) / "cli.py"
+                if str(arg).endswith("cli.py"):
+                    return example_configs.parent.parent / "src" / "data_platform_naming" / "cli.py"
                 return Path(arg)
-            
+
             mock_path_cls.side_effect = path_side_effect
+            mock_path_cls.cwd.return_value = temp_project
 
             result = runner.invoke(cli, [
                 "config", "init",
@@ -564,7 +576,7 @@ class TestValidStructure:
                 "--region", "us-east-1",
                 "--team", "test",
                 "--cost-center", "test",
-                "--resource-types", "1,2",
+                "--resource-types", "1,3",
                 "--force"
             ])
 
@@ -572,12 +584,13 @@ class TestValidStructure:
 
         with open(temp_project / ".dpn" / "naming-values.yaml") as f:
             values = yaml.safe_load(f)
-        
+
         # Check selected types are present as empty dicts
         assert "aws_s3_bucket" in values["resource_types"]
         assert "aws_glue_database" in values["resource_types"]
         assert values["resource_types"]["aws_s3_bucket"] == {}
         assert values["resource_types"]["aws_glue_database"] == {}
+        assert values["resource_types"]["aws_s3_bucket"] == {}
 
     def test_patterns_file_copied(self, runner, temp_project, example_configs):
         """Test patterns file is copied correctly."""
@@ -586,8 +599,9 @@ class TestValidStructure:
                 if "__file__" in str(arg):
                     return Path(example_configs.parent.parent) / "cli.py"
                 return Path(arg)
-            
+
             mock_path_cls.side_effect = path_side_effect
+            mock_path_cls.cwd.return_value = temp_project
 
             result = runner.invoke(cli, [
                 "config", "init",
@@ -608,7 +622,7 @@ class TestValidStructure:
 
         with open(patterns_path) as f:
             patterns = yaml.safe_load(f)
-        
+
         assert "patterns" in patterns
         assert "transformations" in patterns
         assert "validation" in patterns

@@ -51,11 +51,11 @@ class ScopeConfig:
 class ScopeFilter:
     """
     Filter resources by type using wildcard patterns.
-    
+
     Supports two modes:
     - INCLUDE: Only process resources matching the patterns
     - EXCLUDE: Process all resources except those matching the patterns
-    
+
     Wildcard patterns:
     - `*` matches any characters
     - `?` matches any single character
@@ -63,13 +63,13 @@ class ScopeFilter:
     - Prefix matches: `aws_*`
     - Suffix matches: `*_bucket`
     - Contains: `*s3*`
-    
+
     Example:
         >>> # Include only AWS resources
         >>> filter = ScopeFilter(mode=FilterMode.INCLUDE, patterns=["aws_*"])
         >>> filter.should_process("aws_s3_bucket")  # True
         >>> filter.should_process("dbx_cluster")    # False
-        
+
         >>> # Exclude Databricks resources
         >>> filter = ScopeFilter(mode=FilterMode.EXCLUDE, patterns=["dbx_*"])
         >>> filter.should_process("aws_s3_bucket")  # True
@@ -101,14 +101,14 @@ class ScopeFilter:
     def _wildcard_to_regex(pattern: str) -> re.Pattern[str]:
         """
         Convert wildcard pattern to compiled regex.
-        
+
         Wildcards:
         - `*` matches zero or more characters
         - `?` matches exactly one character
-        
+
         Args:
             pattern: Wildcard pattern string
-            
+
         Returns:
             Compiled regex pattern
         """
@@ -132,10 +132,10 @@ class ScopeFilter:
     def matches_any_pattern(self, resource_type: str) -> bool:
         """
         Check if resource type matches any of the patterns.
-        
+
         Args:
             resource_type: Resource type to check
-            
+
         Returns:
             True if matches any pattern, False otherwise
         """
@@ -147,10 +147,10 @@ class ScopeFilter:
     def should_process(self, resource_type: str) -> bool:
         """
         Determine if resource should be processed based on filter.
-        
+
         Args:
             resource_type: Resource type to check
-            
+
         Returns:
             True if resource should be processed, False otherwise
         """
@@ -202,20 +202,20 @@ class ScopeFilter:
         ]
 
     @classmethod
-    def from_config(cls, config: ScopeConfig) -> "ScopeFilter":
+    def from_config(cls, config: ScopeConfig) -> ScopeFilter:
         """
         Create ScopeFilter from ScopeConfig.
-        
+
         Args:
             config: Scope configuration
-            
+
         Returns:
             ScopeFilter instance
         """
         return cls(mode=config.mode, patterns=config.patterns)
 
     @classmethod
-    def include(cls, patterns: list[str]) -> "ScopeFilter":
+    def include(cls, patterns: list[str]) -> ScopeFilter:
         """
         Create an INCLUDE mode filter.
 
@@ -228,7 +228,7 @@ class ScopeFilter:
         return cls(mode=FilterMode.INCLUDE, patterns=patterns)
 
     @classmethod
-    def exclude(cls, patterns: list[str]) -> "ScopeFilter":
+    def exclude(cls, patterns: list[str]) -> ScopeFilter:
         """
         Create an EXCLUDE mode filter.
 
@@ -241,20 +241,20 @@ class ScopeFilter:
         return cls(mode=FilterMode.EXCLUDE, patterns=patterns)
 
     @classmethod
-    def allow_all(cls) -> "ScopeFilter":
+    def allow_all(cls) -> ScopeFilter:
         """
         Create a filter that allows all resources.
-        
+
         Returns:
             ScopeFilter that matches everything
         """
         return cls(mode=FilterMode.INCLUDE, patterns=["*"])
 
     @classmethod
-    def deny_all(cls) -> "ScopeFilter":
+    def deny_all(cls) -> ScopeFilter:
         """
         Create a filter that denies all resources.
-        
+
         Returns:
             ScopeFilter that matches nothing
         """

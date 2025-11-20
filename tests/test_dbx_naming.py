@@ -16,7 +16,7 @@ from data_platform_naming.dbx_naming import (
     DatabricksNamingGenerator,
     DatabricksResourceType,
 )
-from data_platform_naming.exceptions import ValidationError, ConfigurationError
+from data_platform_naming.exceptions import ValidationError
 
 # ============================================================================
 # Test Fixtures
@@ -242,7 +242,7 @@ class TestDatabricksNamingGeneratorInit:
     def test_init_pattern_validation_success(self, dbx_config, config_manager):
         """Test that pattern validation succeeds with all required patterns"""
         # Should not raise an error
-        generator = DatabricksNamingGenerator(
+        DatabricksNamingGenerator(
             config=dbx_config,
             configuration_manager=config_manager
         )
@@ -921,7 +921,7 @@ class TestDatabricksNamingGeneratorUtilities:
         assert tags["Environment"] == "prd"
         assert tags["Project"] == "testproject"
         assert tags["ManagedBy"] == "terraform"
-        assert tags["ResourceType"] == "cluster"
+        assert tags["ResourceType"] == "dbx_cluster"
         assert tags["Team"] == "data-engineering"
         assert tags["CostCenter"] == "eng-001"
 

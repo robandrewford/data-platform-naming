@@ -3,6 +3,7 @@ Tests for CLI input validation in data_platform_naming.cli
 """
 
 import json
+
 import pytest
 from click.testing import CliRunner
 

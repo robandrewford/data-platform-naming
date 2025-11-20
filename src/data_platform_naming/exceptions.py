@@ -8,6 +8,8 @@ with enhanced context and debugging information.
 
 from __future__ import annotations
 
+from typing import Any
+
 
 class DataPlatformNamingError(Exception):
     """Base exception for all naming errors."""
@@ -51,7 +53,7 @@ class ValidationError(DataPlatformNamingError):
         field: str | None = None,
         value: str | None = None,
         suggestion: str | None = None,
-        **kwargs
+        **kwargs: Any
     ):
         super().__init__(message, **kwargs)
         self.field = field
@@ -82,7 +84,7 @@ class ConfigurationError(DataPlatformNamingError):
         message: str,
         config_file: str | None = None,
         config_key: str | None = None,
-        **kwargs
+        **kwargs: Any
     ):
         super().__init__(message, **kwargs)
         self.config_file = config_file
@@ -109,7 +111,7 @@ class PatternError(DataPlatformNamingError):
         message: str,
         pattern: str | None = None,
         missing_variables: list[str] | None = None,
-        **kwargs
+        **kwargs: Any
     ):
         super().__init__(message, **kwargs)
         self.pattern = pattern
@@ -138,7 +140,7 @@ class TransactionError(DataPlatformNamingError):
         transaction_id: str | None = None,
         failed_operation: str | None = None,
         completed_operations: list[str] | None = None,
-        **kwargs
+        **kwargs: Any
     ):
         super().__init__(message, **kwargs)
         self.transaction_id = transaction_id
@@ -170,7 +172,7 @@ class AWSOperationError(DataPlatformNamingError):
         message: str,
         aws_service: str | None = None,
         aws_error_code: str | None = None,
-        **kwargs
+        **kwargs: Any
     ):
         super().__init__(message, **kwargs)
         self.aws_service = aws_service
@@ -197,7 +199,7 @@ class DatabricksOperationError(DataPlatformNamingError):
         message: str,
         dbx_api_endpoint: str | None = None,
         http_status_code: int | None = None,
-        **kwargs
+        **kwargs: Any
     ):
         super().__init__(message, **kwargs)
         self.dbx_api_endpoint = dbx_api_endpoint
@@ -224,7 +226,7 @@ class ConsistencyError(DataPlatformNamingError):
         message: str,
         expected_state: str | None = None,
         actual_state: str | None = None,
-        **kwargs
+        **kwargs: Any
     ):
         super().__init__(message, **kwargs)
         self.expected_state = expected_state
@@ -249,7 +251,7 @@ def validation_error(
     field: str | None = None,
     value: str | None = None,
     suggestion: str | None = None,
-    **context
+    **context: str
 ) -> ValidationError:
     """Create a validation error with context."""
     return ValidationError(
@@ -265,7 +267,7 @@ def configuration_error(
     message: str,
     config_file: str | None = None,
     config_key: str | None = None,
-    **context
+    **context: str
 ) -> ConfigurationError:
     """Create a configuration error with context."""
     return ConfigurationError(
@@ -280,7 +282,7 @@ def pattern_error(
     message: str,
     pattern: str | None = None,
     missing_variables: list[str] | None = None,
-    **context
+    **context: str
 ) -> PatternError:
     """Create a pattern error with context."""
     return PatternError(
@@ -296,7 +298,7 @@ def transaction_error(
     transaction_id: str | None = None,
     failed_operation: str | None = None,
     completed_operations: list[str] | None = None,
-    **context
+    **context: str
 ) -> TransactionError:
     """Create a transaction error with context."""
     return TransactionError(
@@ -312,7 +314,7 @@ def aws_operation_error(
     message: str,
     aws_service: str | None = None,
     aws_error_code: str | None = None,
-    **context
+    **context: str
 ) -> AWSOperationError:
     """Create an AWS operation error with context."""
     return AWSOperationError(
@@ -327,7 +329,7 @@ def databricks_operation_error(
     message: str,
     dbx_api_endpoint: str | None = None,
     http_status_code: int | None = None,
-    **context
+    **context: str
 ) -> DatabricksOperationError:
     """Create a Databricks operation error with context."""
     return DatabricksOperationError(
@@ -342,7 +344,7 @@ def consistency_error(
     message: str,
     expected_state: str | None = None,
     actual_state: str | None = None,
-    **context
+    **context: str
 ) -> ConsistencyError:
     """Create a consistency error with context."""
     return ConsistencyError(

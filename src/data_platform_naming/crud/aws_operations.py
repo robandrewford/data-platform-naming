@@ -115,7 +115,7 @@ class AWSS3Executor:
                 aws_error_code=e.response['Error']['Code'],
                 resource_type="s3_bucket",
                 operation="create"
-            )
+            ) from e
 
     def read(self, operation: "Operation") -> OperationResultDict:
         """Read S3 bucket configuration"""
@@ -155,7 +155,7 @@ class AWSS3Executor:
                 aws_error_code=e.response['Error']['Code'],
                 resource_type="s3_bucket",
                 operation="read"
-            )
+            ) from e
 
     def update(self, operation: "Operation") -> OperationResultDict:
         """Update S3 bucket configuration"""
@@ -193,7 +193,7 @@ class AWSS3Executor:
                 aws_error_code=e.response['Error']['Code'],
                 resource_type="s3_bucket",
                 operation="update"
-            )
+            ) from e
 
     def delete(self, operation: "Operation") -> OperationResultDict:
         """Delete S3 bucket"""
@@ -231,7 +231,7 @@ class AWSS3Executor:
                 aws_error_code=e.response['Error']['Code'],
                 resource_type="s3_bucket",
                 operation="delete"
-            )
+            ) from e
 
     def rollback(self, operation: "Operation") -> None:
         """Rollback S3 operation"""
@@ -327,7 +327,7 @@ class AWSGlueExecutor:
                 aws_error_code=e.response['Error']['Code'],
                 resource_type="glue_database",
                 operation="create"
-            )
+            ) from e
 
     def create_table(self, operation: "Operation") -> OperationResultDict:
         """Create Glue table"""
@@ -373,7 +373,7 @@ class AWSGlueExecutor:
                 aws_error_code=e.response['Error']['Code'],
                 resource_type="glue_table",
                 operation="create"
-            )
+            ) from e
 
     def read_database(self, operation: "Operation") -> OperationResultDict:
         """Read Glue database"""
@@ -390,7 +390,7 @@ class AWSGlueExecutor:
                 aws_error_code=e.response['Error']['Code'],
                 resource_type="glue_database",
                 operation="read"
-            )
+            ) from e
 
     def read_table(self, operation: "Operation") -> OperationResultDict:
         """Read Glue table"""
@@ -410,7 +410,7 @@ class AWSGlueExecutor:
                 aws_error_code=e.response['Error']['Code'],
                 resource_type="glue_table",
                 operation="read"
-            )
+            ) from e
 
     def delete_database(self, operation: "Operation") -> OperationResultDict:
         """Delete Glue database"""
@@ -431,7 +431,7 @@ class AWSGlueExecutor:
                 aws_error_code=e.response['Error']['Code'],
                 resource_type="glue_database",
                 operation="delete"
-            )
+            ) from e
 
     def delete_table(self, operation: "Operation") -> OperationResultDict:
         """Delete Glue table"""
@@ -455,7 +455,7 @@ class AWSGlueExecutor:
                 aws_error_code=e.response['Error']['Code'],
                 resource_type="glue_table",
                 operation="delete"
-            )
+            ) from e
 
     def rollback_database(self, operation: "Operation") -> None:
         """Rollback database operation"""
@@ -503,7 +503,7 @@ class AWSExecutorRegistry:
         self.glue = AWSGlueExecutor(self.session)
 
         # Executor map
-        self.executors: dict[str, dict[str, Callable[["Operation"], OperationResultDict | None]]] = {
+        self.executors: dict[str, dict[str, Callable[[Operation], OperationResultDict | None]]] = {
             'aws_s3_bucket': {
                 'create': self.s3.create,
                 'read': self.s3.read,

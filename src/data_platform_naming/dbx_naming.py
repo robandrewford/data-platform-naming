@@ -10,13 +10,18 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 # Import ConfigurationManager for config-based name generation
 from .config.configuration_manager import ConfigurationManager
-from .constants import Environment, DatabricksResourceType, TableType, ClusterType, DatabricksDataLayer
-from .exceptions import ValidationError, ConfigurationError, PatternError
+from .constants import (
+    ClusterType,
+    DatabricksDataLayer,
+    DatabricksResourceType,
+    Environment,
+    TableType,
+)
+from .exceptions import ConfigurationError, PatternError, ValidationError
 from .types import MetadataDict, ValueOverridesDict
 
 
@@ -80,7 +85,7 @@ class DatabricksNamingGenerator:
                 message="ConfigurationManager is required. Legacy mode without ConfigurationManager is no longer supported.",
                 config_key="configuration_manager"
             )
-        
+
         self.config = config
         self.configuration_manager = configuration_manager
 
@@ -108,7 +113,7 @@ class DatabricksNamingGenerator:
     def _generate_with_config(self,
                              resource_type: str,
                              method_params: dict[str, Any],
-                             metadata: MetadataDict | None = None) -> str:
+                             metadata: dict[str, Any] | None = None) -> str:
         """
         Generate resource name using ConfigurationManager.
 
@@ -148,7 +153,7 @@ class DatabricksNamingGenerator:
         result = self.configuration_manager.generate_name(
             resource_type=resource_type,
             environment=self.config.environment,
-            blueprint_metadata=metadata,
+            blueprint_metadata=metadata,  # type: ignore
             value_overrides=values
         )
 
@@ -222,7 +227,7 @@ class DatabricksNamingGenerator:
         return self._generate_with_config(
             resource_type=DatabricksResourceType.WORKSPACE.value,
             method_params=params,
-            metadata=metadata
+            metadata=metadata  # type: ignore
         )
 
     def generate_cluster_name(self,
@@ -232,19 +237,19 @@ class DatabricksNamingGenerator:
                             metadata: dict[str, Any] | None = None) -> str:
         """
         Generate Databricks cluster name.
-        
+
         Args:
             workload: Workload identifier (etl, ml, analytics, etc.)
             cluster_type: shared, dedicated, or job
             version: Optional version suffix
             metadata: Optional blueprint metadata for value precedence
-        
+
         Returns:
             Generated cluster name
-        
+
         Raises:
             ValueError: If name generation fails
-        
+
         Example:
             >>> gen = DatabricksNamingGenerator(config, config_mgr)
             >>> name = gen.generate_cluster_name('etl', 'shared')
@@ -271,20 +276,20 @@ class DatabricksNamingGenerator:
                          metadata: dict[str, Any] | None = None) -> str:
         """
         Generate Databricks job name.
-        
+
         Args:
             job_type: batch, streaming, ml, etc.
             purpose: Business purpose or data domain
             schedule: Optional schedule indicator (daily, hourly, etc.)
             metadata: Optional blueprint metadata for value precedence
-        
+
         Returns:
             Generated job name
-        
+
         Raises:
             ValueError: If name generation fails
             NotImplementedError: If use_config=False
-        
+
         Example:
             >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
             >>> name = gen.generate_job_name('batch', 'customer-load', 'daily')
@@ -311,20 +316,20 @@ class DatabricksNamingGenerator:
                               metadata: dict[str, Any] | None = None) -> str:
         """
         Generate Databricks notebook path.
-        
+
         Args:
             domain: Data domain (finance, marketing, etc.)
             purpose: etl, analysis, ml, etc.
             notebook_name: Descriptive notebook name
             metadata: Optional blueprint metadata for value precedence
-        
+
         Returns:
             Generated notebook path (starts with /)
-        
+
         Raises:
             ValueError: If name generation fails
             NotImplementedError: If use_config=False
-        
+
         Example:
             >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
             >>> path = gen.generate_notebook_path('finance', 'etl', 'customer-load')
@@ -347,18 +352,18 @@ class DatabricksNamingGenerator:
                           metadata: dict[str, Any] | None = None) -> str:
         """
         Generate Git repo integration name.
-        
+
         Args:
             repo_purpose: Repository purpose (code, notebooks, pipelines, etc.)
             metadata: Optional blueprint metadata for value precedence
-        
+
         Returns:
             Generated repo name
-        
+
         Raises:
             ValueError: If name generation fails
             NotImplementedError: If use_config=False
-        
+
         Example:
             >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
             >>> name = gen.generate_repo_name('etl')
@@ -379,20 +384,20 @@ class DatabricksNamingGenerator:
                               metadata: dict[str, Any] | None = None) -> str:
         """
         Generate Delta Live Tables pipeline name.
-        
+
         Args:
             source: Source system or data domain
             target: Target table/dataset
             pipeline_type: dlt (Delta Live Tables) or other
             metadata: Optional blueprint metadata for value precedence
-        
+
         Returns:
             Generated pipeline name
-        
+
         Raises:
             ValueError: If name generation fails
             NotImplementedError: If use_config=False
-        
+
         Example:
             >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
             >>> name = gen.generate_pipeline_name('kafka', 'events', 'dlt')
@@ -416,19 +421,19 @@ class DatabricksNamingGenerator:
                                    metadata: dict[str, Any] | None = None) -> str:
         """
         Generate SQL warehouse name.
-        
+
         Args:
             size: small, medium, large, xlarge
             purpose: analytics, reporting, adhoc
             metadata: Optional blueprint metadata for value precedence
-        
+
         Returns:
             Generated SQL warehouse name
-        
+
         Raises:
             ValueError: If name generation fails
             NotImplementedError: If use_config=False
-        
+
         Example:
             >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
             >>> name = gen.generate_sql_warehouse_name('medium', 'analytics')
@@ -450,18 +455,18 @@ class DatabricksNamingGenerator:
                              metadata: dict[str, Any] | None = None) -> str:
         """
         Generate Unity Catalog catalog name.
-        
+
         Args:
             catalog_type: main, dev, test, sandbox
             metadata: Optional blueprint metadata for value precedence
-        
+
         Returns:
             Generated catalog name (uses underscores)
-        
+
         Raises:
             ValueError: If name generation fails
             NotImplementedError: If use_config=False
-        
+
         Example:
             >>> gen = DatabricksNamingGenerator(config, config_mgr, use_config=True)
             >>> name = gen.generate_catalog_name('main')
@@ -862,7 +867,7 @@ class DatabricksNamingCLI:
 # Example usage
 if __name__ == "__main__":
     from pathlib import Path
-    
+
     # Initialize CLI
     cli = DatabricksNamingCLI()
 

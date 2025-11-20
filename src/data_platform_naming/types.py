@@ -14,7 +14,7 @@ from typing import Any, TypedDict
 class MetadataDict(TypedDict, total=False):
     """
     Blueprint metadata structure.
-    
+
     All fields are optional to support partial metadata in blueprints.
     """
     environment: str
@@ -28,7 +28,7 @@ class MetadataDict(TypedDict, total=False):
 class TagsDict(TypedDict, total=False):
     """
     Standard resource tags structure.
-    
+
     Required fields: Environment, Project, ManagedBy, ResourceType
     Optional fields: Team, CostCenter, DataClassification
     """
@@ -91,7 +91,7 @@ class SchemaDict(TypedDict, total=False):
 class ValueOverridesDict(TypedDict, total=False):
     """
     Value overrides for resource name generation.
-    
+
     Used to override default or environment-specific values
     for a specific resource instance.
     """
@@ -114,7 +114,7 @@ class ValueOverridesDict(TypedDict, total=False):
 class TransformationRulesDict(TypedDict, total=False):
     """
     Transformation rules configuration structure.
-    
+
     Defines how values should be transformed during name generation.
     """
     region_mapping: dict[str, str]
@@ -127,7 +127,7 @@ class TransformationRulesDict(TypedDict, total=False):
 class ValidationWarningsDict(TypedDict, total=False):
     """
     Validation warnings and errors structure.
-    
+
     Used for configuration validation results.
     """
     resource_type: str
@@ -140,7 +140,7 @@ class ValidationWarningsDict(TypedDict, total=False):
 class ResourceDefinitionDict(TypedDict, total=False):
     """
     Blueprint resource definition structure.
-    
+
     Defines a resource to be created from a blueprint.
     """
     id: str
@@ -154,7 +154,7 @@ class ResourceDefinitionDict(TypedDict, total=False):
 class BlueprintDict(TypedDict, total=False):
     """
     Complete blueprint structure.
-    
+
     Top-level blueprint containing multiple resources.
     """
     version: str
@@ -257,7 +257,7 @@ class DatabricksConstraintsDict(TypedDict, total=False):
 class OperationResultDict(TypedDict, total=False):
     """
     Result from executing a CRUD operation.
-    
+
     Contains rollback data and resource-specific response information.
     """
     rollback_data: dict[str, Any]
@@ -273,7 +273,7 @@ class OperationResultDict(TypedDict, total=False):
 class RollbackDataDict(TypedDict, total=False):
     """
     Rollback data for CRUD operations.
-    
+
     Stores information needed to reverse an operation.
     """
     # AWS resources
@@ -281,7 +281,7 @@ class RollbackDataDict(TypedDict, total=False):
     region: str
     database_name: str
     table_name: str
-    
+
     # Databricks resources
     cluster_id: str
     cluster_name: str
@@ -294,7 +294,7 @@ class RollbackDataDict(TypedDict, total=False):
 class StateDict(TypedDict):
     """
     State store dictionary for tracking resource state.
-    
+
     Stores metadata about created resources.
     """
     resource_type: str

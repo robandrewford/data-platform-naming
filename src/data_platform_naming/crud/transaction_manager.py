@@ -18,12 +18,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 from data_platform_naming.constants import AWSResourceType, DatabricksResourceType
-from data_platform_naming.types import OperationResultDict, RollbackDataDict
 from data_platform_naming.exceptions import (
     ConsistencyError,
     TransactionError,
     ValidationError,
 )
+from data_platform_naming.types import OperationResultDict, RollbackDataDict
 
 if TYPE_CHECKING:
     from rich.console import Console
@@ -327,9 +327,9 @@ class StateStore:
 class ProgressTracker:
     """Real-time progress tracking with Rich"""
 
-    def __init__(self, console: "Console | None" = None):
+    def __init__(self, console: Console | None = None):
         self.console = console or Console()
-        self.progress: "ProgressType" = Progress(
+        self.progress: ProgressType = Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
@@ -337,7 +337,7 @@ class ProgressTracker:
             TimeElapsedColumn(),
             console=self.console
         )
-        self.task_id: "TaskID | None" = None
+        self.task_id: TaskID | None = None
         self.start_time: float | None = None
 
     def start(self, total: int, description: str = "Processing") -> None:
@@ -455,7 +455,7 @@ class TransactionManager:
                         completed_operations=[op.resource_id for op in completed_operations],
                         resource_type=operation.resource_type.value,
                         operation=operation.type.value
-                    )
+                    ) from e
 
             # Validate post-conditions (Consistency)
             self._validate_postconditions(transaction)

@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 
-from data_platform_naming.constants import Environment
 from data_platform_naming.config.configuration_manager import (
     ConfigurationManager,
     GeneratedName,
@@ -19,6 +18,7 @@ from data_platform_naming.config.naming_patterns_loader import (
 from data_platform_naming.config.naming_values_loader import (
     ConfigurationError,
 )
+from data_platform_naming.constants import Environment
 
 
 class TestGeneratedName:
@@ -566,7 +566,7 @@ class TestConfigurationManager:
 
         assert not result.is_valid
         assert len(result.validation_errors) > 0
-        assert "exceeds maximum length" in result.validation_errors[0]
+        assert "maximum 63" in result.validation_errors[0]
 
 
 if __name__ == "__main__":

@@ -347,8 +347,9 @@ class TestEndToEndBackwardCompatibility:
 
         # ConfigurationManager is now required - cannot create generator without it
         # This test validates that legacy mode (use_config=False) is no longer supported
-        with pytest.raises((TypeError, ValueError)):
-            aws_gen = AWSNamingGenerator(
+        from data_platform_naming.exceptions import ValidationError
+        with pytest.raises(ValidationError):
+            AWSNamingGenerator(
                 config=aws_config,
                 configuration_manager=None
             )
@@ -363,8 +364,9 @@ class TestEndToEndBackwardCompatibility:
 
         # ConfigurationManager is now required - cannot create generator without it
         # This test validates that legacy mode (use_config=False) is no longer supported
-        with pytest.raises((TypeError, ValueError)):
-            dbx_gen = DatabricksNamingGenerator(
+        from data_platform_naming.exceptions import ConfigurationError
+        with pytest.raises(ConfigurationError):
+            DatabricksNamingGenerator(
                 config=dbx_config,
                 configuration_manager=None
             )

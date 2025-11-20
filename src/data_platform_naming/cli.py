@@ -22,14 +22,6 @@ from rich.table import Table
 from data_platform_naming.aws_naming import AWSNamingConfig, AWSNamingGenerator
 from data_platform_naming.config.configuration_manager import ConfigurationManager
 from data_platform_naming.config.naming_patterns_loader import PatternError
-from data_platform_naming.exceptions import (
-    ConfigurationError,
-    ValidationError,
-    TransactionError,
-    AWSOperationError,
-    DatabricksOperationError,
-    ConsistencyError,
-)
 from data_platform_naming.constants import AWSResourceType, DatabricksResourceType, Environment
 from data_platform_naming.crud.aws_operations import AWSExecutorRegistry
 from data_platform_naming.crud.dbx_operations import DatabricksConfig, DatabricksExecutorRegistry
@@ -69,20 +61,20 @@ def load_configuration_manager(
 ) -> ConfigurationManager | None:
     """
     Load ConfigurationManager from files or defaults.
-    
+
     Priority:
     1. Explicit paths (--values-config, --patterns-config)
     2. Default location (~/.dpn/)
     3. Return None if no configs found (backward compatibility)
-    
+
     Args:
         values_config: Explicit path to naming-values.yaml
         patterns_config: Explicit path to naming-patterns.yaml
         overrides: Tuple of key=value overrides
-        
+
     Returns:
         ConfigurationManager or None if no configs found
-        
+
     Raises:
         click.ClickException: If only one config file provided, or validation fails
     """
@@ -104,7 +96,7 @@ def load_configuration_manager(
             )
             console.print(f"[dim]Loaded config from: {values_config}, {patterns_config}[/dim]")
         except Exception as e:
-            raise click.ClickException(f"Failed to load config files: {str(e)}")
+            raise click.ClickException(f"Failed to load config files: {str(e)}") from e
 
     # Try default location
     else:
@@ -121,7 +113,7 @@ def load_configuration_manager(
                 raise click.ClickException(
                     f"Config files found in .dpn/ but failed to load: {str(e)}\n"
                     "Run 'dpn config validate' to check configuration."
-                )
+                ) from e
 
     # Apply overrides if provided
     if overrides and manager:
@@ -132,25 +124,25 @@ def load_configuration_manager(
                     f"Invalid override format: '{override}'\n"
                     "Use format: key=value (e.g., environment=dev)"
                 )
-            
+
             key, value = override.split('=', 1)
             key = key.strip()
             value = value.strip()
-            
+
             # Validate key against whitelist
             if key not in ALLOWED_OVERRIDE_KEYS:
                 raise click.ClickException(
                     f"Invalid override key: '{key}'\n"
                     f"Allowed keys: {', '.join(sorted(ALLOWED_OVERRIDE_KEYS))}"
                 )
-            
+
             # Validate environment value
             if key == 'environment' and value not in ENVIRONMENT_VALUES:
                 raise click.ClickException(
                     f"Invalid environment: '{value}'\n"
                     f"Allowed values: {', '.join(sorted(ENVIRONMENT_VALUES))}"
                 )
-            
+
             # Validate project name format
             if key == 'project':
                 if not re.match(r'^[a-z0-9-]+$', value):
@@ -158,11 +150,11 @@ def load_configuration_manager(
                         f"Invalid project name: '{value}'\n"
                         "Use lowercase letters, numbers, and hyphens only"
                     )
-            
+
             override_dict[key] = value
 
         # Store overrides for use in name generation (dynamic attribute)
-        setattr(manager, '_cli_overrides', override_dict)
+        manager._cli_overrides = override_dict
         if override_dict:
             console.print(f"[dim]Applied overrides: {', '.join(f'{k}={v}' for k, v in override_dict.items())}[/dim]")
 
@@ -173,21 +165,21 @@ def load_configuration_manager(
 @click.version_option(version='0.1.0')
 def cli() -> None:
     """Data Platform Naming Convention CLI
-    
+
     Generate, validate, and execute infrastructure blueprints
     for AWS and Databricks resources with consistent naming conventions.
-    
+
     Configuration:
       Initialize config:  dpn config init
       Validate config:    dpn config validate
       Show config:        dpn config show
-    
+
     Common Workflow:
       1. dpn config init              # Set up configuration
       2. dpn plan init --env dev      # Create blueprint template
       3. dpn plan preview dev.json    # Preview resource names
       4. dpn create --blueprint dev.json  # Create resources
-    
+
     For more information on each command, use: dpn <command> --help
     """
     pass
@@ -336,7 +328,7 @@ def plan_validate(blueprint: str) -> None:
 def plan_preview(blueprint: str, values_config: str | None, patterns_config: str | None,
                 override: tuple[str, ...], output: str | None, format: str) -> None:
     """Preview resource names
-    
+
     Examples:
       dpn plan preview dev.json
       dpn plan preview dev.json --values-config custom-values.yaml --patterns-config custom-patterns.yaml
@@ -468,7 +460,7 @@ def create(blueprint: str, dry_run: bool, aws_profile: str | None,
            values_config: str | None, patterns_config: str | None,
            override: tuple[str, ...]) -> None:
     """Create resources from blueprint
-    
+
     Examples:
       dpn create --blueprint dev.json
       dpn create --blueprint dev.json --values-config custom-values.yaml --patterns-config custom-patterns.yaml
@@ -734,30 +726,30 @@ def config() -> None:
 def _parse_resource_type_selection(selection: str, available_types: list[str]) -> list[str]:
     """
     Parse resource type selection string.
-    
+
     Supports:
     - "all" - selects all types
     - "1,3,5" - specific numbers
     - "1-5" - range
     - "1,3-5,10" - mixed
-    
+
     Args:
         selection: User input string
         available_types: List of available resource types
-        
+
     Returns:
         List of selected resource type names
     """
     selection = selection.strip().lower()
-    
+
     if selection == 'all':
         return available_types
-    
+
     selected_indices = set()
-    
+
     # Split by comma
     parts = [p.strip() for p in selection.split(',')]
-    
+
     for part in parts:
         if '-' in part:
             # Range
@@ -778,7 +770,7 @@ def _parse_resource_type_selection(selection: str, available_types: list[str]) -
                     selected_indices.add(idx - 1)  # Convert to 0-based
             except ValueError:
                 console.print(f"[yellow]Warning:[/yellow] Invalid number: {part}")
-    
+
     return [available_types[i] for i in sorted(selected_indices)]
 
 
@@ -797,27 +789,28 @@ def config_init(cost_center: str | None, environment: str | None,
                 project: str | None, region: str | None, team: str | None,
                 resource_types: str | None, force: bool) -> None:
     """Initialize configuration with interactive prompts (default) or flags
-    
+
     Interactive mode (prompts for all values):
       dpn config init
-    
+
     Non-interactive mode (provide all flags):
       dpn config init --project myapp --environment dev --region us-east-1 \\
         --team engineering --cost-center eng --resource-types "all" --force
-    
+
     Examples:
       # Interactive
       dpn config init
-      
+
       # Partial flags (prompts for missing)
       dpn config init --project oncology --environment prd
-      
+
       # Fully automated
       dpn config init --project analytics --environment dev --region us-west-2 \\
         --team data-platform --cost-center engineering --resource-types "1,3-5" --force
     """
 
     import shutil
+
     import yaml
 
     try:
@@ -845,37 +838,45 @@ def config_init(cost_center: str | None, environment: str | None,
 
         with open(example_patterns) as f:
             patterns_data = yaml.safe_load(f)
-        
+
         available_types = list(patterns_data.get('patterns', {}).keys())
-        
+
         if not available_types:
             console.print("[yellow]Warning:[/yellow] No resource types found in patterns file")
 
-        # Use silent defaults when values not provided via flags
-        # This allows tests and non-interactive usage to work without prompts
+        # Prompt for missing values
         if cost_center is None:
-            cost_center = 'engineering'
-        
+            cost_center = click.prompt("Cost Center", default="engineering")
+
         if environment is None:
-            environment = Environment.DEV.value
-        
+            environment = click.prompt(
+                "Environment",
+                default=Environment.DEV.value,
+                type=click.Choice([e.value for e in Environment])
+            )
+
         if project is None:
-            project = 'myproject'
-        
+            project = click.prompt("Project Name", default="myproject")
+
         if region is None:
-            region = 'us-east-1'
-        
+            region = click.prompt("AWS Region", default="us-east-1")
+
         if team is None:
-            team = 'data-platform'
-        
-        # Resource type selection - default to 'all' if not specified
-        # Use silent default in non-interactive mode (when flag not provided)
+            team = click.prompt("Team Name", default="data-platform")
+
         if resource_types is None:
-            resource_types = 'all'
-        
+            console.print("\nAvailable Resource Types:")
+            for i, rt in enumerate(available_types, 1):
+                console.print(f"  {i}. {rt}")
+            
+            resource_types = click.prompt(
+                "\nSelect resource types (e.g., '1,3,5', '1-5', or 'all')",
+                default="all"
+            )
+
         # Parse selection
         selected_types = _parse_resource_type_selection(resource_types, available_types)
-        
+
         if not selected_types:
             console.print("[yellow]Warning:[/yellow] No valid resource types selected")
         else:
@@ -885,14 +886,14 @@ def config_init(cost_center: str | None, environment: str | None,
 
         # Check for existing files and handle overwrite
         files_exist = values_path.exists() or patterns_path.exists()
-        
+
         if files_exist and not force:
             console.print("\n[yellow]⚠ Warning:[/yellow] Configuration files already exist in .dpn/")
             if values_path.exists():
                 console.print(f"  - {values_path.name}")
             if patterns_path.exists():
                 console.print(f"  - {patterns_path.name}")
-            
+
             if not click.confirm('\nThese changes will overwrite existing files. Continue?', default=False):
                 console.print("\n[red]✗[/red] Initialization cancelled.")
                 console.print("[yellow]Tip: Use --force to overwrite without prompting.[/yellow]")
@@ -946,13 +947,13 @@ def config_init(cost_center: str | None, environment: str | None,
               help='Path to naming-patterns.yaml (default: .dpn/naming-patterns.yaml)')
 def config_validate(values_config: str | None, patterns_config: str | None) -> None:
     """Validate configuration files against JSON schemas
-    
+
     Checks both naming-values.yaml and naming-patterns.yaml for:
     - Valid YAML syntax
     - Required fields present
     - Correct data types
     - Valid pattern variables
-    
+
     Examples:
       dpn config validate
       dpn config validate --values-config custom-values.yaml --patterns-config custom-patterns.yaml
@@ -1053,12 +1054,12 @@ def config_validate(values_config: str | None, patterns_config: str | None) -> N
 def config_show(values_config: str | None, patterns_config: str | None,
                 resource_type: str | None, format: str) -> None:
     """Display current configuration values
-    
+
     Shows the effective configuration after merging:
     - defaults
     - environment overrides
     - resource_type overrides
-    
+
     Examples:
       dpn config show
       dpn config show --resource-type aws_s3_bucket
@@ -1078,7 +1079,7 @@ def config_show(values_config: str | None, patterns_config: str | None,
             # JSON output
             output: dict[str, Any] = {
                 'defaults': config_manager.values_loader.get_defaults(),
-                'environments': {env: config_manager.values_loader.get_environment_values(env) 
+                'environments': {env: config_manager.values_loader.get_environment_values(env)
                                 for env in config_manager.values_loader.list_environments()},
                 'resource_types': {rt: config_manager.values_loader.get_resource_type_values(rt)
                                   for rt in config_manager.values_loader.list_resource_types()},
@@ -1173,7 +1174,7 @@ def recover() -> None:
 @cli.command('status')
 def status() -> None:
     """Show CLI status and configuration
-    
+
     Displays system health including:
     - Directory locations (config, WAL, state)
     - Configuration file status and validation
@@ -1222,7 +1223,7 @@ def status() -> None:
         import boto3
         boto3.Session().client('sts').get_caller_identity()
         table.add_row("AWS Auth", "✓ Authenticated")
-    except:
+    except Exception:
         table.add_row("AWS Auth", "✗ Not configured")
 
     # Check Databricks

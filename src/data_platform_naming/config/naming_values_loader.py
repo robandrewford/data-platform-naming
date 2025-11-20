@@ -18,9 +18,7 @@ import yaml
 from jsonschema import ValidationError as JsonSchemaValidationError
 
 from data_platform_naming.types import (
-    ConfigValuesDict,
     MetadataDict,
-    SchemaDict,
 )
 
 
@@ -70,13 +68,13 @@ class NamingValues:
 class NamingValuesLoader:
     """
     Load and manage naming value configurations with hierarchical precedence.
-    
+
     Precedence (lowest to highest):
     1. defaults - Global defaults applied to all resources
     2. environments.{env} - Environment-specific overrides
     3. resource_types.{type} - Resource-type-specific overrides
     4. blueprint metadata - Values from blueprint (handled externally)
-    
+
     Example:
         >>> loader = NamingValuesLoader()
         >>> loader.load_from_file("naming-values.yaml")
@@ -91,7 +89,7 @@ class NamingValuesLoader:
     def __init__(self, schema_path: Path | None = None):
         """
         Initialize the NamingValuesLoader.
-        
+
         Args:
             schema_path: Optional path to JSON schema file.
                         If not provided, uses bundled schema.
@@ -113,19 +111,19 @@ class NamingValuesLoader:
         except FileNotFoundError:
             raise ConfigurationError(
                 f"Schema file not found: {schema_path}"
-            )
+            ) from None
         except json.JSONDecodeError as e:
             raise ConfigurationError(
                 f"Invalid JSON in schema file: {e}"
-            )
+            ) from e
 
     def load_from_file(self, config_path: Path) -> None:
         """
         Load configuration from a YAML file.
-        
+
         Args:
             config_path: Path to YAML configuration file
-            
+
         Raises:
             FileLoadError: If file cannot be read
             SchemaValidationError: If configuration doesn't validate
@@ -143,11 +141,11 @@ class NamingValuesLoader:
         except yaml.YAMLError as e:
             raise FileLoadError(
                 f"Invalid YAML in configuration file: {e}"
-            )
+            ) from e
         except Exception as e:
             raise FileLoadError(
                 f"Failed to read configuration file: {e}"
-            )
+            ) from e
 
         self.config_path = config_path
         self._validate_config()
@@ -169,7 +167,7 @@ class NamingValuesLoader:
     def _validate_config(self) -> None:
         """
         Validate configuration against JSON schema.
-        
+
         Raises:
             SchemaValidationError: If validation fails
         """
@@ -183,7 +181,7 @@ class NamingValuesLoader:
             error_path = " -> ".join(str(p) for p in e.path) if e.path else "root"
             raise SchemaValidationError(
                 f"Configuration validation failed at {error_path}: {e.message}"
-            )
+            ) from e
 
     def get_values_for_resource(
         self,
@@ -313,7 +311,7 @@ class NamingValuesLoader:
     def get_version(self) -> str:
         """
         Get configuration version.
-        
+
         Returns:
             Version string (e.g., '1.0')
         """

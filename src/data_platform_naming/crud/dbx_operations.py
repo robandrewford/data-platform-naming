@@ -103,7 +103,7 @@ class DatabricksClusterExecutor:
                 http_status_code=status_code,
                 resource_type="cluster",
                 operation="create"
-            )
+            ) from e
 
     def read(self, operation: "Operation") -> OperationResultDict:
         """Read cluster configuration"""
@@ -131,7 +131,7 @@ class DatabricksClusterExecutor:
                 http_status_code=status_code,
                 resource_type="cluster",
                 operation="read"
-            )
+            ) from e
 
     def update(self, operation: "Operation") -> OperationResultDict:
         """Update cluster configuration"""
@@ -173,7 +173,7 @@ class DatabricksClusterExecutor:
                 http_status_code=status_code,
                 resource_type="cluster",
                 operation="update"
-            )
+            ) from e
 
     def delete(self, operation: "Operation") -> OperationResultDict:
         """Delete cluster"""
@@ -221,7 +221,7 @@ class DatabricksClusterExecutor:
                 http_status_code=status_code,
                 resource_type="cluster",
                 operation="delete"
-            )
+            ) from e
 
     def rollback(self, operation: "Operation") -> None:
         """Rollback cluster operation"""
@@ -347,7 +347,7 @@ class DatabricksJobExecutor:
                 http_status_code=status_code,
                 resource_type="job",
                 operation="create"
-            )
+            ) from e
 
     def read(self, operation: "Operation") -> OperationResultDict:
         """Read job configuration"""
@@ -374,7 +374,7 @@ class DatabricksJobExecutor:
                 http_status_code=status_code,
                 resource_type="job",
                 operation="read"
-            )
+            ) from e
 
     def update(self, operation: "Operation") -> OperationResultDict:
         """Update job configuration"""
@@ -417,7 +417,7 @@ class DatabricksJobExecutor:
                 http_status_code=status_code,
                 resource_type="job",
                 operation="update"
-            )
+            ) from e
 
     def delete(self, operation: "Operation") -> OperationResultDict:
         """Delete job"""
@@ -447,7 +447,7 @@ class DatabricksJobExecutor:
                 http_status_code=status_code,
                 resource_type="job",
                 operation="delete"
-            )
+            ) from e
 
     def rollback(self, operation: "Operation") -> None:
         """Rollback job operation"""
@@ -533,7 +533,7 @@ class DatabricksUnityCatalogExecutor:
                 http_status_code=status_code,
                 resource_type="catalog",
                 operation="create"
-            )
+            ) from e
 
     def create_schema(self, operation: "Operation") -> OperationResultDict:
         """Create schema"""
@@ -573,7 +573,7 @@ class DatabricksUnityCatalogExecutor:
                 http_status_code=status_code,
                 resource_type="schema",
                 operation="create"
-            )
+            ) from e
 
     def create_table(self, operation: "Operation") -> OperationResultDict:
         """Create table"""
@@ -620,7 +620,7 @@ class DatabricksUnityCatalogExecutor:
                 http_status_code=status_code,
                 resource_type="table",
                 operation="create"
-            )
+            ) from e
 
     def read_catalog(self, operation: "Operation") -> OperationResultDict:
         """Read catalog"""
@@ -643,7 +643,7 @@ class DatabricksUnityCatalogExecutor:
                 http_status_code=status_code,
                 resource_type="catalog",
                 operation="read"
-            )
+            ) from e
 
     def read_schema(self, operation: "Operation") -> OperationResultDict:
         """Read schema"""
@@ -667,7 +667,7 @@ class DatabricksUnityCatalogExecutor:
                 http_status_code=status_code,
                 resource_type="schema",
                 operation="read"
-            )
+            ) from e
 
     def read_table(self, operation: "Operation") -> OperationResultDict:
         """Read table"""
@@ -691,7 +691,7 @@ class DatabricksUnityCatalogExecutor:
                 http_status_code=status_code,
                 resource_type="table",
                 operation="read"
-            )
+            ) from e
 
     def delete_catalog(self, operation: "Operation") -> OperationResultDict:
         """Delete catalog"""
@@ -719,7 +719,7 @@ class DatabricksUnityCatalogExecutor:
                 http_status_code=status_code,
                 resource_type="catalog",
                 operation="delete"
-            )
+            ) from e
 
     def delete_schema(self, operation: "Operation") -> OperationResultDict:
         """Delete schema"""
@@ -746,7 +746,7 @@ class DatabricksUnityCatalogExecutor:
                 http_status_code=status_code,
                 resource_type="schema",
                 operation="delete"
-            )
+            ) from e
 
     def delete_table(self, operation: "Operation") -> OperationResultDict:
         """Delete table"""
@@ -773,7 +773,7 @@ class DatabricksUnityCatalogExecutor:
                 http_status_code=status_code,
                 resource_type="table",
                 operation="delete"
-            )
+            ) from e
 
     def rollback_catalog(self, operation: "Operation") -> None:
         """Rollback catalog operation"""
@@ -850,7 +850,7 @@ class DatabricksExecutorRegistry:
         self.uc = DatabricksUnityCatalogExecutor(config)
 
         # Executor map
-        self.executors: dict[str, dict[str, Callable[["Operation"], OperationResultDict | None]]] = {
+        self.executors: dict[str, dict[str, Callable[[Operation], OperationResultDict | None]]] = {
             'dbx_cluster': {
                 'create': self.cluster.create,
                 'read': self.cluster.read,

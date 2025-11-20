@@ -9,31 +9,23 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import jsonschema
 
-from ..types import MetadataDict, ResourceDefinitionDict
-
 from ..constants import (
-    Environment,
-    TableType,
     ClusterType,
     DatabricksDataLayer,
-    DataClassification
+    DataClassification,
+    Environment,
+    TableType,
 )
 from ..exceptions import ValidationError
+from ..types import MetadataDict
 from ..validators import (
-    ValidationContext,
-    ValidationReport,
     ValidationIssue,
+    ValidationReport,
     ValidationResult,
-    validate_databricks_name,
-    validate_aws_name,
-)
-from ..constants import (
-    DatabricksResourceType,
-    AWSResourceType,
 )
 
 # JSON Schema Definition
@@ -255,7 +247,7 @@ class ParsedBlueprint:
         visited = set()
         result = []
 
-        def dfs(resource_id: str):
+        def dfs(resource_id: str) -> None:
             if resource_id in visited:
                 return
             visited.add(resource_id)
@@ -338,7 +330,7 @@ class BlueprintParser:
             scope_config=scope_config
         )
 
-    def _validate(self, blueprint: dict) -> None:
+    def _validate(self, blueprint: dict[str, Any]) -> None:
         """Validate against schema"""
         try:
             jsonschema.validate(instance=blueprint, schema=self.schema)

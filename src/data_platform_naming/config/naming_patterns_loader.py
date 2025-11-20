@@ -21,8 +21,6 @@ from jsonschema import ValidationError as JsonSchemaValidationError
 
 from data_platform_naming.types import (
     ConfigValuesDict,
-    SchemaDict,
-    TransformationRulesDict,
 )
 
 # Import exceptions from naming_values_loader for consistency
@@ -62,7 +60,7 @@ class NamingPattern:
         pattern_vars = self.get_variables()
         available_keys = set(available_variables.keys())
         missing = pattern_vars - available_keys
-        return sorted(list(missing))
+        return sorted(missing)
 
     def format(self, values: ConfigValuesDict | dict[str, Any]) -> str:
         """
@@ -86,19 +84,19 @@ class NamingPattern:
         try:
             return self.pattern.format(**values)
         except KeyError as e:
-            raise PatternError(f"Variable substitution failed: {e}")
+            raise PatternError(f"Variable substitution failed: {e}") from e
 
 
 class NamingPatternsLoader:
     """
     Load and manage naming pattern configurations with transformations.
-    
+
     Handles:
     - Loading patterns from YAML files
     - JSON Schema validation
     - Variable transformations (region mapping, case conversion, character replacement)
     - Pattern validation rules (max length, allowed characters)
-    
+
     Example:
         >>> loader = NamingPatternsLoader()
         >>> loader.load_from_file("naming-patterns.yaml")
@@ -110,7 +108,7 @@ class NamingPatternsLoader:
     def __init__(self, schema_path: Path | None = None):
         """
         Initialize the NamingPatternsLoader.
-        
+
         Args:
             schema_path: Optional path to JSON schema file.
                         If not provided, uses bundled schema.
@@ -132,19 +130,19 @@ class NamingPatternsLoader:
         except FileNotFoundError:
             raise ConfigurationError(
                 f"Schema file not found: {schema_path}"
-            )
+            ) from None
         except json.JSONDecodeError as e:
             raise ConfigurationError(
                 f"Invalid JSON in schema file: {e}"
-            )
+            ) from e
 
     def load_from_file(self, config_path: Path) -> None:
         """
         Load configuration from a YAML file.
-        
+
         Args:
             config_path: Path to YAML configuration file
-            
+
         Raises:
             FileLoadError: If file cannot be read
             SchemaValidationError: If configuration doesn't validate
@@ -162,11 +160,11 @@ class NamingPatternsLoader:
         except yaml.YAMLError as e:
             raise FileLoadError(
                 f"Invalid YAML in configuration file: {e}"
-            )
+            ) from e
         except Exception as e:
             raise FileLoadError(
                 f"Failed to read configuration file: {e}"
-            )
+            ) from e
 
         self.config_path = config_path
         self._validate_config()
@@ -188,7 +186,7 @@ class NamingPatternsLoader:
     def _validate_config(self) -> None:
         """
         Validate configuration against JSON schema.
-        
+
         Raises:
             SchemaValidationError: If validation fails
         """
@@ -202,18 +200,18 @@ class NamingPatternsLoader:
             error_path = " -> ".join(str(p) for p in e.path) if e.path else "root"
             raise SchemaValidationError(
                 f"Configuration validation failed at {error_path}: {e.message}"
-            )
+            ) from e
 
     def get_pattern(self, resource_type: str) -> NamingPattern:
         """
         Get naming pattern for a specific resource type.
-        
+
         Args:
             resource_type: Resource type (e.g., 'aws_s3_bucket')
-            
+
         Returns:
             NamingPattern object
-            
+
         Raises:
             PatternError: If pattern not found or invalid
         """
@@ -254,16 +252,16 @@ class NamingPatternsLoader:
     def generate_hash(self, input_string: str) -> str:
         """
         Generate hash suffix for uniqueness.
-        
+
         Uses configuration from transformations.hash_generation section.
         Defaults: md5, 8 characters, no prefix, '-' separator
-        
+
         Args:
             input_string: String to hash (typically the base name)
-            
+
         Returns:
             Hash string formatted according to config
-            
+
         Example:
             >>> loader.generate_hash("dataplatform-raw-prd")
             'a1b2c3d4'
@@ -343,10 +341,10 @@ class NamingPatternsLoader:
     def get_max_length(self, resource_type: str) -> int | None:
         """
         Get maximum length constraint for resource type.
-        
+
         Args:
             resource_type: Resource type (e.g., 'aws_s3_bucket')
-            
+
         Returns:
             Maximum length or None if not specified
         """
@@ -361,10 +359,10 @@ class NamingPatternsLoader:
     def get_allowed_chars_pattern(self, resource_type: str) -> str | None:
         """
         Get allowed characters regex pattern for resource type.
-        
+
         Args:
             resource_type: Resource type (e.g., 'aws_s3_bucket')
-            
+
         Returns:
             Regex pattern or None if not specified
         """
@@ -437,7 +435,7 @@ class NamingPatternsLoader:
     def get_version(self) -> str:
         """
         Get configuration version.
-        
+
         Returns:
             Version string (e.g., '1.0')
         """

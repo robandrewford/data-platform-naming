@@ -12,20 +12,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from data_platform_naming.constants import (
+    AWSResourceType,
+    DatabricksResourceType,
+)
 from data_platform_naming.types import (
-    ConfigValuesDict,
     MetadataDict,
     ResourceDefinitionDict,
     ValueOverridesDict,
 )
 from data_platform_naming.validators import (
     ValidationReport,
-    validate_databricks_name,
     validate_aws_name,
-)
-from data_platform_naming.constants import (
-    DatabricksResourceType,
-    AWSResourceType,
+    validate_databricks_name,
 )
 
 from .naming_patterns_loader import (
@@ -56,13 +55,13 @@ class GeneratedName:
 class ConfigurationManager:
     """
     Unified interface for managing naming configurations.
-    
+
     Orchestrates NamingValuesLoader and NamingPatternsLoader to:
     - Load both configurations from files or dicts
     - Generate resource names by combining values and patterns
     - Apply transformations
     - Validate generated names
-    
+
     Example:
         >>> manager = ConfigurationManager()
         >>> manager.load_configs(
@@ -84,13 +83,14 @@ class ConfigurationManager:
     ):
         """
         Initialize ConfigurationManager.
-        
+
         Args:
             values_loader: Optional pre-configured NamingValuesLoader
             patterns_loader: Optional pre-configured NamingPatternsLoader
         """
         self.values_loader = values_loader or NamingValuesLoader()
         self.patterns_loader = patterns_loader or NamingPatternsLoader()
+        self._cli_overrides: dict[str, str] = {}
 
         # Detect if loaders already have data loaded
         self._values_loaded = self._check_values_loader_has_data()
@@ -105,13 +105,13 @@ class ConfigurationManager:
     ) -> None:
         """
         Load both naming values and patterns configurations.
-        
+
         Args:
             values_path: Path to naming values YAML file
             patterns_path: Path to naming patterns YAML file
             values_dict: Dictionary with naming values config (alternative to file)
             patterns_dict: Dictionary with naming patterns config (alternative to file)
-            
+
         Raises:
             ConfigurationError: If neither paths nor dicts are provided
             FileLoadError: If files cannot be loaded
@@ -144,17 +144,17 @@ class ConfigurationManager:
     def load_from_default_locations(self, base_dir: Path | None = None) -> bool:
         """
         Load configurations from default locations.
-        
+
         Default locations:
         - .dpn/naming-values.yaml
         - .dpn/naming-patterns.yaml
-        
+
         Args:
             base_dir: Optional base directory (defaults to .dpn/)
-            
+
         Returns:
             True if configs were loaded, False if default files don't exist
-            
+
         Raises:
             SchemaValidationError: If configurations don't validate
         """
@@ -182,7 +182,7 @@ class ConfigurationManager:
     ) -> GeneratedName:
         """
         Generate a resource name by combining values and patterns.
-        
+
         Process:
         1. Get values for resource type and environment
         2. Apply any value overrides
@@ -190,16 +190,16 @@ class ConfigurationManager:
         4. Get pattern for resource type
         5. Format pattern with transformed values
         6. Validate generated name
-        
+
         Args:
             resource_type: Resource type (e.g., 'aws_s3_bucket')
             environment: Optional environment code ('dev', 'stg', 'prd')
             blueprint_metadata: Optional blueprint metadata (highest precedence)
             value_overrides: Optional value overrides to apply
-            
+
         Returns:
             GeneratedName object with name and metadata
-            
+
         Raises:
             ConfigurationError: If configs not loaded
             PatternError: If pattern not found or variables missing
@@ -423,13 +423,13 @@ class ConfigurationManager:
     ) -> GeneratedName:
         """
         Preview a name with specific values (bypass value loading).
-        
+
         Useful for testing or demonstrating naming without full config.
-        
+
         Args:
             resource_type: Resource type
             values: Dictionary of values to use
-            
+
         Returns:
             GeneratedName object
         """
